@@ -111,8 +111,15 @@ impl Field {
     /// The value typed as text, clamped; `None` when it is not a number.
     #[must_use]
     pub fn parse(&self, text: &str) -> Option<f64> {
-        let text = text.trim().trim_end_matches(self.unit).trim().replace(',', ".");
-        text.parse::<f64>().ok().filter(|v| v.is_finite()).map(|v| self.clamp(v))
+        let text = text
+            .trim()
+            .trim_end_matches(self.unit)
+            .trim()
+            .replace(',', ".");
+        text.parse::<f64>()
+            .ok()
+            .filter(|v| v.is_finite())
+            .map(|v| self.clamp(v))
     }
 
     /// Where `value` lies in the range, 0 to 1.
@@ -188,7 +195,10 @@ impl Settings {
     #[must_use]
     pub fn with_preset(self, index: usize) -> Self {
         let preset = PRESETS.get(index).unwrap_or(&PRESETS[0]);
-        Self { window: self.window, ..Self::from_preset(preset) }
+        Self {
+            window: self.window,
+            ..Self::from_preset(preset)
+        }
     }
 
     fn matches(&self, preset: &Preset) -> bool {
@@ -223,7 +233,9 @@ impl Settings {
             corners: self.corners.min(100),
             upscale_auto: self.upscale_auto,
             denoise: self.denoise.min(2),
-            window: self.window.filter(|[w, h]| w.is_finite() && h.is_finite() && *w >= 100.0 && *h >= 100.0),
+            window: self
+                .window
+                .filter(|[w, h]| w.is_finite() && h.is_finite() && *w >= 100.0 && *h >= 100.0),
         }
     }
 
@@ -236,7 +248,11 @@ impl Settings {
             tolerance: PixelLength::from_px(self.tolerance),
             specks: vectrace::Mm::from_mm(self.ignore_below),
             corners: self.corners,
-            upscale: if self.upscale_auto { Upscale::Auto } else { Upscale::Off },
+            upscale: if self.upscale_auto {
+                Upscale::Auto
+            } else {
+                Upscale::Off
+            },
             denoise: Denoise::from_index(self.denoise),
             ..vectrace::TraceParams::with_threshold(threshold)
         }
@@ -252,7 +268,9 @@ impl Settings {
     /// The settings from file text; a corrupt text gives the defaults.
     #[must_use]
     pub fn from_toml(text: &str) -> Self {
-        toml::from_str::<Self>(text).map(Self::clamped).unwrap_or_default()
+        toml::from_str::<Self>(text)
+            .map(Self::clamped)
+            .unwrap_or_default()
     }
 }
 
@@ -262,11 +280,28 @@ mod tests {
 
     #[test]
     fn the_four_fields_have_the_ranges_and_steps_of_the_spec() {
-        assert_eq!((THRESHOLD.min, THRESHOLD.max, THRESHOLD.step, THRESHOLD.big_step), (0.0, 100.0, 1.0, 10.0));
-        assert_eq!((SMOOTH.min, SMOOTH.max, SMOOTH.step, SMOOTH.big_step), (0.0, 100.0, 1.0, 10.0));
-        assert_eq!((TOLERANCE.min, TOLERANCE.max, TOLERANCE.step), (0.1, 3.0, 0.05));
+        assert_eq!(
+            (
+                THRESHOLD.min,
+                THRESHOLD.max,
+                THRESHOLD.step,
+                THRESHOLD.big_step
+            ),
+            (0.0, 100.0, 1.0, 10.0)
+        );
+        assert_eq!(
+            (SMOOTH.min, SMOOTH.max, SMOOTH.step, SMOOTH.big_step),
+            (0.0, 100.0, 1.0, 10.0)
+        );
+        assert_eq!(
+            (TOLERANCE.min, TOLERANCE.max, TOLERANCE.step),
+            (0.1, 3.0, 0.05)
+        );
         assert_eq!((TOLERANCE.big_step, TOLERANCE.fine_step), (0.5, 0.01));
-        assert_eq!((IGNORE_BELOW.min, IGNORE_BELOW.max, IGNORE_BELOW.step), (0.0, 10.0, 0.1));
+        assert_eq!(
+            (IGNORE_BELOW.min, IGNORE_BELOW.max, IGNORE_BELOW.step),
+            (0.0, 10.0, 0.1)
+        );
         assert_eq!((IGNORE_BELOW.big_step, IGNORE_BELOW.fine_step), (1.0, 0.01));
     }
 
@@ -327,25 +362,54 @@ mod tests {
         let expected = [
             ("Logo / Line art", 80, 0.5, 0.5, 70, false, 0),
             ("Photo", 50, 0.5, 0.1, 30, false, 0),
-            ("Silhouette for cutting/carving", 100, 1.5, 2.0, 70, false, 1),
+            (
+                "Silhouette for cutting/carving",
+                100,
+                1.5,
+                2.0,
+                70,
+                false,
+                1,
+            ),
             ("Engraving", 80, 0.35, 0.1, 70, true, 0),
         ];
-        for (index, (label, smooth, tolerance, ignore, corners, auto, denoise)) in expected.into_iter().enumerate() {
+        for (index, (label, smooth, tolerance, ignore, corners, auto, denoise)) in
+            expected.into_iter().enumerate()
+        {
             let s = Settings::default().with_preset(index);
             assert_eq!(s.preset_label(), label);
-            assert_eq!((s.smooth, s.tolerance, s.ignore_below, s.corners, s.upscale_auto, s.denoise), (smooth, tolerance, ignore, corners, auto, denoise));
+            assert_eq!(
+                (
+                    s.smooth,
+                    s.tolerance,
+                    s.ignore_below,
+                    s.corners,
+                    s.upscale_auto,
+                    s.denoise
+                ),
+                (smooth, tolerance, ignore, corners, auto, denoise)
+            );
         }
     }
 
     #[test]
     fn picking_a_preset_keeps_the_window_size() {
-        let s = Settings { window: Some([900.0, 700.0]), ..Settings::default() };
+        let s = Settings {
+            window: Some([900.0, 700.0]),
+            ..Settings::default()
+        };
         assert_eq!(s.with_preset(1).window, Some([900.0, 700.0]));
     }
 
     #[test]
     fn the_toml_text_round_trips() {
-        let s = Settings { smooth: 12, tolerance: 1.25, ignore_below: 3.5, window: Some([1000.0, 640.0]), ..Settings::default() };
+        let s = Settings {
+            smooth: 12,
+            tolerance: 1.25,
+            ignore_below: 3.5,
+            window: Some([1000.0, 640.0]),
+            ..Settings::default()
+        };
         assert_eq!(Settings::from_toml(&s.to_toml()), s);
     }
 
@@ -353,13 +417,21 @@ mod tests {
     fn a_corrupt_or_empty_file_gives_the_defaults() {
         assert_eq!(Settings::from_toml("smooth = [[["), Settings::default());
         assert_eq!(Settings::from_toml(""), Settings::default());
-        assert_eq!(Settings::from_toml("smooth = \"loud\""), Settings::default());
+        assert_eq!(
+            Settings::from_toml("smooth = \"loud\""),
+            Settings::default()
+        );
     }
 
     #[test]
     fn out_of_range_values_in_the_file_are_clamped() {
-        let s = Settings::from_toml("smooth = 250\ntolerance = 99.0\nignore_below = -3.0\ndenoise = 9\n");
-        assert_eq!((s.smooth, s.tolerance, s.ignore_below, s.denoise), (100, 3.0, 0.0, 2));
+        let s = Settings::from_toml(
+            "smooth = 250\ntolerance = 99.0\nignore_below = -3.0\ndenoise = 9\n",
+        );
+        assert_eq!(
+            (s.smooth, s.tolerance, s.ignore_below, s.denoise),
+            (100, 3.0, 0.0, 2)
+        );
     }
 
     #[test]

@@ -46,7 +46,11 @@ mod tests {
     use super::*;
 
     fn picture(width: u32, height: u32) -> Picture {
-        Picture { width, height, rgba: Vec::new() }
+        Picture {
+            width,
+            height,
+            rgba: Vec::new(),
+        }
     }
 
     #[test]

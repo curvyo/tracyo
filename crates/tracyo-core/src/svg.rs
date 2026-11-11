@@ -111,7 +111,11 @@ mod tests {
     }
 
     fn fixture(name: &str) -> String {
-        std::fs::read_to_string(format!("{}/tests/fixtures/svg/{name}", env!("CARGO_MANIFEST_DIR"))).unwrap()
+        std::fs::read_to_string(format!(
+            "{}/tests/fixtures/svg/{name}",
+            env!("CARGO_MANIFEST_DIR")
+        ))
+        .unwrap()
     }
 
     #[test]
@@ -130,9 +134,20 @@ mod tests {
     #[test]
     fn the_square_with_a_hole_matches_its_golden_file() {
         let outlines = square_with_hole();
-        let svg = write(&Document { width_px: 256, height_px: 192, outlines: &outlines });
+        let svg = write(&Document {
+            width_px: 256,
+            height_px: 192,
+            outlines: &outlines,
+        });
         if std::env::var_os("TRACYO_UPDATE_GOLDEN").is_some() {
-            std::fs::write(format!("{}/tests/fixtures/svg/square-with-hole.svg", env!("CARGO_MANIFEST_DIR")), &svg).unwrap();
+            std::fs::write(
+                format!(
+                    "{}/tests/fixtures/svg/square-with-hole.svg",
+                    env!("CARGO_MANIFEST_DIR")
+                ),
+                &svg,
+            )
+            .unwrap();
         }
         assert_eq!(svg, fixture("square-with-hole.svg"));
     }
@@ -140,37 +155,66 @@ mod tests {
     #[test]
     fn the_same_result_gives_the_same_bytes() {
         let outlines = square_with_hole();
-        let d = Document { width_px: 64, height_px: 64, outlines: &outlines };
+        let d = Document {
+            width_px: 64,
+            height_px: 64,
+            outlines: &outlines,
+        };
         assert_eq!(write(&d), write(&d));
     }
 
     #[test]
     fn the_structure_follows_criterion_20() {
         let outlines = square_with_hole();
-        let svg = write(&Document { width_px: 256, height_px: 192, outlines: &outlines });
+        let svg = write(&Document {
+            width_px: 256,
+            height_px: 192,
+            outlines: &outlines,
+        });
         let doc = roxmltree::Document::parse(&svg).unwrap();
         let root = doc.root_element();
         assert_eq!(root.tag_name().name(), "svg");
-        assert_eq!(root.tag_name().namespace(), Some("http://www.w3.org/2000/svg"));
+        assert_eq!(
+            root.tag_name().namespace(),
+            Some("http://www.w3.org/2000/svg")
+        );
         assert_eq!(root.attribute("version"), Some("1.1"));
-        let ns: Vec<_> = root.namespaces().map(|n| (n.name().unwrap_or(""), n.uri())).collect();
+        let ns: Vec<_> = root
+            .namespaces()
+            .map(|n| (n.name().unwrap_or(""), n.uri()))
+            .collect();
         assert!(ns.contains(&("inkscape", "http://www.inkscape.org/namespaces/inkscape")));
-        assert!(ns.contains(&("sodipodi", "http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd")));
+        assert!(ns.contains(&(
+            "sodipodi",
+            "http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+        )));
         // 256 px and 192 px at 96 dpi.
         assert_eq!(root.attribute("width"), Some("67.733mm"));
         assert_eq!(root.attribute("height"), Some("50.8mm"));
         assert_eq!(root.attribute("viewBox"), Some("0 0 67.733 50.8"));
-        let children: Vec<_> = root.children().filter(roxmltree::Node::is_element).collect();
+        let children: Vec<_> = root
+            .children()
+            .filter(roxmltree::Node::is_element)
+            .collect();
         assert_eq!(children.len(), 2);
         assert_eq!(children[0].tag_name().name(), "namedview");
-        assert_eq!(children[0].attribute(("http://www.inkscape.org/namespaces/inkscape", "document-units")), Some("mm"));
+        assert_eq!(
+            children[0].attribute((
+                "http://www.inkscape.org/namespaces/inkscape",
+                "document-units"
+            )),
+            Some("mm")
+        );
         let layer = children[1];
         assert_eq!(layer.tag_name().name(), "g");
         let inkscape = "http://www.inkscape.org/namespaces/inkscape";
         assert_eq!(layer.attribute((inkscape, "groupmode")), Some("layer"));
         assert_eq!(layer.attribute((inkscape, "label")), Some("#000000"));
         assert_eq!(layer.attribute("id"), Some("layer1"));
-        let paths: Vec<_> = layer.children().filter(roxmltree::Node::is_element).collect();
+        let paths: Vec<_> = layer
+            .children()
+            .filter(roxmltree::Node::is_element)
+            .collect();
         assert_eq!(paths.len(), 1);
         let path = paths[0];
         assert_eq!(path.tag_name().name(), "path");
@@ -179,13 +223,26 @@ mod tests {
         assert_eq!(path.attribute("fill-rule"), Some("evenodd"));
         assert_eq!(path.attribute("stroke"), Some("none"));
         let d = path.attribute("d").unwrap();
-        assert!(d.split_whitespace().all(|t| matches!(t, "M" | "L" | "C" | "Z") || t.parse::<f64>().is_ok() || t.ends_with('Z')));
+        assert!(
+            d.split_whitespace()
+                .all(|t| matches!(t, "M" | "L" | "C" | "Z")
+                    || t.parse::<f64>().is_ok()
+                    || t.ends_with('Z'))
+        );
         assert_eq!(d.matches('M').count(), 2);
         assert_eq!(d.matches('Z').count(), 2);
         assert!(d.ends_with('Z'));
         // 20h: nothing else.
         let lower = svg.to_lowercase();
-        for forbidden in ["curvyo", "tracyo", "<metadata", "<script", "href", "url(", "<image"] {
+        for forbidden in [
+            "curvyo",
+            "tracyo",
+            "<metadata",
+            "<script",
+            "href",
+            "url(",
+            "<image",
+        ] {
             assert!(!lower.contains(forbidden), "{forbidden}");
         }
         assert!(svg.starts_with("<?xml version=\"1.0\" encoding=\"UTF-8\"?>"));
@@ -194,7 +251,11 @@ mod tests {
     #[test]
     fn the_rendered_svg_covers_the_area_of_the_outlines() {
         let outlines = square_with_hole();
-        let svg = write(&Document { width_px: 256, height_px: 192, outlines: &outlines });
+        let svg = write(&Document {
+            width_px: 256,
+            height_px: 192,
+            outlines: &outlines,
+        });
         let scale = 8.0_f32;
         let tree = resvg::usvg::Tree::from_str(&svg, &resvg::usvg::Options::default()).unwrap();
         let mut pixmap = resvg::tiny_skia::Pixmap::new(
@@ -202,11 +263,23 @@ mod tests {
             (tree.size().height() * scale).ceil() as u32,
         )
         .unwrap();
-        resvg::render(&tree, resvg::tiny_skia::Transform::from_scale(scale, scale), &mut pixmap.as_mut());
+        resvg::render(
+            &tree,
+            resvg::tiny_skia::Transform::from_scale(scale, scale),
+            &mut pixmap.as_mut(),
+        );
         // The reader works in 96 dpi pixels; one millimetre of the file is 96 / 25.4 of them.
         let per_mm = f64::from(scale) * 96.0 / 25.4;
-        let covered: f64 = pixmap.pixels().iter().map(|p| f64::from(p.alpha()) / 255.0).sum::<f64>() / (per_mm * per_mm);
+        let covered: f64 = pixmap
+            .pixels()
+            .iter()
+            .map(|p| f64::from(p.alpha()) / 255.0)
+            .sum::<f64>()
+            / (per_mm * per_mm);
         let expected: f64 = outlines[0].area().abs() - outlines[1].area().abs();
-        assert!(((covered - expected) / expected).abs() < 0.005, "covered {covered}, expected {expected}");
+        assert!(
+            ((covered - expected) / expected).abs() < 0.005,
+            "covered {covered}, expected {expected}"
+        );
     }
 }

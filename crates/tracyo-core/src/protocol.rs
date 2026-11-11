@@ -42,7 +42,11 @@ fn frame(tag: u8, payload: &[u8]) -> Vec<u8> {
     let mut out = Vec::with_capacity(HEADER_LEN + payload.len());
     out.push(tag);
     // invariant: payloads are far below 4 GiB (a 12 Mpx picture is 48 MB).
-    out.extend(u32::try_from(payload.len()).unwrap_or(u32::MAX).to_le_bytes());
+    out.extend(
+        u32::try_from(payload.len())
+            .unwrap_or(u32::MAX)
+            .to_le_bytes(),
+    );
     out.extend(payload);
     out
 }
@@ -52,6 +56,16 @@ fn frame(tag: u8, payload: &[u8]) -> Vec<u8> {
 pub fn parse_header(header: [u8; HEADER_LEN]) -> (u8, usize) {
     let len = u32::from_le_bytes([header[1], header[2], header[3], header[4]]);
     (header[0], len as usize)
+}
+
+/// The frame of a picture request, made from a borrowed picture.
+#[must_use]
+pub fn encode_picture(p: &Picture) -> Vec<u8> {
+    let mut payload = Vec::with_capacity(8 + p.rgba.len());
+    payload.extend(p.width.to_le_bytes());
+    payload.extend(p.height.to_le_bytes());
+    payload.extend(&p.rgba);
+    frame(1, &payload)
 }
 
 /// A cursor over a payload.
@@ -75,10 +89,16 @@ impl<'a> Reader<'a> {
     }
     fn f64(&mut self) -> Result<f64, ProtocolError> {
         let b = self.take(8)?;
-        Ok(f64::from_le_bytes([b[0], b[1], b[2], b[3], b[4], b[5], b[6], b[7]]))
+        Ok(f64::from_le_bytes([
+            b[0], b[1], b[2], b[3], b[4], b[5], b[6], b[7],
+        ]))
     }
     fn done(&self) -> Result<(), ProtocolError> {
-        if self.0.is_empty() { Ok(()) } else { Err(ProtocolError::Malformed) }
+        if self.0.is_empty() {
+            Ok(())
+        } else {
+            Err(ProtocolError::Malformed)
+        }
     }
 }
 
@@ -87,19 +107,18 @@ impl Request {
     #[must_use]
     pub fn encode(&self) -> Vec<u8> {
         match self {
-            Self::Picture(p) => {
-                let mut payload = Vec::with_capacity(8 + p.rgba.len());
-                payload.extend(p.width.to_le_bytes());
-                payload.extend(p.height.to_le_bytes());
-                payload.extend(&p.rgba);
-                frame(1, &payload)
-            }
+            Self::Picture(p) => encode_picture(p),
             Self::Trace(t) => {
                 let s = &t.settings;
                 let mut payload = vec![t.threshold, s.smooth];
                 payload.extend(s.tolerance.to_le_bytes());
                 payload.extend(s.ignore_below.to_le_bytes());
-                payload.extend([s.corners, u8::from(s.upscale_auto), s.denoise, u8::from(t.reduced)]);
+                payload.extend([
+                    s.corners,
+                    u8::from(s.upscale_auto),
+                    s.denoise,
+                    u8::from(t.reduced),
+                ]);
                 frame(2, &payload)
             }
         }
@@ -119,7 +138,11 @@ impl Request {
                 if rgba.len() as u64 != expected {
                     return Err(ProtocolError::Malformed);
                 }
-                Ok(Self::Picture(Picture { width, height, rgba }))
+                Ok(Self::Picture(Picture {
+                    width,
+                    height,
+                    rgba,
+                }))
             }
             2 => {
                 let threshold = r.u8()?;
@@ -128,8 +151,20 @@ impl Request {
                 let ignore_below = r.f64()?;
                 let (corners, upscale, denoise, reduced) = (r.u8()?, r.u8()?, r.u8()?, r.u8()?);
                 r.done()?;
-                let settings = Settings { smooth, tolerance, ignore_below, corners, upscale_auto: upscale != 0, denoise, window: None };
-                Ok(Self::Trace(TraceRequest { threshold, settings, reduced: reduced != 0 }))
+                let settings = Settings {
+                    smooth,
+                    tolerance,
+                    ignore_below,
+                    corners,
+                    upscale_auto: upscale != 0,
+                    denoise,
+                    window: None,
+                };
+                Ok(Self::Trace(TraceRequest {
+                    threshold,
+                    settings,
+                    reduced: reduced != 0,
+                }))
             }
             other => Err(ProtocolError::UnknownTag(other)),
         }
@@ -208,14 +243,30 @@ mod tests {
 
     #[test]
     fn a_picture_request_round_trips() {
-        let r = Request::Picture(Picture { width: 2, height: 1, rgba: vec![1, 2, 3, 4, 5, 6, 7, 8] });
+        let r = Request::Picture(Picture {
+            width: 2,
+            height: 1,
+            rgba: vec![1, 2, 3, 4, 5, 6, 7, 8],
+        });
         assert_eq!(round_request(&r), r);
     }
 
     #[test]
     fn a_trace_request_round_trips() {
-        let settings = Settings { smooth: 33, tolerance: 1.25, ignore_below: 2.5, corners: 12, upscale_auto: true, denoise: 2, window: None };
-        let r = Request::Trace(TraceRequest { threshold: 158, settings, reduced: true });
+        let settings = Settings {
+            smooth: 33,
+            tolerance: 1.25,
+            ignore_below: 2.5,
+            corners: 12,
+            upscale_auto: true,
+            denoise: 2,
+            window: None,
+        };
+        let r = Request::Trace(TraceRequest {
+            threshold: 158,
+            settings,
+            reduced: true,
+        });
         assert_eq!(round_request(&r), r);
     }
 
@@ -240,13 +291,24 @@ mod tests {
 
     #[test]
     fn truncated_or_padded_payloads_are_refused() {
-        let bytes = Request::Trace(TraceRequest { threshold: 1, settings: Settings::default(), reduced: false }).encode();
+        let bytes = Request::Trace(TraceRequest {
+            threshold: 1,
+            settings: Settings::default(),
+            reduced: false,
+        })
+        .encode();
         let (tag, payload) = split(&bytes);
-        assert_eq!(Request::decode(tag, &payload[..payload.len() - 1]), Err(ProtocolError::Malformed));
+        assert_eq!(
+            Request::decode(tag, &payload[..payload.len() - 1]),
+            Err(ProtocolError::Malformed)
+        );
         let mut long = payload.to_vec();
         long.push(0);
         assert_eq!(Request::decode(tag, &long), Err(ProtocolError::Malformed));
-        assert_eq!(Request::decode(1, &[1, 0, 0, 0, 1, 0, 0, 0, 9]), Err(ProtocolError::Malformed));
+        assert_eq!(
+            Request::decode(1, &[1, 0, 0, 0, 1, 0, 0, 0, 9]),
+            Err(ProtocolError::Malformed)
+        );
         assert_eq!(Reply::decode(2, &[0; 9]), Err(ProtocolError::Malformed));
         assert_eq!(Reply::decode(1, &[]), Err(ProtocolError::Malformed));
     }

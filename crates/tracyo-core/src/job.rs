@@ -17,7 +17,10 @@ impl Session {
     /// A session for `picture`.
     #[must_use]
     pub fn new(picture: Picture) -> Self {
-        Self { full: picture, reduced: None }
+        Self {
+            full: picture,
+            reduced: None,
+        }
     }
 
     /// The trace of `request` as vectrace's numbers; `on_percent` gets each higher whole percent.
@@ -25,13 +28,19 @@ impl Session {
         let full_width = self.full.width;
         let picture = if request.reduced {
             let full = &self.full;
-            &*self.reduced.get_or_insert_with(|| full.reduced(REDUCED_SIDE))
+            &*self
+                .reduced
+                .get_or_insert_with(|| full.reduced(REDUCED_SIDE))
         } else {
             &self.full
         };
         let params: TraceParams = request.settings.trace_params(request.threshold);
         let job = Job {
-            raster: Raster { width: picture.width, height: picture.height, rgba: &picture.rgba },
+            raster: Raster {
+                width: picture.width,
+                height: picture.height,
+                rgba: &picture.rgba,
+            },
             map: pixel_map(full_width, picture.width),
             mode: Mode::Mono(&params),
             lines: &[],
@@ -57,11 +66,19 @@ mod tests {
                 rgba[i..i + 3].fill(0);
             }
         }
-        Picture { width: 40, height: 40, rgba }
+        Picture {
+            width: 40,
+            height: 40,
+            rgba,
+        }
     }
 
     fn request(threshold: u8, reduced: bool) -> TraceRequest {
-        TraceRequest { threshold, settings: Settings::default(), reduced }
+        TraceRequest {
+            threshold,
+            settings: Settings::default(),
+            reduced,
+        }
     }
 
     #[test]
@@ -87,7 +104,11 @@ mod tests {
 
     #[test]
     fn the_reduced_copy_lands_in_the_same_millimetres() {
-        let mut big = Picture { width: 2000, height: 2000, rgba: vec![255; 2000 * 2000 * 4] };
+        let mut big = Picture {
+            width: 2000,
+            height: 2000,
+            rgba: vec![255; 2000 * 2000 * 4],
+        };
         for y in 500..1500 {
             for x in 500..1500 {
                 let i = (y * 2000 + x) * 4;

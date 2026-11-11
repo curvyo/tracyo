@@ -44,7 +44,13 @@ pub struct Progress {
 
 impl Default for Progress {
     fn default() -> Self {
-        Self { phase: Phase::Idle, percent: None, started: Duration::ZERO, shown_at: None, held_until: None }
+        Self {
+            phase: Phase::Idle,
+            percent: None,
+            started: Duration::ZERO,
+            shown_at: None,
+            held_until: None,
+        }
     }
 }
 
@@ -52,12 +58,18 @@ impl Progress {
     /// A job starts at `now`; `immediate` shows it at once (a full trace before saving). A job
     /// that replaces one already shown keeps the running look.
     pub fn start(&mut self, now: Duration, immediate: bool) {
-        let kept = (self.phase == Phase::Running).then_some(self.shown_at).flatten();
+        let kept = (self.phase == Phase::Running)
+            .then_some(self.shown_at)
+            .flatten();
         self.phase = Phase::Running;
         self.percent = None;
         self.started = now;
         self.held_until = None;
-        self.shown_at = if immediate { Some(kept.unwrap_or(now)) } else { kept };
+        self.shown_at = if immediate {
+            Some(kept.unwrap_or(now))
+        } else {
+            kept
+        };
     }
 
     /// The job reached `percent`.
@@ -101,7 +113,10 @@ impl Progress {
 
     /// Records the moment a running job becomes visible.
     fn settle(&mut self, now: Duration) {
-        if self.phase == Phase::Running && self.shown_at.is_none() && now >= self.started + SHOW_AFTER {
+        if self.phase == Phase::Running
+            && self.shown_at.is_none()
+            && now >= self.started + SHOW_AFTER
+        {
             self.shown_at = Some(self.started + SHOW_AFTER);
         }
     }
@@ -123,7 +138,9 @@ impl Progress {
         self.settle(now);
         match &self.phase {
             Phase::Running if self.shown_at.is_some() => Button::Running(self.percent),
-            Phase::Idle if self.held_until.is_some_and(|until| now < until) => Button::Running(self.percent),
+            Phase::Idle if self.held_until.is_some_and(|until| now < until) => {
+                Button::Running(self.percent)
+            }
             Phase::Stopped => Button::Stopped,
             Phase::Failed(reason) => Button::Failed(reason.clone()),
             _ => Button::Rest,
@@ -194,7 +211,11 @@ pub fn nothing_to_save(output: &Output, picture_pixels: u64) -> Option<String> {
         Status::TooDetailed => Some("Too much detail: raise Ignore below.".into()),
         Status::Invalid => Some("This image can't be traced.".into()),
         Status::Traced if output.paths == 0 => {
-            let direction = if output.foreground_pixels * 2 > picture_pixels { "too high" } else { "too low" };
+            let direction = if output.foreground_pixels * 2 > picture_pixels {
+                "too high"
+            } else {
+                "too low"
+            };
             Some(format!("0 paths at this Threshold: {direction}."))
         }
         Status::Traced => None,
@@ -284,7 +305,10 @@ mod tests {
         assert!(p.is_stopped_or_failed());
         p.start(ms(700), false);
         p.fail("out of memory at 16 Mpx");
-        assert_eq!(p.button(ms(800)), Button::Failed("out of memory at 16 Mpx".into()));
+        assert_eq!(
+            p.button(ms(800)),
+            Button::Failed("out of memory at 16 Mpx".into())
+        );
         p.clear();
         assert_eq!(p.button(ms(900)), Button::Rest);
     }
@@ -300,13 +324,27 @@ mod tests {
 
     #[test]
     fn esc_stops_then_disarms_then_closes_then_returns() {
-        let all = EscState { running: true, pipette_armed: true, menu_open: true, entry_open: true };
+        let all = EscState {
+            running: true,
+            pipette_armed: true,
+            menu_open: true,
+            entry_open: true,
+        };
         assert_eq!(esc(all), Esc::StopTrace);
-        let all = EscState { running: false, ..all };
+        let all = EscState {
+            running: false,
+            ..all
+        };
         assert_eq!(esc(all), Esc::DisarmPipette);
-        let all = EscState { pipette_armed: false, ..all };
+        let all = EscState {
+            pipette_armed: false,
+            ..all
+        };
         assert_eq!(esc(all), Esc::CloseMenu);
-        let all = EscState { menu_open: false, ..all };
+        let all = EscState {
+            menu_open: false,
+            ..all
+        };
         assert_eq!(esc(all), Esc::CloseEntry);
         assert_eq!(esc(EscState::default()), Esc::FocusCanvas);
     }
@@ -331,16 +369,34 @@ mod tests {
 
     #[test]
     fn nothing_to_save_names_its_reason() {
-        assert_eq!(nothing_to_save(&output(Status::Traced, 0, 10), 100).as_deref(), Some("0 paths at this Threshold: too low."));
-        assert_eq!(nothing_to_save(&output(Status::Traced, 0, 90), 100).as_deref(), Some("0 paths at this Threshold: too high."));
-        assert_eq!(nothing_to_save(&output(Status::TooDetailed, 0, 0), 100).as_deref(), Some("Too much detail: raise Ignore below."));
+        assert_eq!(
+            nothing_to_save(&output(Status::Traced, 0, 10), 100).as_deref(),
+            Some("0 paths at this Threshold: too low.")
+        );
+        assert_eq!(
+            nothing_to_save(&output(Status::Traced, 0, 90), 100).as_deref(),
+            Some("0 paths at this Threshold: too high.")
+        );
+        assert_eq!(
+            nothing_to_save(&output(Status::TooDetailed, 0, 0), 100).as_deref(),
+            Some("Too much detail: raise Ignore below.")
+        );
         assert_eq!(nothing_to_save(&output(Status::Traced, 3, 10), 100), None);
     }
 
     #[test]
     fn failure_reasons_follow_curvyo() {
-        assert_eq!(failure_reason("memory allocation of 9 bytes failed", 16_000_000, false), "out of memory at 16 Mpx");
-        assert_eq!(failure_reason("", 12_400_000, true), "out of memory at 12 Mpx");
-        assert_eq!(failure_reason("thread panicked", 1, false), "internal error");
+        assert_eq!(
+            failure_reason("memory allocation of 9 bytes failed", 16_000_000, false),
+            "out of memory at 16 Mpx"
+        );
+        assert_eq!(
+            failure_reason("", 12_400_000, true),
+            "out of memory at 12 Mpx"
+        );
+        assert_eq!(
+            failure_reason("thread panicked", 1, false),
+            "internal error"
+        );
     }
 }
