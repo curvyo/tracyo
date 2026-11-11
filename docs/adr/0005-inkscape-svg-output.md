@@ -1,9 +1,11 @@
 # ADR 0005: The Inkscape SVG Tracyo writes
 
-**Status:** Proposed (architect, 2026-11-11). Follows spec criterion 20 with the defaults of its
+**Status:** Accepted (lead, slice 5, 2026-11-11; proposed by the architect 2026-11-11). Follows spec criterion 20 with the defaults of its
 Fragen 1 (text as stretched `<text>`) and 2 (96 dpi). Frage 3 (polygons and stars as `<path>`)
 was overruled by the customer on 2026-11-12, see §6.
 The only file format Tracyo writes, so it is the one thing here that is expensive to change.
+
+Deviation from section 7: a recognised text's font size is the ink's height over the em height of the string's tallest glyph plus its deepest descender (Liberation Sans metrics), and the baseline lies that descender above the ink's lower edge, not at it (slice 5; there is still no font fitting). Readers that ignore `textLength` draw the text at its natural width (debt 13).
 
 ## Context
 

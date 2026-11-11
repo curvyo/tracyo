@@ -1,7 +1,8 @@
 # ADR 0007: Tests, CI, dependency policy and release builds
 
-**Status:** Proposed (architect, 2026-11-11). Code signing of release builds is open
-(`specs/0001-trace-and-save/adrs.md`, Frage 6).
+**Status:** Accepted (lead, slice 5, 2026-11-11; proposed by the architect 2026-11-11).
+
+Deviations: `ci.yml` is split into one job per check plus a `required` job and a `third-party` job that checks `THIRD-PARTY.md` (section 7); `release.yml` adds `SHA256SUMS`, builds macOS x86_64 on the arm64 runner and has a dry run by `workflow_dispatch` (section 9); the nightly Windows run skips the tests named `unix_*` instead of whole binaries. Release builds are unsigned (spec Frage 6, default A, not answered otherwise); `nightly.yml` and `release.yml` have not run on Windows and macOS yet (debt 16).
 
 ## Context
 

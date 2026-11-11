@@ -1,7 +1,9 @@
 # ADR 0003: UI stack, platform services and how Curvyo's look is reproduced
 
-**Status:** Proposed (architect, 2026-11-11). egui itself is the customer's decision (ADR 0001).
+**Status:** Accepted (lead, slice 5, 2026-11-11; proposed by the architect 2026-11-11). egui itself is the customer's decision (ADR 0001).
 Fonts follow ux-notes Frage 5 at its default A; the settings file follows spec criterion 18.
+
+Deviations: the picture is drawn without mipmaps (technical debt 1); the pipette cursor is the system crosshair (2); the About panel's text is a Tab stop that scrolls with the keys; the `clipboard` feature of section 1 is now on (it was missing until slice 5; `BSL-1.0` joined the allowed licences of `deny.toml` for the Windows clipboard crates); a file dialog that closes within 150 ms without a file is reported as "no file dialog" instead of a cancel (debt 3); the hidden AccessKit status region is not built (5).
 
 ## Context
 

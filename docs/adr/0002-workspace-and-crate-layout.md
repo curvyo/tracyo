@@ -1,6 +1,8 @@
 # ADR 0002: Workspace and crate layout
 
-**Status:** Proposed (architect, 2026-11-11).
+**Status:** Accepted (lead, slice 5, 2026-11-11; proposed by the architect 2026-11-11).
+
+Deviation: `tracyo-core` has more modules than listed (`analysis`, `method`, `palette`, `shapes`, `stages`, `text`; each pure, none needs I/O) and `tracyo-app` has `advanced`, `controls`, `groups`, `methods`, `stage` besides the ones named (UI only). No new crate.
 
 ## Context
 

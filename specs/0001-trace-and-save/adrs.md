@@ -1,7 +1,7 @@
 # ADRs for 0001 Trace and save
 
-Status: Proposed (architect, 2026-11-11). Everything below is vetoable at the demo unless marked
-as the customer's.
+Status: Accepted (lead, slice 5, 2026-11-11). Everything below was vetoable at the demo unless marked
+as the customer's; ADRs 0002 to 0007 are Accepted with their deviations noted in each file.
 
 ## ADRs this feature rests on
 
