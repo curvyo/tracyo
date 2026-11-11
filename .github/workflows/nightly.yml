@@ -6,6 +6,13 @@ on:
     - cron: "30 3 * * *"
   workflow_dispatch:
 
+permissions:
+  contents: read
+
+concurrency:
+  group: nightly-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   CARGO_TERM_COLOR: always
 
@@ -23,7 +30,7 @@ jobs:
             skip: "binary(pixels) | binary(heavy) | binary(start) | binary(session)"
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Rust toolchain (from rust-toolchain.toml)
         run: rustup show
       - uses: Swatinem/rust-cache@v2

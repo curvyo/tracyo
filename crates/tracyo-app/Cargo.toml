@@ -26,7 +26,6 @@ resvg = { version = "0.50", default-features = false }
 dirs = "7"
 tempfile = "3"
 anyhow = "1"
-thiserror.workspace = true
 
 [target.'cfg(target_os = "linux")'.dependencies]
 winit = { version = "0.30", default-features = false, features = ["x11"] }

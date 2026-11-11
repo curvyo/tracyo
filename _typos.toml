@@ -1,0 +1,7 @@
+# typos configuration; false positives only, real typos get fixed in place.
+
+[default.extend-words]
+# "Frage <n> (<KURZ-ID>): Titel" is the German question format of CLAUDE.md.
+Titel = "Titel"
+# progress.rs matches the stem of "allocation"/"allocate" in worker stderr on purpose.
+allocat = "allocat"

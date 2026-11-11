@@ -1,6 +1,6 @@
-# The gate of CLAUDE.md on ubuntu for every pull request and push to main (ADR 0007 section 7):
-# fmt, clippy, nextest (kittest and pixel tests included), deny, doc, the network-less session
-# test and a start smoke test. Windows and macOS run in nightly.yml.
+# The gate of CLAUDE.md on ubuntu for every pull request and push to main (ADR 0007 section 7),
+# split into one job per check. `required` is the single name for branch protection.
+# Windows and macOS run in nightly.yml, the advisory audit in audit.yml.
 name: CI
 
 on:
@@ -8,14 +8,40 @@ on:
   push:
     branches: [main]
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  gate:
+  fmt:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
+      - name: Rust toolchain (from rust-toolchain.toml)
+        run: rustup show
+      - run: cargo fmt --all --check
+
+  clippy:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - name: Rust toolchain (from rust-toolchain.toml)
+        run: rustup show
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo clippy --workspace --all-targets -- -D warnings
+
+  # nextest with the kittest and pixel tests on software Vulkan (Mesa) and Xvfb, then the
+  # network-less session test and the start smoke test on the same build.
+  test:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
       - name: System packages (software GL for wgpu, Xvfb, Liberation fonts)
         run: |
           sudo apt-get update
@@ -25,23 +51,17 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - uses: taiki-e/install-action@v2
         with:
-          tool: cargo-nextest,cargo-deny
-      - run: cargo fmt --all --check
-      - run: cargo clippy --workspace --all-targets -- -D warnings
+          tool: cargo-nextest
       - run: cargo nextest run --workspace --status-level fail
         env:
           TRACYO_PIXEL_OUT: ${{ github.workspace }}/pixel-out
       - name: Pixel pictures and diffs
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: pixel-out
           path: pixel-out
           if-no-files-found: ignore
-      - run: cargo deny check
-      - run: cargo doc -q --workspace --no-deps
-        env:
-          RUSTDOCFLAGS: "-D warnings"
       - name: Session test with and without network (criterion 23)
         run: |
           set -eu
@@ -56,3 +76,63 @@ jobs:
           status=0
           timeout 5 xvfb-run -a target/debug/tracyo || status=$?
           test "$status" -eq 124
+
+  doc:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - name: Rust toolchain (from rust-toolchain.toml)
+        run: rustup show
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo doc -q --workspace --no-deps
+        env:
+          RUSTDOCFLAGS: "-D warnings"
+
+  deny:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: EmbarkStudios/cargo-deny-action@v2
+
+  # Proves the `rust-version` of the root Cargo.toml: it is the oldest toolchain that builds.
+  msrv:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - name: Toolchain from rust-version (overrides rust-toolchain.toml)
+        run: |
+          msrv=$(sed -n 's/^rust-version = "\(.*\)"/\1/p' Cargo.toml | head -n 1)
+          test -n "$msrv"
+          rustup toolchain install "$msrv" --profile minimal
+          echo "RUSTUP_TOOLCHAIN=$msrv" >> "$GITHUB_ENV"
+      - uses: Swatinem/rust-cache@v2
+      - run: |
+          rustc --version
+          cargo check --workspace --all-targets
+
+  machete:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-machete
+      - run: cargo machete --with-metadata
+
+  typos:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: crate-ci/typos@v1
+
+  required:
+    if: always()
+    needs: [fmt, clippy, test, doc, deny, msrv, machete, typos]
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Every needed job succeeded
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: |
+          echo "$NEEDS" | jq -r 'to_entries[] | "\(.key): \(.value.result)"'
+          echo "$NEEDS" | jq -e 'all(.[]; .result == "success")' > /dev/null
