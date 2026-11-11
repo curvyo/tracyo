@@ -1,0 +1,23 @@
+[package]
+name = "tracyo-core"
+description = "Tracyo's pure logic: settings, picture, trace request, worker protocol, progress and the Inkscape SVG."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+vectrace.workspace = true
+kurbo.workspace = true
+image.workspace = true
+serde.workspace = true
+toml.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+roxmltree = "0.21"
+resvg = { version = "0.50", default-features = false }
+
+[lints]
+workspace = true
