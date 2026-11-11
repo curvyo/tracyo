@@ -98,49 +98,54 @@ fn check_regions(name: &str, rendered: &image::RgbaImage, regions: &[Region]) {
     assert!(failed.is_empty(), "{name}: failed regions {failed:?}");
 }
 
-/// Where the Denoise cell starts in the render when no Output pill and no Recognise toggles
-/// stand before it: the block's 8 px padding, two toggles and a gap.
-const DENOISE_AT: u32 = 8 + 60 + 8;
 /// Denoise, Upscale and Corners with their gaps.
 const SETTINGS_W: u32 = 185 + 8 + 150 + 8 + 150;
+/// The two toggles of later slices (Recognise text, Recognise shapes) and their gaps: the
+/// references draw them, Tracyo does not yet, so everything after them sits this far left.
+const RECOGNISE_W: u32 = 32 + 32;
+/// Invert and Drop border shapes with their gap.
+const TOGGLES_W: u32 = 28 + 4 + 28;
+/// The Output pill, with its gap to what follows.
+const PILL_W: u32 = 173 + 4;
 
-/// The regions of the Advanced block for a bar `bar_w` wide with `rows` rows above the block.
-/// The reference block has controls that do not exist yet (the Output pill, with Multicolour its
-/// Colours field and palette, and the two Recognise toggles), so Denoise, Upscale and Corners sit
-/// `shift` px further right there; the regions compare each control that exists where it is.
-fn block_regions(bar_w: u32, rows: u32, shift: u32, with_toggles: bool) -> Vec<Region> {
+/// The width of the Output row up to the end of Drop border shapes: Single colour, or Multicolour
+/// with `swatches` palette swatches (Colours field, pipette and 24 px cells).
+fn output_width(swatches: Option<u32>) -> u32 {
+    PILL_W + swatches.map_or(0, |n| 120 + 4 + 28 + 24 * n + 4) + TOGGLES_W
+}
+
+/// The regions of the Advanced block for a bar `bar_w` wide with `rows` rows above the block, an
+/// Output row of `output_w` px (see [`output_width`]): the divider, the Output row, Denoise to
+/// Corners (the references draw the two Recognise toggles before them, so they sit
+/// [`RECOGNISE_W`] px further right there), the gap and Analyse. The toggles of the later slice
+/// are the only part of the block not compared.
+fn block_regions(bar_w: u32, rows: u32, output_w: u32) -> Vec<Region> {
     let top = rows * 36;
     let controls = top + 9;
-    let mut regions = vec![Region::same("divider", (0, top), (bar_w, 13))];
-    if with_toggles {
-        regions.push(Region {
-            name: "toggles",
-            reference_at: (185, controls),
-            got_at: (8, controls),
-            size: (60, 36),
-        });
-    }
-    regions.push(Region {
-        name: "settings",
-        reference_at: (DENOISE_AT + shift, controls),
-        got_at: (DENOISE_AT, controls),
-        size: (SETTINGS_W, 36),
-    });
+    let settings_at = 8 + output_w + 8;
+    let mut regions = vec![
+        Region::same("divider", (0, top), (bar_w, 13)),
+        Region::same("output", (8, controls), (output_w, 36)),
+        Region {
+            name: "settings",
+            reference_at: (settings_at + RECOGNISE_W, controls),
+            got_at: (settings_at, controls),
+            size: (SETTINGS_W, 36),
+        },
+    ];
     let analyse = bar_w - 91;
     regions.push(Region {
         name: "gap",
-        reference_at: (DENOISE_AT + SETTINGS_W + shift, controls),
-        got_at: (DENOISE_AT + SETTINGS_W, controls),
-        size: (analyse - (DENOISE_AT + SETTINGS_W + shift), 36),
+        reference_at: (settings_at + SETTINGS_W + RECOGNISE_W, controls),
+        got_at: (settings_at + SETTINGS_W, controls),
+        size: (analyse - (settings_at + SETTINGS_W + RECOGNISE_W), 36),
     });
     regions.push(Region::same("analyse", (analyse, controls), (79, 36)));
     regions
 }
 
-/// Denoise's shift in the references that have Multicolour with its Colours field and palette.
-const MULTICOLOUR_SHIFT: u32 = 469;
-/// The same in px-03, which has Single colour: the Output pill and the four toggles.
-const SINGLE_SHIFT: u32 = 241;
+/// The three swatches of the logo's Brightness palette.
+const SWATCHES: u32 = 3;
 
 fn fixed() -> Dialogs {
     Dialogs::Fixed {
@@ -174,6 +179,37 @@ fn opened<'a>(dir: &std::path::Path) -> Harness<'a, App> {
     let mut h = analysed(dir, 1280.0);
     choose_method(&mut h, "Brightness");
     h
+}
+
+/// The swatch label of colour number `index` of the palette.
+fn swatch(h: &Harness<'_, App>, index: usize, excluded: bool) -> String {
+    tracyo_core::palette::swatch_label(h.state().palette_colours()[index], excluded)
+}
+
+/// Chooses Output Multicolour and waits for the palette, as the script does.
+fn choose_multicolour(h: &mut Harness<'_, App>) {
+    h.get_by_label("Output: Multicolour").click();
+    h.run_steps(3);
+    common::wait_until(h, 60.0, |a| {
+        a.has_result() && a.palette_colours().len() == SWATCHES as usize
+    });
+    h.remove_cursor();
+    h.run_steps(3);
+}
+
+/// Ctrl+clicks the second swatch (Exclude) and waits for the result.
+fn exclude_second(h: &mut Harness<'_, App>) {
+    let name = swatch(h, 1, false);
+    common::ctrl_click(h, &name);
+    common::wait_until(h, 60.0, App::has_result);
+    h.remove_cursor();
+    h.run_steps(3);
+}
+
+/// The state every picture after px-11 is taken in: Multicolour with the second colour excluded.
+fn multicolour_excluded(h: &mut Harness<'_, App>) {
+    choose_multicolour(h);
+    exclude_second(h);
 }
 
 /// Opens the Advanced block with the expander.
@@ -244,8 +280,48 @@ fn px_03_advanced_open() {
     let mut h = opened(dir.path());
     open_advanced(&mut h);
     let mut regions = vec![Region::same("row", (0, 0), (1162, 36))];
-    regions.extend(block_regions(1162, 1, SINGLE_SHIFT, true));
+    regions.extend(block_regions(1162, 1, output_width(None)));
     check_regions("px-03-advanced-open", &h.render().unwrap(), &regions);
+}
+
+#[test]
+fn px_04_multicolour_palette() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut h = opened(dir.path());
+    open_advanced(&mut h);
+    choose_multicolour(&mut h);
+    let mut regions = vec![Region::same("row", (0, 0), (1162, 36))];
+    regions.extend(block_regions(1162, 1, output_width(Some(SWATCHES))));
+    check_regions("px-04-multicolour-palette", &h.render().unwrap(), &regions);
+}
+
+#[test]
+fn px_10_palette_swatch_hover() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut h = opened(dir.path());
+    open_advanced(&mut h);
+    choose_multicolour(&mut h);
+    let name = swatch(&h, 1, false);
+    h.get_by_label(&name).hover();
+    h.run_steps(30);
+    h.set_render_cursor(false);
+    h.run_steps(1);
+    let mut regions = vec![Region::same("row", (0, 0), (1162, 36))];
+    regions.extend(block_regions(1162, 1, output_width(Some(SWATCHES))));
+    // The tooltip under the second swatch with its 1 px ring: two lines, 8 px below the cell.
+    regions.push(Region::same("tooltip", (323, 84), (104, 39)));
+    check_regions("px-10-palette-swatch-hover", &h.render().unwrap(), &regions);
+}
+
+#[test]
+fn px_11_palette_excluded() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut h = opened(dir.path());
+    open_advanced(&mut h);
+    multicolour_excluded(&mut h);
+    let mut regions = vec![Region::same("row", (0, 0), (1162, 36))];
+    regions.extend(block_regions(1162, 1, output_width(Some(SWATCHES))));
+    check_regions("px-11-palette-excluded", &h.render().unwrap(), &regions);
 }
 
 #[test]
@@ -253,6 +329,7 @@ fn px_05_running_42() {
     let dir = tempfile::tempdir().unwrap();
     let mut h = opened(dir.path());
     open_advanced(&mut h);
+    multicolour_excluded(&mut h);
     h.state_mut().wrap_worker(staged_running());
     smooth_81(&mut h);
     let start = std::time::Instant::now();
@@ -264,7 +341,7 @@ fn px_05_running_42() {
     h.run_steps(2);
     // The whole first row, the blue button 75 px wide as in the reference.
     let mut regions = vec![Region::same("row", (0, 0), (1148, 36))];
-    regions.extend(block_regions(1148, 1, MULTICOLOUR_SHIFT, false));
+    regions.extend(block_regions(1148, 1, output_width(Some(SWATCHES))));
     check_regions("px-05-running-42", &h.render().unwrap(), &regions);
     assert!(matches!(h.state_mut().button(), Button::Running(Some(42))));
 }
@@ -274,6 +351,7 @@ fn custom_with_block<'a>(dir: &std::path::Path) -> Harness<'a, App> {
     let mut h = analysed(dir, 1248.0);
     choose_method(&mut h, "Brightness");
     open_advanced(&mut h);
+    multicolour_excluded(&mut h);
     h
 }
 
@@ -301,7 +379,7 @@ fn px_07_stopped() {
     stopped_state(&mut h);
     // Both rows: the expander and "Stopped" with Retry wrap to the second row at the cap.
     let mut regions = vec![Region::same("rows", (0, 0), (1164, 72))];
-    regions.extend(block_regions(1164, 2, MULTICOLOUR_SHIFT, false));
+    regions.extend(block_regions(1164, 2, output_width(Some(SWATCHES))));
     check_regions("px-07-stopped", &h.render().unwrap(), &regions);
 }
 
@@ -325,7 +403,7 @@ fn px_06_failed() {
     h.remove_cursor();
     h.run_steps(3);
     let mut regions = vec![Region::same("rows", (0, 0), (1164, 72))];
-    regions.extend(block_regions(1164, 2, MULTICOLOUR_SHIFT, false));
+    regions.extend(block_regions(1164, 2, output_width(Some(SWATCHES))));
     check_regions("px-06-failed", &h.render().unwrap(), &regions);
 }
 
@@ -334,6 +412,7 @@ fn px_13_trace_button_focus() {
     let dir = tempfile::tempdir().unwrap();
     let mut h = opened(dir.path());
     open_advanced(&mut h);
+    multicolour_excluded(&mut h);
     smooth_81(&mut h);
     common::wait_for_result(&mut h, 60.0);
     h.get_by_label("Fewer trace options").focus();
@@ -343,7 +422,7 @@ fn px_13_trace_button_focus() {
     h.remove_cursor();
     h.run_steps(2);
     let mut regions = vec![Region::same("row", (0, 0), (1162, 36))];
-    regions.extend(block_regions(1162, 1, MULTICOLOUR_SHIFT, false));
+    regions.extend(block_regions(1162, 1, output_width(Some(SWATCHES))));
     check_regions("px-13-trace-button-focus", &h.render().unwrap(), &regions);
 }
 
@@ -385,6 +464,7 @@ fn px_14_preset_hover() {
     let dir = tempfile::tempdir().unwrap();
     let mut h = opened(dir.path());
     open_advanced(&mut h);
+    multicolour_excluded(&mut h);
     smooth_81(&mut h);
     common::wait_for_result(&mut h, 60.0);
     h.get_by_label("Preset").hover();
@@ -392,7 +472,7 @@ fn px_14_preset_hover() {
     h.set_render_cursor(false);
     h.run_steps(1);
     let mut regions = vec![Region::same("row", (0, 0), (1162, 36))];
-    regions.extend(block_regions(1162, 1, MULTICOLOUR_SHIFT, false));
+    regions.extend(block_regions(1162, 1, output_width(Some(SWATCHES))));
     check_regions("px-14-preset-hover", &h.render().unwrap(), &regions);
 }
 

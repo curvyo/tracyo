@@ -215,7 +215,7 @@ impl App {
                 let open = self.settings.advanced_open;
                 let layout = flow(&widths, 28.0 + PAD + blue_w, max_inner, open);
                 let inner = layout.size.x - 2.0 * PAD;
-                let block = open.then(|| Self::block_layout(ui, inner));
+                let block = open.then(|| self.block_layout(ui, inner));
                 let height = layout.size.y + block.as_ref().map_or(0.0, |b| block_height(b.rows));
                 let (bar, _) =
                     ui.allocate_exact_size(vec2(layout.size.x, height), egui::Sense::hover());

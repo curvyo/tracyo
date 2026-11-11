@@ -18,6 +18,8 @@ pub const MUTED: Color32 = Color32::from_rgb(0x5A, 0x5A, 0x5F);
 pub const FIELD_BORDER: Color32 = Color32::from_rgb(0x89, 0x89, 0x8C);
 /// Preset and Method button border.
 pub const BUTTON_BORDER: Color32 = Color32::from_rgb(0x9B, 0x9B, 0xA0);
+/// Outline of a segmented pill: the chrome colour at 40 %, drawn over the segments too.
+pub const PILL_OUTLINE: Color32 = Color32::from_rgba_premultiplied(23, 23, 25, 102);
 /// Divider and panel edge.
 pub const DIVIDER: Color32 = Color32::from_rgb(0xB4, 0xB4, 0xB8);
 /// Value-field bar.
@@ -28,8 +30,10 @@ pub const INVALID: Color32 = Color32::from_rgb(0xB3, 0x26, 0x1E);
 pub const FOREGROUND: Color32 = Color32::from_rgb(0x0A, 0x0A, 0x0A);
 /// Tooltip ground.
 pub const POPOVER: Color32 = Color32::WHITE;
-/// Tooltip ring.
-pub const POPOVER_RING: Color32 = Color32::from_rgb(0xE7, 0xE7, 0xE7);
+/// Second line of a tooltip, 70 % of its text colour on the white ground.
+pub const POPOVER_SECOND: Color32 = Color32::from_rgb(0x54, 0x54, 0x54);
+/// Tooltip ring: the foreground colour at 10 %, over whatever lies under it.
+pub const POPOVER_RING: Color32 = Color32::from_rgba_premultiplied(1, 1, 1, 26);
 /// Blue button hover.
 pub const BLUE_HOVER: Color32 = Color32::from_rgb(0x34, 0x7A, 0xFF);
 /// Running fill of the blue button.

@@ -129,6 +129,13 @@ impl Progress {
         self.phase == Phase::Running
     }
 
+    /// Whether the old result is out of date: a job is running or was stopped. A failed job
+    /// leaves the result as it was.
+    #[must_use]
+    pub fn result_is_old(&self) -> bool {
+        matches!(self.phase, Phase::Running | Phase::Stopped)
+    }
+
     /// Whether the button is Stopped or Failed (Retry is offered).
     #[must_use]
     pub fn is_stopped_or_failed(&self) -> bool {
@@ -340,6 +347,20 @@ mod tests {
         );
         p.clear();
         assert_eq!(p.button(ms(900)), Button::Rest);
+    }
+
+    #[test]
+    fn the_result_is_old_while_running_or_stopped_but_not_after_a_failure() {
+        let mut p = Progress::default();
+        assert!(!p.result_is_old());
+        p.start(ms(0), false);
+        assert!(p.result_is_old());
+        p.stop();
+        assert!(p.result_is_old());
+        p.fail("internal error");
+        assert!(!p.result_is_old());
+        p.clear();
+        assert!(!p.result_is_old());
     }
 
     #[test]
