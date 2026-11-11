@@ -1,6 +1,6 @@
 //! Shared helpers of the app tests: a harness around the real app and the real worker.
 
-#![allow(dead_code)]
+#![allow(dead_code, clippy::unwrap_used, clippy::expect_used)]
 
 use std::path::{Path, PathBuf};
 

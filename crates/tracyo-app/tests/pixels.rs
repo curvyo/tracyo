@@ -1,5 +1,7 @@
 //! Pixel comparison of the app's states with the references of `specs/0001-trace-and-save`.
 
+#![allow(clippy::unwrap_used, clippy::expect_used)]
+
 mod common;
 #[path = "common/compare.rs"]
 mod compare;

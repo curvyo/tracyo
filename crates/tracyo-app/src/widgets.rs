@@ -59,6 +59,14 @@ pub fn truncate(ui: &Ui, text: &str, font: &FontId, max_width: f32) -> String {
     "…".to_owned()
 }
 
+/// After a mouse click on a button the keyboard goes back to the canvas (a key press keeps the
+/// focus where it is).
+pub fn release_focus_after_mouse(ctx: &egui::Context, resp: &Response) {
+    if resp.clicked() && !focus_visible(ctx) {
+        ctx.memory_mut(|m| m.surrender_focus(resp.id));
+    }
+}
+
 /// The focus ring: 2 px accent outside a 1 px gap (or none).
 fn ring(ui: &Ui, rect: Rect, corner: f32, gap: bool) {
     let grow = if gap { 1.0 } else { 0.0 };
@@ -288,7 +296,14 @@ pub fn value_field(
         // Keys.
         if resp.has_focus() {
             ui.memory_mut(|m| {
-                m.set_focus_lock_filter(id, egui::EventFilter { horizontal_arrows: true, vertical_arrows: true, ..Default::default() });
+                m.set_focus_lock_filter(
+                    id,
+                    egui::EventFilter {
+                        horizontal_arrows: true,
+                        vertical_arrows: true,
+                        ..Default::default()
+                    },
+                );
             });
             let mut key_value = None;
             ui.input_mut(|i| {
@@ -947,7 +962,13 @@ pub fn menu(
     });
     ctx.memory_mut(|m| {
         if let Some(focused) = m.focused() {
-            m.set_focus_lock_filter(focused, egui::EventFilter { vertical_arrows: true, ..Default::default() });
+            m.set_focus_lock_filter(
+                focused,
+                egui::EventFilter {
+                    vertical_arrows: true,
+                    ..Default::default()
+                },
+            );
         }
     });
     let keys = |k| ctx.input_mut(|i| i.consume_key(Modifiers::NONE, k));

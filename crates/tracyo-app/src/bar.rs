@@ -162,7 +162,7 @@ impl App {
                 );
                 widgets::tooltip(ctx, &about, Side::Below, &plain("About Tracyo"));
                 widgets::reset_tooltip(ctx, &about);
-                let _ = about.clicked();
+                widgets::release_focus_after_mouse(ctx, &about);
 
                 // Preset and Method.
                 let preset_rect = at(layout.items[1], 132.0);
@@ -316,6 +316,7 @@ impl App {
                         self.stop_trace();
                     }
                 }
+                widgets::release_focus_after_mouse(ctx, &blue.main);
                 if blue.main.clicked() {
                     match state {
                         Button::Rest => self.save_action(ctx),

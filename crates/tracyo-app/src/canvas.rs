@@ -58,7 +58,10 @@ impl Tiles {
             }
             y += h;
         }
-        Self { tiles: Vec::new(), todo }
+        Self {
+            tiles: Vec::new(),
+            todo,
+        }
     }
 
     /// Uploads tiles for at most `UPLOAD_BUDGET` of the frame (at least one); true while tiles
@@ -67,8 +70,16 @@ impl Tiles {
         let start = std::time::Instant::now();
         while let Some((x, y, w, h)) = self.todo.pop_front() {
             let image = tile_image(picture, x, y, w, h);
-            let smooth = ctx.load_texture(format!("picture-{x}-{y}"), image, TextureOptions::LINEAR);
-            self.tiles.push(Tile { x, y, w, h, smooth, sharp: None });
+            let smooth =
+                ctx.load_texture(format!("picture-{x}-{y}"), image, TextureOptions::LINEAR);
+            self.tiles.push(Tile {
+                x,
+                y,
+                w,
+                h,
+                smooth,
+                sharp: None,
+            });
             if start.elapsed() >= UPLOAD_BUDGET {
                 break;
             }
@@ -77,24 +88,47 @@ impl Tiles {
     }
 
     /// Paints the picture with its top-left corner at `origin` at `zoom`, clipped to `clip`.
-    pub fn paint(&mut self, painter: &egui::Painter, picture: &Picture, origin: Pos2, zoom: f32, clip: Rect) {
+    pub fn paint(
+        &mut self,
+        painter: &egui::Painter,
+        picture: &Picture,
+        origin: Pos2,
+        zoom: f32,
+        clip: Rect,
+    ) {
         let painter = painter.with_clip_rect(clip);
         let ctx = painter.ctx().clone();
         if self.upload_next(&ctx, picture) {
             ctx.request_repaint();
         }
         for tile in &mut self.tiles {
-            let rect = Rect::from_min_size(origin + vec2(tile.x as f32, tile.y as f32) * zoom, vec2(tile.w as f32, tile.h as f32) * zoom);
+            let rect = Rect::from_min_size(
+                origin + vec2(tile.x as f32, tile.y as f32) * zoom,
+                vec2(tile.w as f32, tile.h as f32) * zoom,
+            );
             if !rect.intersects(clip) {
                 continue;
             }
             let id = if zoom >= NEAREST_FROM {
                 let (x, y, w, h) = (tile.x, tile.y, tile.w, tile.h);
-                tile.sharp.get_or_insert_with(|| ctx.load_texture("picture-sharp", tile_image(picture, x, y, w, h), TextureOptions::NEAREST)).id()
+                tile.sharp
+                    .get_or_insert_with(|| {
+                        ctx.load_texture(
+                            "picture-sharp",
+                            tile_image(picture, x, y, w, h),
+                            TextureOptions::NEAREST,
+                        )
+                    })
+                    .id()
             } else {
                 tile.smooth.id()
             };
-            painter.image(id, rect, Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)), Color32::WHITE);
+            painter.image(
+                id,
+                rect,
+                Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)),
+                Color32::WHITE,
+            );
         }
     }
 }

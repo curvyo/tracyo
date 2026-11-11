@@ -173,6 +173,12 @@ impl App {
         self.doc.as_ref().map(|d| d.view.zoom)
     }
 
+    /// The window title last sent to the window system.
+    #[must_use]
+    pub fn window_title(&self) -> Option<&str> {
+        self.title_sent.as_deref()
+    }
+
     /// The name of the shown picture's file.
     #[must_use]
     pub fn picture_name(&self) -> Option<&str> {

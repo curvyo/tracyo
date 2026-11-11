@@ -70,7 +70,8 @@ impl App {
         let origin = canvas.min + doc.view.offset;
         let zoom = doc.view.zoom;
         let painter = ui.painter().clone();
-        doc.tiles.paint(&painter, &doc.picture, origin, zoom, canvas);
+        doc.tiles
+            .paint(&painter, &doc.picture, origin, zoom, canvas);
         let picture_rect = Rect::from_min_size(
             origin,
             vec2(doc.picture.width as f32, doc.picture.height as f32) * zoom,

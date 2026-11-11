@@ -1,5 +1,7 @@
 //! End-to-end flows of the app with the real worker process: open, trace, stop, retry, save.
 
+#![allow(clippy::unwrap_used, clippy::expect_used)]
+
 mod common;
 
 use std::path::{Path, PathBuf};
@@ -30,7 +32,10 @@ fn wait_for_button(h: &mut Harness<'_, App>, want: impl Fn(&Button) -> bool) {
         if want(&button) {
             return;
         }
-        assert!(start.elapsed().as_secs() < 30, "the button never reached the state, it is {button:?}");
+        assert!(
+            start.elapsed().as_secs() < 30,
+            "the button never reached the state, it is {button:?}"
+        );
         std::thread::sleep(std::time::Duration::from_millis(20));
     }
 }
@@ -40,7 +45,11 @@ fn slow_worker() -> Vec<String> {
 }
 
 fn dying_worker(message: &str) -> Vec<String> {
-    vec!["/bin/sh".into(), "-c".into(), format!("echo '{message}' >&2; exit 1")]
+    vec![
+        "/bin/sh".into(),
+        "-c".into(),
+        format!("echo '{message}' >&2; exit 1"),
+    ]
 }
 
 fn press_key(h: &mut Harness<'_, App>, key: Key, modifiers: Modifiers) {
@@ -100,7 +109,9 @@ fn a_dropped_file_opens() {
     let dir = tempfile::tempdir().unwrap();
     let mut h = common::harness(dir.path(), None, fixed(None, None));
     h.run_steps(2);
-    h.input_mut().dropped_files.push(std::sync::Arc::new(Dropped(common::logo())));
+    h.input_mut()
+        .dropped_files
+        .push(std::sync::Arc::new(Dropped(common::logo())));
     common::wait_until(&mut h, 60.0, App::has_result);
     assert_eq!(h.state().picture_name(), Some("input-logo.png"));
 }
@@ -132,10 +143,25 @@ fn pan_and_zoom_do_not_trace_again() {
     let at = pos2(640.0, 400.0);
     h.event(Event::PointerMoved(at));
     h.run_steps(1);
-    h.event_modifiers(Event::MouseWheel { unit: egui::MouseWheelUnit::Point, delta: vec2(0.0, 40.0), phase: egui::TouchPhase::Move, source: egui::MouseWheelSource::Wheel, modifiers: Modifiers::COMMAND }, Modifiers::COMMAND);
+    h.event_modifiers(
+        Event::MouseWheel {
+            unit: egui::MouseWheelUnit::Point,
+            delta: vec2(0.0, 40.0),
+            phase: egui::TouchPhase::Move,
+            source: egui::MouseWheelSource::Wheel,
+            modifiers: Modifiers::COMMAND,
+        },
+        Modifiers::COMMAND,
+    );
     h.run_steps(3);
     assert!(h.state().zoom().unwrap() > zoom, "ctrl+scroll zooms in");
-    h.event(Event::MouseWheel { unit: egui::MouseWheelUnit::Point, delta: vec2(30.0, 20.0), phase: egui::TouchPhase::Move, source: egui::MouseWheelSource::Wheel, modifiers: Modifiers::NONE });
+    h.event(Event::MouseWheel {
+        unit: egui::MouseWheelUnit::Point,
+        delta: vec2(30.0, 20.0),
+        phase: egui::TouchPhase::Move,
+        source: egui::MouseWheelSource::Wheel,
+        modifiers: Modifiers::NONE,
+    });
     h.run_steps(3);
     press_key(&mut h, Key::Num0, Modifiers::COMMAND);
     assert_eq!(h.state().trace_jobs(), jobs);
@@ -180,18 +206,26 @@ fn the_x_of_the_running_button_stops() {
 fn a_dying_worker_is_failed_with_a_reason() {
     let dir = tempfile::tempdir().unwrap();
     let mut h = opened(dir.path(), None);
-    h.state_mut().wrap_worker(dying_worker("memory allocation of 99 bytes failed"));
+    h.state_mut()
+        .wrap_worker(dying_worker("memory allocation of 99 bytes failed"));
     h.get_by_label("Smooth").focus();
     h.run_steps(2);
     press_key(&mut h, Key::ArrowRight, Modifiers::NONE);
     wait_for_button(&mut h, |b| matches!(b, Button::Failed(_)));
     match h.state_mut().button() {
-        Button::Failed(text) => assert!(text.starts_with("Trace failed: out of memory at ") && text.ends_with(". Nothing was saved."), "{text}"),
+        Button::Failed(text) => assert!(
+            text.starts_with("Trace failed: out of memory at ")
+                && text.ends_with(". Nothing was saved."),
+            "{text}"
+        ),
         other => panic!("{other:?}"),
     }
     h.state_mut().wrap_worker(dying_worker("thread panicked"));
     press_key(&mut h, Key::ArrowRight, Modifiers::NONE);
-    wait_for_button(&mut h, |b| matches!(b, Button::Failed(t) if t.contains("internal error")));
+    wait_for_button(
+        &mut h,
+        |b| matches!(b, Button::Failed(t) if t.contains("internal error")),
+    );
     // Retry with a healthy worker recovers.
     h.state_mut().wrap_worker(Vec::new());
     h.get_by_label("Retry").click();
@@ -213,7 +247,12 @@ fn save_as_writes_the_svg() {
     assert_eq!(root.attribute("width"), Some("169.333mm"));
     assert_eq!(root.attribute("height"), Some("111.125mm"));
     assert!(text.contains("inkscape:label=\"#000000\""));
-    let leftovers: Vec<_> = std::fs::read_dir(dir.path()).unwrap().filter_map(Result::ok).map(|e| e.file_name().to_string_lossy().into_owned()).filter(|n| n.starts_with(".tmp")).collect();
+    let leftovers: Vec<_> = std::fs::read_dir(dir.path())
+        .unwrap()
+        .filter_map(Result::ok)
+        .map(|e| e.file_name().to_string_lossy().into_owned())
+        .filter(|n| n.starts_with(".tmp"))
+        .collect();
     assert!(leftovers.is_empty(), "{leftovers:?}");
     // The app stays open with the picture and the values unchanged.
     assert_eq!(h.state().picture_name(), Some("input-logo.png"));
@@ -237,7 +276,12 @@ fn a_cancelled_save_dialog_writes_nothing() {
     let mut h = opened(dir.path(), None);
     h.get_by_label("Save as\u{2026}").click();
     h.run_steps(3);
-    assert!(!std::fs::read_dir(dir.path()).unwrap().filter_map(Result::ok).any(|e| e.path().extension().is_some_and(|x| x == "svg")));
+    assert!(
+        !std::fs::read_dir(dir.path())
+            .unwrap()
+            .filter_map(Result::ok)
+            .any(|e| e.path().extension().is_some_and(|x| x == "svg"))
+    );
 }
 
 /// Criterion 19: a write error shows Failed with the reason, and Retry writes once it is fixed.
@@ -246,7 +290,9 @@ fn a_write_error_is_failed_and_retry_writes() {
     let dir = tempfile::tempdir().unwrap();
     let missing_parent_is_made = dir.path().join("readonly");
     std::fs::create_dir(&missing_parent_is_made).unwrap();
-    let mut perms = std::fs::metadata(&missing_parent_is_made).unwrap().permissions();
+    let mut perms = std::fs::metadata(&missing_parent_is_made)
+        .unwrap()
+        .permissions();
     std::os::unix::fs::PermissionsExt::set_mode(&mut perms, 0o500);
     std::fs::set_permissions(&missing_parent_is_made, perms.clone()).unwrap();
     let target = missing_parent_is_made.join("out.svg");
@@ -254,7 +300,11 @@ fn a_write_error_is_failed_and_retry_writes() {
     h.get_by_label("Save as\u{2026}").click();
     h.run_steps(3);
     match h.state_mut().button() {
-        Button::Failed(text) => assert!(text.starts_with("Could not save out.svg: ") && text.ends_with(". Nothing was written."), "{text}"),
+        Button::Failed(text) => assert!(
+            text.starts_with("Could not save out.svg: ")
+                && text.ends_with(". Nothing was written."),
+            "{text}"
+        ),
         other => {
             // Running as root ignores the permission bits; nothing to test then.
             assert!(target.exists(), "{other:?}");
@@ -324,7 +374,11 @@ fn a_typed_value_is_clamped_and_escape_restores() {
     h.run_steps(2);
     press_key(&mut h, Key::Escape, Modifiers::NONE);
     h.run_steps(2);
-    assert_eq!(h.state().settings().smooth, 100, "Escape restores the value");
+    assert_eq!(
+        h.state().settings().smooth,
+        100,
+        "Escape restores the value"
+    );
 }
 
 /// Criterion 3 of ux-notes section 6: with no picture the bar offers only Open image….
@@ -343,7 +397,13 @@ fn a_big_picture_saves_from_the_full_trace() {
     let dir = tempfile::tempdir().unwrap();
     let big = dir.path().join("big.png");
     let (w, h_px) = (2400_u32, 2000_u32);
-    let img = image::RgbImage::from_fn(w, h_px, |x, y| if (x / 300 + y / 250) % 2 == 0 { image::Rgb([0, 0, 0]) } else { image::Rgb([255, 255, 255]) });
+    let img = image::RgbImage::from_fn(w, h_px, |x, y| {
+        if (x / 300 + y / 250) % 2 == 0 {
+            image::Rgb([0, 0, 0])
+        } else {
+            image::Rgb([255, 255, 255])
+        }
+    });
     img.save(&big).unwrap();
     let target = dir.path().join("big.svg");
     let mut h = common::harness(dir.path(), Some(big), fixed(None, Some(target.clone())));
@@ -354,11 +414,32 @@ fn a_big_picture_saves_from_the_full_trace() {
     while !target.exists() {
         h.step();
         std::thread::sleep(std::time::Duration::from_millis(20));
-        assert!(start.elapsed().as_secs() < 120, "the file was never written");
+        assert!(
+            start.elapsed().as_secs() < 120,
+            "the file was never written"
+        );
     }
-    assert_eq!(h.state().trace_jobs(), jobs + 1, "one full trace before writing");
+    assert_eq!(
+        h.state().trace_jobs(),
+        jobs + 1,
+        "one full trace before writing"
+    );
     let text = std::fs::read_to_string(&target).unwrap();
     assert!(roxmltree::Document::parse(&text).is_ok());
     // 2400 px at 96 dpi.
     assert!(text.contains("width=\"635mm\""));
+}
+
+/// Section 1 of ux-notes: the window title is "Tracyo" without a picture, else "<file> \u{2014} Tracyo".
+#[test]
+fn the_window_title_follows_the_picture() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut empty = common::harness(dir.path(), None, fixed(None, None));
+    empty.run_steps(2);
+    assert_eq!(empty.state().window_title(), Some("Tracyo"));
+    let h = opened(dir.path(), None);
+    assert_eq!(
+        h.state().window_title(),
+        Some("input-logo.png \u{2014} Tracyo")
+    );
 }
