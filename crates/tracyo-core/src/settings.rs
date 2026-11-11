@@ -187,10 +187,10 @@ pub fn percent_of_luma(luma: u8) -> f64 {
     (f64::from(luma) * 100.0 / 255.0 + 0.5).floor()
 }
 
-/// The values the settings file remembers (spec criterion 18; the two Recognise switches arrive
-/// with the slice that has them).
+/// The values the settings file remembers (spec criterion 18).
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
+#[allow(clippy::struct_excessive_bools)] // independent switches of the file
 pub struct Settings {
     /// Smooth, 0 to 100.
     pub smooth: u8,
@@ -214,6 +214,10 @@ pub struct Settings {
     pub multicolour: bool,
     /// Colours of Multicolour: 0 is Auto, else 2 to 16.
     pub colours: u8,
+    /// Recognise text.
+    pub recognise_text: bool,
+    /// Recognise shapes.
+    pub recognise_shapes: bool,
     /// Whether the Advanced block is open.
     pub advanced_open: bool,
     /// The window size in logical points at the last exit.
@@ -240,6 +244,8 @@ impl Settings {
             pick_tolerance: vectrace::DEFAULT_PICK_TOLERANCE,
             multicolour: false,
             colours: 0,
+            recognise_text: false,
+            recognise_shapes: false,
             advanced_open: false,
             window: None,
         }
@@ -303,6 +309,8 @@ impl Settings {
             } else {
                 self.colours.min(16)
             },
+            recognise_text: self.recognise_text,
+            recognise_shapes: self.recognise_shapes,
             advanced_open: self.advanced_open,
             window: self
                 .window
@@ -689,5 +697,26 @@ mod tests {
         };
         let p = s.with_preset(2);
         assert_eq!((p.multicolour, p.colours), (true, 7));
+    }
+
+    #[test]
+    fn the_two_recognise_switches_start_off_and_survive_the_file_and_a_preset() {
+        let s = Settings::default();
+        assert_eq!((s.recognise_text, s.recognise_shapes), (false, false));
+        let on = Settings {
+            recognise_text: true,
+            recognise_shapes: true,
+            ..s
+        };
+        assert_eq!(Settings::from_toml(&on.to_toml()), on);
+        let p = on.with_preset(1);
+        assert_eq!((p.recognise_text, p.recognise_shapes), (true, true));
+        assert_eq!(Settings::from_toml(&on.clamped().to_toml()), on);
+    }
+
+    #[test]
+    fn a_file_from_before_the_switches_reads_them_as_off() {
+        let s = Settings::from_toml("smooth = 70\n");
+        assert_eq!((s.recognise_text, s.recognise_shapes), (false, false));
     }
 }

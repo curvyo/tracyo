@@ -71,6 +71,9 @@ jobs:
           TRACYO_SESSION_OUT="$RUNNER_TEMP/without-network.svg" sudo -E unshare -n "$exe" --exact open_trace_and_save_the_logo
           sudo chown "$(id -u):$(id -g)" "$RUNNER_TEMP/without-network.svg"
           cmp "$RUNNER_TEMP/with-network.svg" "$RUNNER_TEMP/without-network.svg"
+          TRACYO_SESSION_TEXT_OUT="$RUNNER_TEMP/text-with-network.svg" "$exe" --exact open_read_text_recognise_shapes_and_save
+          TRACYO_SESSION_TEXT_OUT="$RUNNER_TEMP/text-without-network.svg" sudo -E unshare -n "$exe" --exact open_read_text_recognise_shapes_and_save
+          cmp "$RUNNER_TEMP/text-with-network.svg" "$RUNNER_TEMP/text-without-network.svg"
       - name: Start smoke test
         run: |
           cargo build -p tracyo-app

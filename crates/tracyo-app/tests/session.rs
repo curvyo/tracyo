@@ -38,3 +38,38 @@ fn open_trace_and_save_the_logo() {
         "the saved SVG differs from the golden file"
     );
 }
+
+/// The picture of the OCR tests, read as text and traced with its shapes (criterion 23b): the
+/// model is inside the executable, so nothing is fetched.
+#[test]
+fn open_read_text_recognise_shapes_and_save() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(
+        dir.path().join("settings.toml"),
+        "recognise_text = true\nrecognise_shapes = true\n",
+    )
+    .unwrap();
+    let target = std::env::var_os("TRACYO_SESSION_TEXT_OUT").map_or_else(
+        || dir.path().join("precision.svg"),
+        std::path::PathBuf::from,
+    );
+    let picture = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../tracyo-core/tests/fixtures/pictures/precision.png");
+    let mut h = common::harness(
+        dir.path(),
+        Some(picture),
+        Dialogs::Fixed {
+            open: None,
+            save: Some(target.clone()),
+        },
+    );
+    common::wait_until(&mut h, 240.0, App::has_result);
+    let (texts, _) = h.state().recognised();
+    assert!(texts >= 3, "{texts} text lines set");
+    h.get_by_label("Save as\u{2026}").click();
+    h.run_steps(3);
+    let text = std::fs::read_to_string(&target).expect("the SVG was written");
+    let doc = roxmltree::Document::parse(&text).unwrap();
+    assert!(doc.descendants().filter(|n| n.has_tag_name("text")).count() >= 3);
+    assert!(text.contains("BERATUNG"));
+}

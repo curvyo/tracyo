@@ -1,5 +1,6 @@
 //! The trace request a picture and the settings make, and the map from its pixels to millimetres.
 
+use vectrace::ocr::OcrLine;
 use vectrace::{PixelMap, Selection};
 
 use crate::palette::ColourSpec;
@@ -11,6 +12,7 @@ pub const REDUCED_OVER_PIXELS: u64 = 4_000_000;
 
 /// One trace of the picture the worker holds.
 #[derive(Debug, Clone, PartialEq)]
+#[allow(clippy::struct_excessive_bools)] // independent switches of the bar
 pub struct TraceRequest {
     /// The Threshold as a luma, 0 to 255.
     pub threshold: u8,
@@ -26,6 +28,11 @@ pub struct TraceRequest {
     pub colours: Option<ColourSpec>,
     /// Trace the reduced copy instead of the full picture.
     pub reduced: bool,
+    /// Recognise shapes.
+    pub shapes: bool,
+    /// The text lines read from the full picture (source pixels); empty traces no text. The
+    /// worker scales them for the reduced copy.
+    pub lines: Vec<OcrLine>,
 }
 
 /// Whether a trace of `picture` is made from the reduced copy: while a value is dragged, and

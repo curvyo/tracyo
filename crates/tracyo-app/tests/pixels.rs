@@ -100,46 +100,38 @@ fn check_regions(name: &str, rendered: &image::RgbaImage, regions: &[Region]) {
 
 /// Denoise, Upscale and Corners with their gaps.
 const SETTINGS_W: u32 = 185 + 8 + 150 + 8 + 150;
-/// The two toggles of later slices (Recognise text, Recognise shapes) and their gaps: the
-/// references draw them, Tracyo does not yet, so everything after them sits this far left.
-const RECOGNISE_W: u32 = 32 + 32;
-/// Invert and Drop border shapes with their gap.
-const TOGGLES_W: u32 = 28 + 4 + 28;
+/// Invert, Drop border shapes, Recognise text and Recognise shapes with their gaps.
+const TOGGLES_W: u32 = 4 * 28 + 3 * 4;
 /// The Output pill, with its gap to what follows.
 const PILL_W: u32 = 173 + 4;
 
-/// The width of the Output row up to the end of Drop border shapes: Single colour, or Multicolour
+/// The width of the Output row up to the end of Recognise shapes: Single colour, or Multicolour
 /// with `swatches` palette swatches (Colours field, pipette and 24 px cells).
 fn output_width(swatches: Option<u32>) -> u32 {
     PILL_W + swatches.map_or(0, |n| 120 + 4 + 28 + 24 * n + 4) + TOGGLES_W
 }
 
 /// The regions of the Advanced block for a bar `bar_w` wide with `rows` rows above the block, an
-/// Output row of `output_w` px (see [`output_width`]): the divider, the Output row, Denoise to
-/// Corners (the references draw the two Recognise toggles before them, so they sit
-/// [`RECOGNISE_W`] px further right there), the gap and Analyse. The toggles of the later slice
-/// are the only part of the block not compared.
+/// Output row of `output_w` px (see [`output_width`]): the divider, the whole Output row with its
+/// four toggles, Denoise to Corners, the gap and Analyse, with the paddings between them: every
+/// pixel of the block's row is compared.
 fn block_regions(bar_w: u32, rows: u32, output_w: u32) -> Vec<Region> {
     let top = rows * 36;
     let controls = top + 9;
     let settings_at = 8 + output_w + 8;
     let mut regions = vec![
         Region::same("divider", (0, top), (bar_w, 13)),
+        Region::same("left-pad", (0, controls), (8, 36)),
         Region::same("output", (8, controls), (output_w, 36)),
-        Region {
-            name: "settings",
-            reference_at: (settings_at + RECOGNISE_W, controls),
-            got_at: (settings_at, controls),
-            size: (SETTINGS_W, 36),
-        },
+        Region::same("output-gap", (8 + output_w, controls), (8, 36)),
+        Region::same("settings", (settings_at, controls), (SETTINGS_W, 36)),
     ];
     let analyse = bar_w - 91;
-    regions.push(Region {
-        name: "gap",
-        reference_at: (settings_at + SETTINGS_W + RECOGNISE_W, controls),
-        got_at: (settings_at + SETTINGS_W, controls),
-        size: (analyse - (settings_at + SETTINGS_W + RECOGNISE_W), 36),
-    });
+    regions.push(Region::same(
+        "gap",
+        (settings_at + SETTINGS_W, controls),
+        (analyse - (settings_at + SETTINGS_W), 36),
+    ));
     regions.push(Region::same("analyse", (analyse, controls), (79, 36)));
     regions
 }

@@ -454,7 +454,11 @@ impl App {
             blue_rect,
             bar_id("blue"),
             state,
-            "Save as\u{2026}",
+            match state {
+                Button::Running(_) if self.reading => "Reading text",
+                Button::Running(_) => "Tracing",
+                _ => "Save as\u{2026}",
+            },
             dimmed,
             blue_w,
         );

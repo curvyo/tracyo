@@ -12,7 +12,11 @@ use tracyo_core::picture::{Picture, ReadError};
 use tracyo_core::progress::{self, Esc, EscState, Progress, SaveCase};
 use tracyo_core::request::{self, TraceRequest};
 use tracyo_core::settings::Settings;
+use tracyo_core::shapes;
+use tracyo_core::stages::{self, Stage};
 use tracyo_core::svg;
+use tracyo_core::text::TEXT_FAILED_NOTICE;
+use vectrace::ocr::OcrLine;
 use vectrace::wire::Output;
 
 use crate::canvas::{Tiles, View};
@@ -50,6 +54,17 @@ pub(crate) struct Loaded {
     pub analysis: Analysis,
 }
 
+/// What is known of the text of a picture.
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) enum TextState {
+    /// Not read yet.
+    Unread,
+    /// The lines read from the full picture, kept for every later trace.
+    Read(Vec<OcrLine>),
+    /// The reader could not be used: the picture is traced without text.
+    Failed,
+}
+
 pub(crate) struct Doc {
     pub path: PathBuf,
     pub name: String,
@@ -59,6 +74,7 @@ pub(crate) struct Doc {
     pub values: PictureValues,
     pub analysis: Analysis,
     pub view: View,
+    pub text: TextState,
 }
 
 pub(crate) struct TraceResult {
@@ -126,6 +142,12 @@ pub struct App {
     pub(crate) fit_next_frame: bool,
     pub(crate) fit_zoom_enlarge: bool,
     pub(crate) last_request_reduced: bool,
+    /// The text of the picture is being read; the trace follows.
+    pub(crate) reading: bool,
+    /// What to trace when the read ends: (dragging, for saving).
+    pub(crate) after_read: Option<(bool, bool)>,
+    /// The running trace follows a read of the same job.
+    pub(crate) trace_after_read: bool,
     pub(crate) menu_anchor: Rect,
     pub(crate) title_sent: Option<String>,
     pub(crate) window_size: Option<[f32; 2]>,
@@ -168,6 +190,9 @@ impl App {
             fit_next_frame: false,
             fit_zoom_enlarge: false,
             last_request_reduced: false,
+            reading: false,
+            after_read: None,
+            trace_after_read: false,
             menu_anchor: Rect::NOTHING,
             title_sent: None,
             window_size: None,
@@ -188,6 +213,30 @@ impl App {
     #[must_use]
     pub fn has_result(&self) -> bool {
         self.result.as_ref().is_some_and(|r| !r.stale)
+    }
+
+    /// The text lines set and the shapes recognised in the settled result (0, 0 without one).
+    #[must_use]
+    pub fn recognised(&self) -> (usize, usize) {
+        self.result
+            .as_ref()
+            .filter(|r| !r.stale)
+            .map_or((0, 0), |r| {
+                (
+                    r.output.texts.lines.iter().filter(|t| !t.excluded).count(),
+                    r.output
+                        .shapes
+                        .iter()
+                        .map(vectrace::shapes::ShapeRegion::primitives)
+                        .sum(),
+                )
+            })
+    }
+
+    /// Whether the picture's text is being read.
+    #[must_use]
+    pub fn is_reading(&self) -> bool {
+        self.reading
     }
 
     /// The zoom of the picture on the canvas, if a picture is shown.
@@ -321,6 +370,8 @@ impl App {
 
     fn show_picture(&mut self, ctx: &egui::Context, loaded: Loaded) {
         self.runner.stop();
+        self.reading = false;
+        self.after_read = None;
         self.progress.clear();
         self.pending_save = None;
         self.failed_write = None;
@@ -345,6 +396,7 @@ impl App {
                 zoom: 1.0,
                 offset: vec2(0.0, 0.0),
             },
+            text: TextState::Unread,
         });
         self.fit_next_frame = true;
         self.start_trace(ctx, false, false);
@@ -377,14 +429,73 @@ impl App {
     // ---- tracing ----
 
     /// Starts a trace of the picture with the current values. `dragging` traces the reduced copy;
-    /// `for_saving` traces the full picture and shows the progress at once.
+    /// `for_saving` traces the full picture and shows the progress at once. With Recognise text on
+    /// and the picture's text not read yet, the text is read first and the trace follows it.
     pub(crate) fn start_trace(&mut self, ctx: &egui::Context, dragging: bool, for_saving: bool) {
         let Some(doc) = &self.doc else { return };
         if doc.values.palette_deleted(&self.settings) {
             self.trace_nothing(ctx);
             return;
         }
+        let needs_read = self.settings.recognise_text && matches!(doc.text, TextState::Unread);
+        if self.reading && needs_read {
+            // The read goes on; what is traced after it is what was asked last.
+            let saved = self.after_read.is_some_and(|(_, saving)| saving);
+            self.after_read = Some((dragging, for_saving || saved));
+            if let Some(result) = &mut self.result {
+                result.stale = true;
+            }
+            return;
+        }
+        if self.reading {
+            // Recognise text was switched off while the text was read.
+            self.runner.stop();
+            self.reading = false;
+            self.after_read = None;
+        }
+        if needs_read {
+            self.start_read(ctx, dragging, for_saving);
+        } else {
+            self.dispatch_trace(ctx, dragging, for_saving, false);
+        }
+    }
+
+    fn start_read(&mut self, ctx: &egui::Context, dragging: bool, for_saving: bool) {
+        let Some(doc) = &self.doc else { return };
+        self.job_counter += 1;
+        let now = self.now();
+        match self
+            .runner
+            .start_read(self.job_counter, doc.id, &doc.picture)
+        {
+            Ok(()) => {
+                self.reading = true;
+                self.after_read = Some((dragging, for_saving));
+                self.progress.start(now, for_saving);
+            }
+            Err(_) => self.progress.fail(failure_text("internal error")),
+        }
+        if let Some(result) = &mut self.result {
+            result.stale = true;
+        }
+        ctx.request_repaint();
+    }
+
+    /// Sends the trace request of the current values; `continuing` is the second part of a job
+    /// whose first part was the read, so its progress goes on instead of starting again.
+    fn dispatch_trace(
+        &mut self,
+        ctx: &egui::Context,
+        dragging: bool,
+        for_saving: bool,
+        continuing: bool,
+    ) {
+        let Some(doc) = &self.doc else { return };
         let reduced = request::use_reduced(&doc.picture, dragging, for_saving);
+        let lines = match &doc.text {
+            TextState::Read(lines) if self.settings.recognise_text => lines.clone(),
+            _ => Vec::new(),
+        };
         let req = TraceRequest {
             threshold: doc.values.threshold,
             settings: self.settings,
@@ -395,14 +506,18 @@ impl App {
             drop_border: doc.values.drop_border,
             colours: doc.values.colour_spec(&self.settings),
             reduced,
+            shapes: self.settings.recognise_shapes,
+            lines,
         };
         self.last_request_reduced = reduced;
         self.job_counter += 1;
+        self.trace_after_read = continuing;
         let now = self.now();
         match self
             .runner
             .start(self.job_counter, doc.id, &doc.picture, req)
         {
+            Ok(()) if continuing => {}
             Ok(()) => self.progress.start(now, for_saving),
             Err(_) => self.progress.fail(failure_text("internal error")),
         }
@@ -412,9 +527,24 @@ impl App {
         ctx.request_repaint();
     }
 
+    /// The read ended (with lines or a failed reader): the trace of the same job follows.
+    fn text_read(&mut self, ctx: &egui::Context, text: TextState) {
+        self.reading = false;
+        if text == TextState::Failed {
+            self.set_notice(ctx, vec![TEXT_FAILED_NOTICE.to_owned()], false);
+        }
+        if let Some(doc) = &mut self.doc {
+            doc.text = text;
+        }
+        let (dragging, for_saving) = self.after_read.take().unwrap_or((false, false));
+        self.dispatch_trace(ctx, dragging, for_saving, true);
+    }
+
     /// Every colour of the palette was deleted: nothing is traced, the result is empty at once.
     fn trace_nothing(&mut self, ctx: &egui::Context) {
         self.runner.stop();
+        self.reading = false;
+        self.after_read = None;
         self.job_counter += 1;
         self.progress.clear();
         self.pending_save = None;
@@ -424,6 +554,8 @@ impl App {
 
     pub(crate) fn stop_trace(&mut self) {
         self.runner.stop();
+        self.reading = false;
+        self.after_read = None;
         self.progress.stop();
         self.pending_save = None;
         if let Some(result) = &mut self.result {
@@ -435,12 +567,28 @@ impl App {
         for event in self.runner.poll() {
             match event {
                 Event::Percent { job, percent } if job == self.job_counter => {
-                    self.progress.set_percent(percent);
+                    let stage = if self.reading {
+                        Stage::Read
+                    } else if self.trace_after_read {
+                        Stage::TraceAfterRead
+                    } else {
+                        Stage::Trace
+                    };
+                    self.progress
+                        .set_percent(stages::job_percent(stage, percent));
+                }
+                Event::Lines { job, lines } if job == self.job_counter && self.reading => {
+                    self.text_read(ctx, TextState::Read(lines));
+                }
+                Event::TextFailed { job } if job == self.job_counter && self.reading => {
+                    self.text_read(ctx, TextState::Failed);
                 }
                 Event::Wire { job, numbers } if job == self.job_counter => {
                     self.finish_trace(ctx, &numbers);
                 }
                 Event::Failed { job, reason } if job == self.job_counter => {
+                    self.reading = false;
+                    self.after_read = None;
                     self.pending_save = None;
                     self.progress.fail(failure_text(&reason));
                 }
@@ -466,7 +614,16 @@ impl App {
                 palette_deleted: doc.values.palette_deleted(&self.settings),
             },
         );
-        let preview = Preview::new(&output.outlines);
+        let mut drawn = shapes::plan(&output).drawn_outlines(&output);
+        drawn.extend(
+            output
+                .texts
+                .lines
+                .iter()
+                .filter(|t| !t.excluded)
+                .flat_map(|t| t.outlines.iter().cloned()),
+        );
+        let preview = Preview::new(&drawn);
         let now = self.now();
         self.progress.finish(now);
         self.result = Some(TraceResult {

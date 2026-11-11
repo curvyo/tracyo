@@ -197,6 +197,12 @@ pub fn changed_advanced(settings: &Settings, values: &PictureValues) -> Option<S
     if values.drop_border {
         changed.push("Drop border shapes");
     }
+    if settings.recognise_text {
+        changed.push("Recognise text");
+    }
+    if settings.recognise_shapes {
+        changed.push("Recognise shapes");
+    }
     if settings.denoise != default.denoise {
         changed.push("Denoise");
     }
@@ -345,6 +351,22 @@ mod tests {
         assert_eq!(
             changed_advanced(&s, &v).as_deref(),
             Some("Changed: Drop border shapes, Denoise, Upscale")
+        );
+    }
+
+    #[test]
+    fn the_recognise_switches_are_named_between_drop_border_shapes_and_denoise() {
+        let mut v = PictureValues::new(128);
+        v.drop_border = true;
+        let s = Settings {
+            recognise_text: true,
+            recognise_shapes: true,
+            denoise: 2,
+            ..Settings::default()
+        };
+        assert_eq!(
+            changed_advanced(&s, &v).as_deref(),
+            Some("Changed: Drop border shapes, Recognise text, Recognise shapes, Denoise")
         );
     }
 

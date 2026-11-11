@@ -24,8 +24,9 @@ const MIN_CELL: f32 = 150.0;
 const ANALYSE_W: f32 = 75.0;
 /// Width of the Colours field.
 const COLOURS_W: f32 = 120.0;
-/// Width of the two toggles that exist (Invert, Drop border shapes) with their gap.
-const TOGGLES_W: f32 = 28.0 + 4.0 + 28.0;
+/// Width of the four toggles (Invert, Drop border shapes, Recognise text, Recognise shapes) with
+/// their gaps.
+const TOGGLES_W: f32 = 4.0 * 28.0 + 3.0 * 4.0;
 /// Padding of a segment of the Output pill.
 const OUTPUT_PAD: f32 = 6.0;
 const OUTPUT: [&str; 2] = ["Single colour", "Multicolour"];
@@ -392,7 +393,7 @@ impl App {
         }
     }
 
-    /// Invert and Drop border shapes.
+    /// Invert, Drop border shapes, Recognise text and Recognise shapes.
     fn toggles(&mut self, ui: &mut egui::Ui, ctx: &egui::Context, origin: Pos2) -> Option<bool> {
         let mut changed = None;
         let (invert, drop_border) = self
@@ -402,6 +403,16 @@ impl App {
         for (k, (name, icon, on)) in [
             ("Invert", Icon::Contrast, invert),
             ("Drop border shapes", Icon::ImageMinus, drop_border),
+            (
+                "Recognise text",
+                Icon::ScanText,
+                self.settings.recognise_text,
+            ),
+            (
+                "Recognise shapes",
+                Icon::Shapes,
+                self.settings.recognise_shapes,
+            ),
         ]
         .into_iter()
         .enumerate()
@@ -419,13 +430,21 @@ impl App {
             widgets::tooltip(ctx, &resp, Side::Below, &plain(name));
             widgets::reset_tooltip(ctx, &resp);
             widgets::release_focus_after_mouse(ctx, &resp);
-            if resp.clicked()
-                && let Some(doc) = &mut self.doc
-            {
-                if k == 0 {
-                    doc.values.invert = !doc.values.invert;
-                } else {
-                    doc.values.drop_border = !doc.values.drop_border;
+            if resp.clicked() {
+                match k {
+                    0 | 1 => {
+                        let Some(doc) = &mut self.doc else { continue };
+                        if k == 0 {
+                            doc.values.invert = !doc.values.invert;
+                        } else {
+                            doc.values.drop_border = !doc.values.drop_border;
+                        }
+                    }
+                    2 => self.settings.recognise_text = !self.settings.recognise_text,
+                    _ => self.settings.recognise_shapes = !self.settings.recognise_shapes,
+                }
+                if k >= 2 {
+                    self.config.save(&self.settings);
                 }
                 changed = Some(false);
             }

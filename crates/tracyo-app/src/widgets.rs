@@ -640,6 +640,7 @@ pub fn blue_button(
             }
         }
         Button::Running(percent) => {
+            labelled(&main, Role::ProgressIndicator, label);
             ui.painter().rect_filled(rect, corner, theme::ACCENT);
             if let Some(p) = percent {
                 let fill_w = rect.width() * f32::from(*p) / 100.0;

@@ -42,6 +42,8 @@ fn request() -> TraceRequest {
         drop_border: false,
         colours: None,
         reduced: false,
+        shapes: false,
+        lines: Vec::new(),
     }
 }
 
