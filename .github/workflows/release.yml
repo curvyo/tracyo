@@ -1,0 +1,126 @@
+# Release builds (ADR 0007 section 9): on a tag `v*` build Tracyo for Linux x86_64, Windows
+# x86_64 and macOS (arm64 and x86_64), put each in an archive with the licence files, and attach
+# them with a SHA256SUMS file to a GitHub release. The builds are not signed (customer Frage 6,
+# option A); `.github/release-notes.md` tells people how to open them anyway.
+#
+# `workflow_dispatch` is the dry run: it builds the same archives and the checksum file and
+# uploads them as workflow artefacts, and creates no release.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # The oldest runner image the project supports: the binary links its glibc.
+          - os: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+            archive: tar.gz
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            archive: zip
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            archive: tar.gz
+          # Cross-built on the arm64 runner; it is built, not run, in this job.
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            archive: tar.gz
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+      - name: Rust toolchain (from rust-toolchain.toml) and the target
+        run: |
+          rustup show
+          rustup target add ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
+      - name: Version of the tag and of Cargo.toml
+        id: version
+        run: |
+          version=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -n 1)
+          test -n "$version"
+          if [ "$GITHUB_REF_TYPE" = tag ] && [ "$GITHUB_REF_NAME" != "v$version" ]; then
+            echo "the tag $GITHUB_REF_NAME does not match the version $version of Cargo.toml" >&2
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+      # [profile.release] of Cargo.toml has `strip = true`, `lto = true`, `codegen-units = 1`.
+      - name: Build
+        run: cargo build --release --locked --target ${{ matrix.target }} -p tracyo-app
+      - name: Archive
+        id: pack
+        run: |
+          name=tracyo-${{ steps.version.outputs.version }}-${{ matrix.target }}
+          exe=tracyo
+          if [ "${{ matrix.archive }}" = zip ]; then exe=tracyo.exe; fi
+          mkdir -p "dist/$name/licenses"
+          cp "target/${{ matrix.target }}/release/$exe" "dist/$name/"
+          cp LICENSE README.md CHANGELOG.md THIRD-PARTY.md "dist/$name/"
+          cp assets/ASSETS.md "dist/$name/licenses/"
+          cp assets/fonts/OFL.txt "dist/$name/licenses/LiberationSans-OFL.txt"
+          cp assets/icons/lucide/LICENSE "dist/$name/licenses/lucide-LICENSE"
+          cp assets/models/paddleocr-latin/LICENSE "dist/$name/licenses/PaddleOCR-LICENSE"
+          cd dist
+          if [ "${{ matrix.archive }}" = zip ]; then
+            7z a -tzip "$name.zip" "$name" > /dev/null
+          else
+            tar -czf "$name.tar.gz" "$name"
+          fi
+          rm -r "$name"
+          ls -l
+          echo "file=dist/$name.${{ matrix.archive }}" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: tracyo-${{ matrix.target }}
+          path: ${{ steps.pack.outputs.file }}
+          if-no-files-found: error
+
+  # Checksums of all archives; on a tag also the release itself. Not run for the dry run.
+  publish:
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
+        with:
+          path: dist
+          merge-multiple: true
+      - name: SHA256SUMS
+        run: |
+          cd dist
+          sha256sum tracyo-* > SHA256SUMS
+          cat SHA256SUMS
+      - uses: actions/upload-artifact@v7
+        with:
+          name: SHA256SUMS
+          path: dist/SHA256SUMS
+          if-no-files-found: error
+      - name: GitHub release
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" dist/tracyo-* dist/SHA256SUMS \
+            --verify-tag \
+            --title "Tracyo ${GITHUB_REF_NAME#v}" \
+            --notes-file .github/release-notes.md \
+            --generate-notes

@@ -5,3 +5,7 @@
 Titel = "Titel"
 # progress.rs matches the stem of "allocation"/"allocate" in worker stderr on purpose.
 allocat = "allocat"
+
+[files]
+# Generated from the licence texts of the dependencies, which are not ours to correct.
+extend-exclude = ["THIRD-PARTY.md"]
