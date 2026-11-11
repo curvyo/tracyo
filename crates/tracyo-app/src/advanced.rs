@@ -42,13 +42,11 @@ struct RowShape {
     swatches: usize,
 }
 
-/// Where the parts of the Output row start, from its left edge: Colours, the palette pipette,
-/// the first swatch cell and the toggles.
+/// Where the Colours group and the toggles start, from the Output row's left edge, and how wide
+/// the row is when nothing wraps.
 #[derive(Debug, Clone, Copy)]
 struct RowPlaces {
     colours: f32,
-    pipette: f32,
-    swatches: f32,
     toggles: f32,
     width: f32,
 }
@@ -57,26 +55,118 @@ impl RowShape {
     fn places(self, pill: f32) -> RowPlaces {
         let colours = pill + 4.0;
         let mut end = pill;
-        let (mut pipette, mut swatches) = (0.0, 0.0);
         if self.multi {
             end = colours + COLOURS_W;
             if !self.pick {
-                pipette = end + 4.0;
-                end = pipette + 28.0;
-                // The palette row has 2 px before it and -2 px after it.
-                swatches = end + 2.0;
-                end += 24.0 * self.swatches as f32;
+                // The pipette, then the palette row with 2 px before it and -2 px after it.
+                end += 4.0 + 28.0 + 24.0 * self.swatches as f32;
             }
         }
         let toggles = end + 4.0;
         RowPlaces {
             colours,
-            pipette,
-            swatches,
             toggles,
             width: toggles + TOGGLES_W,
         }
     }
+}
+
+/// Where the parts of the Output row sit, relative to the top-left of its first control line (the
+/// 4 px above the controls included in that point). The row is a wrapping flow of three whole
+/// items (Curvyo's `flex-wrap items-center gap-x-1`): the pill, the Colours group and the
+/// toggles; a group wider than the row takes the row's width and its palette wraps in it.
+#[derive(Debug, Clone, PartialEq)]
+struct OutputLayout {
+    pill: Pos2,
+    colours: Pos2,
+    pipette: Pos2,
+    /// Top-left of each swatch cell.
+    cells: Vec<Pos2>,
+    toggles: Pos2,
+    width: f32,
+    height: f32,
+}
+
+/// The height of a line of controls.
+const LINE: f32 = 36.0;
+/// Colours field, the gap and the pipette: what stands left of the palette in the group.
+const GROUP_HEAD: f32 = COLOURS_W + 4.0 + 28.0;
+
+impl RowShape {
+    /// The row's layout in at most `max_width` px.
+    fn layout(self, pill: f32, max_width: f32) -> OutputLayout {
+        let places = self.places(pill);
+        let width = places.width.min(max_width);
+        let group = places.toggles - 4.0 - places.colours;
+        let group_shown = group.min(width);
+        let palette = !self.pick && self.swatches > 0 && self.multi;
+        let per_line = (((group_shown - GROUP_HEAD) / 24.0 + 1e-3).floor().max(1.0)) as usize;
+        let lines = if palette {
+            self.swatches.div_ceil(per_line)
+        } else {
+            1
+        };
+        let group_h = LINE.max(8.0 + 28.0 * lines as f32);
+        // Flow: whole items, wrapping when the next does not fit; a line is as tall as its
+        // tallest item. A group is taller than 36 px only when it is wider than the row, so it
+        // is alone on its line and nothing needs centring beside it.
+        let mut items: Vec<(Kind, f32, f32)> = vec![(Kind::Pill, pill, LINE)];
+        if self.multi {
+            items.push((Kind::Group, group_shown, group_h));
+        }
+        items.push((Kind::Toggles, TOGGLES_W, LINE));
+        let mut placed: Vec<(Kind, f32, usize)> = Vec::new();
+        let mut line_heights = vec![0.0_f32];
+        let mut x = 0.0_f32;
+        for &(kind, w, h) in &items {
+            if x > 0.0 && x + w > width {
+                line_heights.push(0.0);
+                x = 0.0;
+            }
+            let line = line_heights.len() - 1;
+            line_heights[line] = line_heights[line].max(h);
+            placed.push((kind, x, line));
+            x += w + 4.0;
+        }
+        let top = |line: usize| line_heights[..line].iter().sum::<f32>();
+        let mut layout = OutputLayout {
+            pill: Pos2::ZERO,
+            colours: Pos2::ZERO,
+            pipette: Pos2::ZERO,
+            cells: Vec::new(),
+            toggles: Pos2::ZERO,
+            width,
+            height: line_heights.iter().sum(),
+        };
+        for (kind, x, line) in placed {
+            let y = top(line);
+            match kind {
+                Kind::Pill => layout.pill = Pos2::new(x, y),
+                Kind::Toggles => layout.toggles = Pos2::new(x, y),
+                Kind::Group => {
+                    layout.colours = Pos2::new(x, y);
+                    layout.pipette = Pos2::new(x + COLOURS_W + 4.0, y);
+                    layout.cells = (0..if palette { self.swatches } else { 0 })
+                        .map(|i| {
+                            Pos2::new(
+                                x + GROUP_HEAD + 2.0 + 24.0 * (i % per_line) as f32,
+                                y + 28.0 * (i / per_line) as f32,
+                            )
+                        })
+                        .collect();
+                }
+            }
+        }
+        layout
+    }
+}
+
+/// The three items of the Output row.
+#[derive(Debug, Clone, Copy)]
+enum Kind {
+    Pill,
+    Group,
+    Toggles,
 }
 
 fn colour32(c: Rgb8) -> Color32 {
@@ -97,13 +187,10 @@ impl App {
     pub(crate) fn block_layout(&self, ui: &egui::Ui, inner: f32) -> BlockFlow {
         let cell = |labels: &[&str]| (LABEL_W + segmented_width(ui, labels, 8.0)).max(MIN_CELL);
         let pill = segmented_width(ui, &OUTPUT, OUTPUT_PAD);
-        let widths = [
-            self.row_shape().places(pill).width,
-            cell(&DENOISE),
-            cell(&UPSCALE),
-            MIN_CELL,
-        ];
-        block_flow(&widths, ANALYSE_W, inner - 4.0)
+        let output = self.row_shape().layout(pill, inner - 4.0);
+        let widths = [output.width, cell(&DENOISE), cell(&UPSCALE), MIN_CELL];
+        let heights = [output.height, LINE, LINE, LINE];
+        block_flow(&widths, &heights, ANALYSE_W, inner - 4.0)
     }
 
     /// Paints and drives the block; `origin` is its content corner. Returns whether a value that
@@ -128,7 +215,7 @@ impl App {
         let content = origin + vec2(0.0, 1.0 + 4.0);
         let at = |p: Pos2, w: f32| Rect::from_min_size(content + p.to_vec2(), vec2(w, 28.0));
 
-        let mut changed = self.output_row(ui, ctx, content + block.items[0].to_vec2());
+        let mut changed = self.output_row(ui, ctx, content + block.items[0].to_vec2(), inner - 4.0);
         changed = self
             .denoise_and_upscale(ui, at(block.items[1], 0.0).min, at(block.items[2], 0.0).min)
             .or(changed);
@@ -215,15 +302,21 @@ impl App {
 
     /// The Output row: the pill, with Multicolour the Colours field, the palette pipette and the
     /// palette, then Invert and Drop border shapes.
-    fn output_row(&mut self, ui: &mut egui::Ui, ctx: &egui::Context, origin: Pos2) -> Option<bool> {
+    fn output_row(
+        &mut self,
+        ui: &mut egui::Ui,
+        ctx: &egui::Context,
+        origin: Pos2,
+        max_width: f32,
+    ) -> Option<bool> {
         let mut changed = None;
         let shape = self.row_shape();
         let pill = segmented_width(ui, &OUTPUT, OUTPUT_PAD);
-        let places = shape.places(pill);
-        let top = origin;
+        let layout = shape.layout(pill, max_width);
+        let at = |p: Pos2| origin + p.to_vec2();
         if let Some(i) = segmented(
             ui,
-            top,
+            at(layout.pill),
             bar_id("output"),
             "Output",
             &OUTPUT,
@@ -239,7 +332,7 @@ impl App {
                 .colours_field(
                     ui,
                     ctx,
-                    Rect::from_min_size(top + vec2(places.colours, 0.0), vec2(COLOURS_W, 28.0)),
+                    Rect::from_min_size(at(layout.colours), vec2(COLOURS_W, 28.0)),
                     shape.pick,
                 )
                 .or(changed);
@@ -247,17 +340,15 @@ impl App {
                 self.pipette_button(
                     ui,
                     ctx,
-                    Rect::from_min_size(top + vec2(places.pipette, 0.0), vec2(28.0, 28.0)),
+                    Rect::from_min_size(at(layout.pipette), vec2(28.0, 28.0)),
                     "Pick palette colour from the image",
                     Pipette::Palette,
                 );
-                changed = self
-                    .palette_row(ui, ctx, top + vec2(places.swatches, 0.0))
-                    .or(changed);
+                let cells: Vec<Pos2> = layout.cells.iter().map(|&c| at(c)).collect();
+                changed = self.palette_row(ui, ctx, &cells).or(changed);
             }
         }
-        self.toggles(ui, ctx, top + vec2(places.toggles, 0.0))
-            .or(changed)
+        self.toggles(ui, ctx, at(layout.toggles)).or(changed)
     }
 
     /// The Colours field: Auto at the lowest stop with the found count, 2 to 16; with Pick
@@ -320,7 +411,7 @@ impl App {
         &mut self,
         ui: &mut egui::Ui,
         ctx: &egui::Context,
-        origin: Pos2,
+        cells: &[Pos2],
     ) -> Option<bool> {
         let strip = self.palette_strip();
         let stale = self.progress.result_is_old();
@@ -328,8 +419,8 @@ impl App {
         let mut action = None;
         ui.scope(|ui| {
             for (i, entry) in strip.iter().enumerate() {
-                let cell =
-                    Rect::from_min_size(origin + vec2(24.0 * i as f32, 0.0), vec2(24.0, 28.0));
+                let Some(&at) = cells.get(i) else { break };
+                let cell = Rect::from_min_size(at, vec2(24.0, 28.0));
                 let id = bar_id("palette").with(i);
                 let excluded = self
                     .doc
@@ -518,4 +609,53 @@ fn swatch_key(ui: &mut egui::Ui, index: usize, count: usize) -> Option<SwatchKey
             .find(|(key, _)| i.consume_key(Modifiers::NONE, *key))
             .map(|(_, name)| palette::swatch_key(*name, false, index, count))
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const PILL: f32 = 173.0;
+
+    fn shape(swatches: usize) -> RowShape {
+        RowShape {
+            multi: true,
+            pick: false,
+            swatches,
+        }
+    }
+
+    #[test]
+    fn a_row_that_fits_stays_on_one_line_as_before() {
+        let l = shape(3).layout(PILL, 1142.0);
+        assert_eq!(l.height, 36.0);
+        assert_eq!(l.pill, Pos2::new(0.0, 0.0));
+        assert_eq!(l.colours, Pos2::new(PILL + 4.0, 0.0));
+        assert_eq!(l.pipette, Pos2::new(PILL + 4.0 + 124.0, 0.0));
+        assert_eq!(l.cells[0], Pos2::new(PILL + 4.0 + 154.0, 0.0));
+        assert_eq!(l.cells[2], Pos2::new(PILL + 4.0 + 154.0 + 48.0, 0.0));
+        assert_eq!(l.toggles.x, PILL + 4.0 + 152.0 + 72.0 + 4.0);
+        assert!((l.width - (l.toggles.x + TOGGLES_W)).abs() < 1e-3);
+    }
+
+    #[test]
+    fn a_group_that_does_not_fit_beside_the_pill_starts_a_line() {
+        // 173 + 4 + 344 > 500: the group (8 swatches) and the toggles share the second line.
+        let l = shape(8).layout(PILL, 500.0);
+        assert_eq!(l.height, 72.0);
+        assert_eq!(l.colours, Pos2::new(0.0, 36.0));
+        assert_eq!(l.toggles, Pos2::new(344.0 + 4.0, 36.0));
+    }
+
+    #[test]
+    fn a_group_wider_than_the_row_takes_the_row_and_wraps_its_palette() {
+        // 300 px: 6 swatches per line, so 8 swatches use two lines of 28 px between 4 px margins.
+        let l = shape(8).layout(PILL, 300.0);
+        assert_eq!(l.colours, Pos2::new(0.0, 36.0));
+        assert_eq!(l.cells[5], Pos2::new(154.0 + 5.0 * 24.0, 36.0));
+        assert_eq!(l.cells[6], Pos2::new(154.0, 36.0 + 28.0));
+        assert_eq!(l.toggles, Pos2::new(0.0, 36.0 + 64.0));
+        assert_eq!(l.height, 36.0 + 64.0 + 36.0);
+        assert!(l.cells.iter().all(|c| c.x + 24.0 <= 300.0 + 2.0));
+    }
 }

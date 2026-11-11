@@ -27,34 +27,39 @@ pub struct Flow {
     pub size: Vec2,
 }
 
-/// Whole items in rows: x and row of each, the tail's and the row count.
+/// Whole items in lines: x and y of each, the tail's, and the height of all lines.
 struct Rows {
     items: Vec<(f32, f32)>,
     tail: (f32, f32),
-    count: f32,
+    height: f32,
 }
 
-/// Flows `widths` in whole items, wrapping when `inner` would be passed; `tail` is the last
-/// item, pushed to the far right of its row (`margin-left: auto`).
-fn rows(widths: &[f32], tail: f32, inner: f32) -> Rows {
-    let mut row = 0.0_f32;
+/// Flows `widths` in whole items, wrapping when `inner` would be passed; `heights` are the items'
+/// heights (a line is as tall as its tallest item, items sit at its top); `tail` is the last
+/// item, 36 px high, pushed to the far right of its line (`margin-left: auto`).
+fn rows(widths: &[f32], heights: &[f32], tail: f32, inner: f32) -> Rows {
+    let mut y = 0.0_f32;
+    let mut line = ROW;
     let mut x = 0.0_f32;
     let mut items = Vec::with_capacity(widths.len());
-    for &w in widths {
+    for (&w, &h) in widths.iter().zip(heights) {
         if x > 0.0 && x + w > inner {
-            row += 1.0;
+            y += line;
+            line = ROW;
             x = 0.0;
         }
-        items.push((x, row));
+        items.push((x, y));
+        line = line.max(h);
         x += w + PAD;
     }
     if x > 0.0 && x + tail > inner {
-        row += 1.0;
+        y += line;
+        line = ROW;
     }
     Rows {
         items,
-        tail: (inner - tail, row),
-        count: row + 1.0,
+        tail: (inner - tail, y),
+        height: y + line,
     }
 }
 
@@ -66,15 +71,15 @@ pub fn flow(widths: &[f32], tail: f32, max_inner: f32, block_open: bool) -> Flow
     let gaps = widths.len() as f32 + if block_open { 1.0 } else { 0.0 };
     let single = widths.iter().sum::<f32>() + tail + gaps * PAD;
     let inner = single.min(max_inner);
-    let r = rows(widths, tail, inner);
+    let r = rows(widths, &vec![ROW; widths.len()], tail, inner);
     Flow {
         items: r
             .items
             .iter()
-            .map(|&(x, row)| pos2(PAD + x, row * ROW + 4.0))
+            .map(|&(x, y)| pos2(PAD + x, y + 4.0))
             .collect(),
-        tail: pos2(PAD + r.tail.0, r.tail.1 * ROW + 4.0),
-        size: vec2(inner + 2.0 * PAD, r.count * ROW),
+        tail: pos2(PAD + r.tail.0, r.tail.1 + 4.0),
+        size: vec2(inner + 2.0 * PAD, r.height),
     }
 }
 
@@ -85,29 +90,25 @@ pub struct BlockFlow {
     pub items: Vec<egui::Pos2>,
     /// Top-left of the last item (Analyse), at the far right of its row.
     pub tail: egui::Pos2,
-    /// Rows of 36 px.
-    pub rows: f32,
+    /// Height of all the lines, in px.
+    pub height: f32,
 }
 
-/// Flows the Advanced block's `widths` in `inner` px; `tail` is Analyse.
+/// Flows the Advanced block's items of `widths` and `heights` in `inner` px; `tail` is Analyse.
 #[must_use]
-pub fn block_flow(widths: &[f32], tail: f32, inner: f32) -> BlockFlow {
-    let r = rows(widths, tail, inner);
+pub fn block_flow(widths: &[f32], heights: &[f32], tail: f32, inner: f32) -> BlockFlow {
+    let r = rows(widths, heights, tail, inner);
     BlockFlow {
-        items: r
-            .items
-            .iter()
-            .map(|&(x, row)| pos2(x, row * ROW + 4.0))
-            .collect(),
-        tail: pos2(r.tail.0, r.tail.1 * ROW + 4.0),
-        rows: r.count,
+        items: r.items.iter().map(|&(x, y)| pos2(x, y + 4.0)).collect(),
+        tail: pos2(r.tail.0, r.tail.1 + 4.0),
+        height: r.height,
     }
 }
 
-/// Height of the block under the rows: 4 px margin, the 1 px divider, 4 px, the rows, 4 px.
+/// Height of the block under the rows: 4 px margin, the 1 px divider, 4 px, the lines, 4 px.
 #[must_use]
-pub fn block_height(rows: f32) -> f32 {
-    4.0 + 1.0 + 4.0 + rows * ROW + 4.0
+pub fn block_height(lines: f32) -> f32 {
+    4.0 + 1.0 + 4.0 + lines + 4.0
 }
 
 /// The tooltip of a value field; `shown` is the text the field draws instead of the value's own.
@@ -223,7 +224,7 @@ impl App {
                 let layout = flow(&widths, 28.0 + PAD + blue_w, max_inner, open);
                 let inner = layout.size.x - 2.0 * PAD;
                 let block = open.then(|| self.block_layout(ui, inner));
-                let height = layout.size.y + block.as_ref().map_or(0.0, |b| block_height(b.rows));
+                let height = layout.size.y + block.as_ref().map_or(0.0, |b| block_height(b.height));
                 let (bar, _) =
                     ui.allocate_exact_size(vec2(layout.size.x, height), egui::Sense::hover());
                 self.bar_bottom = bar.bottom();
@@ -240,10 +241,13 @@ impl App {
                     at(layout.items[0], 28.0),
                     bar_id("about"),
                     Icon::Info,
-                    "About Tracyo",
-                    false,
+                    crate::about::TITLE,
+                    self.about_open,
                 );
-                widgets::tooltip(ctx, &about, Side::Below, &plain("About Tracyo"));
+                if about.clicked() {
+                    self.about_open = !self.about_open;
+                }
+                widgets::tooltip(ctx, &about, Side::Below, &plain(crate::about::TITLE));
                 widgets::reset_tooltip(ctx, &about);
                 widgets::release_focus_after_mouse(ctx, &about);
 
@@ -665,14 +669,32 @@ mod tests {
     #[test]
     fn the_block_puts_analyse_flush_right_and_wraps_whole_items() {
         let widths = [60.0, 185.0, 150.0, 150.0];
-        let b = block_flow(&widths, 75.0, 1142.0);
-        assert_eq!(b.rows, 1.0);
+        let b = block_flow(&widths, &[36.0; 4], 75.0, 1142.0);
+        assert_eq!(b.height, 36.0);
         assert_eq!(b.items[0], pos2(0.0, 4.0));
         assert_eq!(b.items[1].x, 68.0);
         assert_eq!(b.tail.x, 1142.0 - 75.0);
-        let narrow = block_flow(&widths, 75.0, 500.0);
-        assert!(narrow.rows > 1.0);
+        let narrow = block_flow(&widths, &[36.0; 4], 75.0, 500.0);
+        assert!(narrow.height > 36.0);
         assert!(narrow.items.iter().all(|p| p.x + 150.0 <= 500.0 + 40.0));
+    }
+
+    #[test]
+    fn a_tall_item_makes_its_line_as_tall_and_the_next_line_starts_below_it() {
+        let widths = [700.0, 150.0, 150.0];
+        let b = block_flow(&widths, &[92.0, 36.0, 36.0], 75.0, 800.0);
+        // Denoise and Upscale do not fit beside the 700 px item and its gap.
+        assert_eq!(b.items[0], pos2(0.0, 4.0));
+        assert_eq!(b.items[1], pos2(0.0, 96.0));
+        assert_eq!(b.items[2], pos2(158.0, 96.0));
+        assert_eq!(b.height, 92.0 + 36.0);
+        let beside = block_flow(&[300.0, 150.0], &[92.0, 36.0], 75.0, 1000.0);
+        assert_eq!(
+            beside.items[1],
+            pos2(308.0, 4.0),
+            "a short item sits at the line's top"
+        );
+        assert_eq!(beside.height, 92.0);
     }
 
     #[test]
