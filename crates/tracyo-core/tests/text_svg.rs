@@ -122,11 +122,11 @@ fn a_line_is_a_text_element_stretched_over_the_original_width() {
     assert_eq!(first.attribute("fill"), Some("#000000"));
     assert_eq!(first.attribute("lengthAdjust"), Some("spacingAndGlyphs"));
     let mm = 25.4 / 96.0;
-    // 80 px wide and 20 px high ink, its bottom edge at y = 30 px.
+    // 80 px wide and 20 px high ink of capitals (0.69 em), its bottom edge at y = 30 px.
     let length: f64 = first.attribute("textLength").unwrap().parse().unwrap();
     let size: f64 = first.attribute("font-size").unwrap().parse().unwrap();
     assert!((length - 80.0 * mm).abs() < 0.05, "textLength {length}");
-    assert!((size - 20.0 * mm).abs() < 0.05, "font-size {size}");
+    assert!((size - 20.0 * mm / 0.69).abs() < 0.05, "font-size {size}");
     let transform = first.attribute("transform").unwrap();
     assert!(transform.starts_with("translate("), "{transform}");
     let numbers: Vec<f64> = transform

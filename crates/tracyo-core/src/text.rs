@@ -1,4 +1,8 @@
 //! Where a recognised text line sits in the file: baseline start, turn, size and width.
+//!
+//! The size and the baseline come from the height of the line's ink and from which kinds of
+//! glyph the string has (capitals, lowercase with ascenders, descenders, umlauts), measured on
+//! Liberation Sans, whose metrics Arial and Helvetica share.
 
 use kurbo::{BezPath, PathEl, Point, Vec2};
 use vectrace::wire::Text;
@@ -20,10 +24,43 @@ pub struct TextPlace {
     pub y: f64,
     /// The turn of the line's direction, degrees (y down, clockwise positive).
     pub degrees: f64,
-    /// The extent of the line's outlines across the line, millimetres.
+    /// The font size at which the string's glyphs are as tall as the line's outlines, millimetres.
     pub font_size: f64,
     /// The extent of the line's outlines along it, millimetres.
     pub length: f64,
+}
+
+/// Height above the baseline of the highest glyph of `text` and depth below it, in em: capitals
+/// and digits 0.69, ascenders 0.725, lowercase without ascender 0.53, an umlaut or accent on top of
+/// them more; descenders 0.208. `(1.0, 0.0)` for a string without a letter or digit, so its ink
+/// is taken as the size.
+fn ink_em(text: &str) -> (f64, f64) {
+    let (mut above, mut below) = (0.0_f64, 0.0_f64);
+    for c in text.chars() {
+        let (up, down) = match c {
+            'Ä' | 'Ö' | 'Ü' => (0.84, 0.0),
+            'À'..='Å' | 'È'..='Ï' | 'Ò'..='Õ' | 'Ù'..='Û' | 'Ý' | 'Ç' => (0.87, 0.0),
+            'ä' | 'ö' | 'ü' | 'ë' | 'ï' | 'ÿ' => (0.69, 0.0),
+            'à'..='å' | 'è'..='ê' | 'ì'..='î' | 'ò'..='õ' | 'ù'..='û' | 'ý' | 'ç' => {
+                (0.74, 0.0)
+            }
+            'A'..='Z' | '0'..='9' => (0.69, if c == 'Q' { 0.19 } else { 0.0 }),
+            'b' | 'd' | 'f' | 'h' | 'i' | 'k' | 'l' | 't' | 'ß' => (0.725, 0.0),
+            'j' => (0.725, 0.208),
+            'g' | 'p' | 'q' | 'y' => (0.53, 0.208),
+            'a' | 'c' | 'e' | 'm' | 'n' | 'o' | 'r' | 's' | 'u' | 'v' | 'w' | 'x' | 'z' => {
+                (0.53, 0.0)
+            }
+            _ => continue,
+        };
+        above = above.max(up);
+        below = below.max(down);
+    }
+    if above > 0.0 {
+        (above, below)
+    } else {
+        (1.0, 0.0)
+    }
 }
 
 /// The extent of `outlines` along `along` and across it (`across` is `along` turned a quarter
@@ -48,9 +85,9 @@ fn extent(outlines: &[BezPath], along: Vec2, across: Vec2) -> Option<[f64; 4]> {
     bounds
 }
 
-/// The place of `line`: its start along the line's direction, its baseline at the far edge across
-/// the line, its size the extent across and its length the extent along. `None` for a line
-/// without outlines or with no extent.
+/// The place of `line`: its start along the line's direction, its length the extent along, its
+/// font size the extent across over the em height of its glyphs (`ink_em`), its baseline the far
+/// edge across less the descenders. `None` for a line without outlines or with no extent.
 #[must_use]
 pub fn place(line: &Text) -> Option<TextPlace> {
     let length = line.direction.hypot();
@@ -61,11 +98,13 @@ pub fn place(line: &Text) -> Option<TextPlace> {
     };
     let across = Vec2::new(-along.y, along.x);
     let [u0, u1, v0, v1] = extent(&line.outlines, along, across)?;
-    let (width, size) = (u1 - u0, v1 - v0);
-    if !(width > 0.0 && size > 0.0) {
+    let (width, ink) = (u1 - u0, v1 - v0);
+    if !(width > 0.0 && ink > 0.0) {
         return None;
     }
-    let origin = Point::ZERO + along * u0 + across * v1;
+    let (above, below) = ink_em(&line.text);
+    let size = ink / (above + below);
+    let origin = Point::ZERO + along * u0 + across * (v1 - below * size);
     Some(TextPlace {
         text: line.text.clone(),
         x: origin.x,
@@ -113,8 +152,32 @@ mod tests {
         );
         let p = place(&t).unwrap();
         assert!((p.x - 10.0).abs() < 1e-9 && (p.y - 12.0).abs() < 1e-9);
-        assert!((p.length - 40.0).abs() < 1e-9 && (p.font_size - 8.0).abs() < 1e-9);
+        // "AB": capitals, the ink is 0.69 em high.
+        assert!((p.length - 40.0).abs() < 1e-9 && (p.font_size - 8.0 / 0.69).abs() < 1e-9);
         assert!(p.degrees.abs() < 1e-9);
+    }
+
+    #[test]
+    fn descenders_make_the_size_smaller_and_lift_the_baseline() {
+        let mut t = line(Vec2::new(1.0, 0.0), vec![rect(10.0, 4.0, 50.0, 14.0)]);
+        t.text = "Hg".to_owned();
+        let p = place(&t).unwrap();
+        let size = 10.0 / (0.69 + 0.208);
+        assert!((p.font_size - size).abs() < 1e-9, "{p:?}");
+        assert!((p.y - (14.0 - 0.208 * size)).abs() < 1e-9, "{p:?}");
+        t.text = "ae".to_owned();
+        let small = place(&t).unwrap();
+        assert!((small.font_size - 10.0 / 0.53).abs() < 1e-9);
+        t.text = "\u{c4}b".to_owned();
+        assert!((place(&t).unwrap().font_size - 10.0 / 0.84).abs() < 1e-9);
+    }
+
+    #[test]
+    fn a_line_without_letters_takes_its_ink_as_the_size() {
+        let mut t = line(Vec2::new(1.0, 0.0), vec![rect(0.0, 0.0, 9.0, 3.0)]);
+        t.text = "---".to_owned();
+        let p = place(&t).unwrap();
+        assert!((p.font_size - 3.0).abs() < 1e-9 && (p.y - 3.0).abs() < 1e-9);
     }
 
     #[test]
@@ -127,7 +190,7 @@ mod tests {
             (p.x - 30.0).abs() < 1e-9 && (p.y - 10.0).abs() < 1e-9,
             "{p:?}"
         );
-        assert!((p.length - 40.0).abs() < 1e-9 && (p.font_size - 8.0).abs() < 1e-9);
+        assert!((p.length - 40.0).abs() < 1e-9 && (p.font_size - 8.0 / 0.69).abs() < 1e-9);
     }
 
     #[test]
