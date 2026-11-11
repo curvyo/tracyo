@@ -14,13 +14,17 @@
     clippy::similar_names
 )]
 
+mod advanced;
 mod app;
 mod bar;
 mod canvas;
+mod controls;
 pub mod config;
 pub mod dialogs;
 pub mod fonts;
+mod groups;
 mod icons;
+mod methods;
 mod preview;
 pub mod runner;
 mod stage;

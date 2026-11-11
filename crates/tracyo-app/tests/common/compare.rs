@@ -177,11 +177,24 @@ pub fn compare_at(
     width: u32,
     height: u32,
 ) -> Outcome {
+    compare_between(reference, got, (dx, dy), (dx, dy), width, height)
+}
+
+/// As [`compare_at`] for a region that sits `reference_at` from the reference bar's corner and
+/// `got_at` from the render's (a control that sits elsewhere because its neighbours are absent).
+pub fn compare_between(
+    reference: &RgbImage,
+    got: &RgbImage,
+    (rdx, rdy): (u32, u32),
+    (gdx, gdy): (u32, u32),
+    width: u32,
+    height: u32,
+) -> Outcome {
     let (rx, ry) = bar_origin(reference).expect("no Trace bar in the reference");
     let (gx, gy) = bar_origin(got).expect("no Trace bar in the render");
     compare_crops(
-        &crop(reference, rx + dx, ry + dy, width, height),
-        &crop(got, gx + dx, gy + dy, width, height),
+        &crop(reference, rx + rdx, ry + rdy, width, height),
+        &crop(got, gx + gdx, gy + gdy, width, height),
     )
 }
 

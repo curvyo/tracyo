@@ -3,7 +3,7 @@
 use eframe::egui::{self, Align2, Color32, Id, Key, PointerButton, Rect, Sense, Ui, pos2, vec2};
 use tracyo_core::progress::Button;
 
-use crate::app::{App, STATUS_HEIGHT, dashed_frame};
+use crate::app::{App, Pipette, STATUS_HEIGHT, dashed_frame};
 use crate::canvas::View;
 use crate::theme;
 use crate::widgets;
@@ -44,12 +44,94 @@ impl App {
                 doc.view.offset += scroll;
             }
         }
-        if resp.double_clicked() && !space {
+        let armed = self.pipette != Pipette::Off;
+        let pick = armed && !space && resp.clicked_by(PointerButton::Primary);
+        let add = ui.input(|i| i.modifiers.shift);
+        if armed && resp.clicked_by(PointerButton::Secondary) {
+            self.pipette = Pipette::Off;
+        }
+        if armed && resp.hovered() && !space {
+            ui.ctx().set_cursor_icon(egui::CursorIcon::Crosshair);
+        }
+        if resp.double_clicked() && !space && !armed {
             let ctx = ui.ctx().clone();
             self.enter_action(&ctx);
-            return self.paint_canvas(ui, canvas, resp.hovered());
         }
         self.paint_canvas(ui, canvas, resp.hovered());
+        if pick && let Some((x, y)) = self.pointer_picture {
+            let ctx = ui.ctx().clone();
+            self.pick_at(&ctx, x, y, add);
+        }
+        if armed && resp.hovered() {
+            self.paint_chip(ui, canvas);
+        }
+    }
+
+    /// The pipette's chip beside the pointer: the colour a click would take, or "No colour here".
+    fn paint_chip(&self, ui: &Ui, canvas: Rect) {
+        let Some(pointer) = ui.input(|i| i.pointer.hover_pos()) else {
+            return;
+        };
+        let colour = self
+            .pointer_picture
+            .and_then(|(x, y)| self.colour_at(x, y));
+        let font = theme::text12();
+        let label = colour.map_or_else(
+            || "No colour here".to_owned(),
+            tracyo_core::method::hex,
+        );
+        let text_w = widgets::text_width(ui, &label, &font);
+        let width = if colour.is_some() {
+            1.0 + 6.0 + 16.0 + 6.0 + text_w + 6.0 + 1.0
+        } else {
+            1.0 + 6.0 + text_w + 6.0 + 1.0
+        };
+        let height = 22.0;
+        let offset = 12.0;
+        let local = pointer - canvas.min;
+        let mut left = local.x + offset;
+        let mut top = local.y - offset - height;
+        if left + width > canvas.width() {
+            left = local.x - offset - width;
+        }
+        if top < 0.0 {
+            top = local.y + offset;
+        }
+        left = left.clamp(0.0, (canvas.width() - width).max(0.0));
+        top = top.clamp(0.0, (canvas.height() - height).max(0.0));
+        let rect = Rect::from_min_size(canvas.min + vec2(left, top), vec2(width, height));
+        let painter = ui.ctx().layer_painter(egui::LayerId::new(
+            egui::Order::Tooltip,
+            Id::unique("pipette-chip"),
+        ));
+        painter.rect_filled(rect, 8, theme::TOOLBAR_BG);
+        painter.rect_stroke(
+            rect,
+            8,
+            egui::Stroke::new(1.0, theme::DIVIDER),
+            egui::StrokeKind::Inside,
+        );
+        let mut x = rect.left() + 1.0 + 6.0;
+        if let Some(c) = colour {
+            let swatch = Rect::from_min_size(pos2(x, rect.center().y - 8.0), vec2(16.0, 16.0));
+            painter.rect_filled(swatch, 5, theme::SWATCH_BORDER);
+            let inner = swatch.shrink(1.0);
+            painter.rect_filled(inner, 4, Color32::from_rgb(c.r, c.g, c.b));
+            painter.rect_stroke(
+                inner,
+                4,
+                egui::Stroke::new(1.0, Color32::WHITE),
+                egui::StrokeKind::Inside,
+            );
+            x += 16.0 + 6.0;
+        }
+        painter.text(
+            pos2(x, rect.center().y),
+            Align2::LEFT_CENTER,
+            label,
+            font,
+            theme::TOOLBAR_ICON,
+        );
     }
 
     fn paint_canvas(&mut self, ui: &mut Ui, canvas: Rect, canvas_hovered: bool) {

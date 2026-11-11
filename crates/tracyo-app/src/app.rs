@@ -6,6 +6,8 @@ use std::sync::mpsc::{Receiver, channel};
 use std::time::{Duration, Instant};
 
 use eframe::egui::{self, Key, Modifiers, Pos2, Rect, Shape, Stroke, Ui, pos2, vec2};
+use tracyo_core::analysis::Analysis;
+use tracyo_core::method::{Method, PictureValues};
 use tracyo_core::picture::{Picture, ReadError};
 use tracyo_core::progress::{self, Esc, EscState, Progress};
 use tracyo_core::request::{self, TraceRequest};
@@ -45,7 +47,7 @@ pub(crate) struct Loaded {
     pub path: PathBuf,
     pub name: String,
     pub picture: Picture,
-    pub threshold: u8,
+    pub analysis: Analysis,
 }
 
 pub(crate) struct Doc {
@@ -54,7 +56,8 @@ pub(crate) struct Doc {
     pub picture: Arc<Picture>,
     pub id: u64,
     pub tiles: Tiles,
-    pub threshold: u8,
+    pub values: PictureValues,
+    pub analysis: Analysis,
     pub view: View,
 }
 
@@ -79,6 +82,16 @@ pub(crate) enum MenuKind {
     Method,
 }
 
+/// Which pipette is armed on the canvas.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Pipette {
+    Off,
+    /// Remove background's: takes the background colour, then disarms.
+    Background,
+    /// Pick colours': replaces the picked colours, Shift adds; stays armed.
+    Colours,
+}
+
 /// The whole application.
 #[allow(clippy::struct_excessive_bools)] // independent frame flags
 pub struct App {
@@ -94,7 +107,10 @@ pub struct App {
     pub(crate) result: Option<TraceResult>,
     pub(crate) menu: Option<MenuKind>,
     pub(crate) menu_highlight: usize,
-    pub(crate) fields: [FieldState; 4],
+    pub(crate) fields: [FieldState; 5],
+    pub(crate) pipette: Pipette,
+    pub(crate) picked_stop: usize,
+    pub(crate) analysing: Option<Receiver<Analysis>>,
     pub(crate) notice: Option<Notice>,
     pub(crate) bar_bottom: f32,
     pub(crate) pending_save: Option<PathBuf>,
@@ -133,6 +149,9 @@ impl App {
             menu: None,
             menu_highlight: 0,
             fields: Default::default(),
+            pipette: Pipette::Off,
+            picked_stop: 0,
+            analysing: None,
             notice: None,
             bar_bottom: BAR_POS.y + 36.0,
             pending_save: None,
@@ -214,6 +233,28 @@ impl App {
         &self.settings
     }
 
+    /// The values that belong to the shown picture (not remembered), if one is shown.
+    #[must_use]
+    pub fn picture_values(&self) -> Option<&PictureValues> {
+        self.doc.as_ref().map(|d| &d.values)
+    }
+
+    /// Whether a pipette is armed on the canvas.
+    #[must_use]
+    pub fn pipette_armed(&self) -> bool {
+        self.pipette != Pipette::Off
+    }
+
+    /// Where picture pixel (`x`, `y`) is shown on the canvas, in window points.
+    #[must_use]
+    pub fn picture_point_on_screen(&self, x: u32, y: u32) -> Option<Pos2> {
+        let doc = self.doc.as_ref()?;
+        Some(pos2(
+            doc.view.offset.x + x as f32 * doc.view.zoom + 0.5 * doc.view.zoom,
+            doc.view.offset.y + y as f32 * doc.view.zoom + 0.5 * doc.view.zoom,
+        ))
+    }
+
     /// The elapsed time the progress rule is measured in.
     pub(crate) fn now(&self) -> Duration {
         self.start.elapsed()
@@ -238,16 +279,12 @@ impl App {
                 .map_err(|_| ReadError::Damaged)
                 .and_then(|bytes| Picture::decode(&bytes))
                 .map(|picture| {
-                    let threshold = vectrace::auto_threshold(vectrace::Raster {
-                        width: picture.width,
-                        height: picture.height,
-                        rgba: &picture.rgba,
-                    });
+                    let analysis = Analysis::of(&picture);
                     Loaded {
                         path: path.clone(),
                         name: name.clone(),
                         picture,
-                        threshold,
+                        analysis,
                     }
                 });
             let _ = tx.send(result.map_err(|e| (name, e)));
@@ -280,6 +317,10 @@ impl App {
         self.result = None;
         self.picture_counter += 1;
         self.notice = None;
+        self.pipette = Pipette::Off;
+        self.analysing = None;
+        let mut values = PictureValues::new(loaded.analysis.threshold);
+        loaded.analysis.apply(&mut self.settings, &mut values);
         let picture = Arc::new(loaded.picture);
         let tiles = Tiles::new(picture.width, picture.height);
         self.doc = Some(Doc {
@@ -288,7 +329,8 @@ impl App {
             picture,
             id: self.picture_counter,
             tiles,
-            threshold: loaded.threshold,
+            values,
+            analysis: loaded.analysis,
             view: View {
                 zoom: 1.0,
                 offset: vec2(0.0, 0.0),
@@ -330,8 +372,13 @@ impl App {
         let Some(doc) = &self.doc else { return };
         let reduced = request::use_reduced(&doc.picture, dragging, for_saving);
         let req = TraceRequest {
-            threshold: doc.threshold,
+            threshold: doc.values.threshold,
             settings: self.settings,
+            selection: doc
+                .values
+                .selection(&self.settings, doc.analysis.suggested_background),
+            invert: doc.values.invert,
+            drop_border: doc.values.drop_border,
             reduced,
         };
         self.last_request_reduced = reduced;
@@ -384,7 +431,12 @@ impl App {
             self.progress.fail(failure_text("internal error"));
             return;
         };
-        let reason = progress::nothing_to_save(&output, doc.picture.pixels());
+        let reason = progress::nothing_to_save(
+            &output,
+            doc.picture.pixels(),
+            Method::from_index(self.settings.method),
+            doc.values.swatches.len(),
+        );
         let preview = Preview::new(&output.outlines);
         let now = self.now();
         self.progress.finish(now);
@@ -515,6 +567,7 @@ impl App {
         }
         self.finish_loading(ctx);
         self.handle_events(ctx);
+        self.finish_analysing(ctx);
         if let Some(n) = &self.notice
             && ctx.input(|i| i.time) >= n.until
         {
@@ -540,14 +593,14 @@ impl App {
         if esc {
             let state = EscState {
                 running: self.progress.is_running(),
-                pipette_armed: false,
+                pipette_armed: self.pipette != Pipette::Off,
                 menu_open: self.menu.is_some(),
                 entry_open,
             };
             match progress::esc(state) {
                 Esc::StopTrace => self.stop_trace(),
-                Esc::DisarmPipette => {}
-                Esc::CloseMenu => self.menu = None,
+                Esc::DisarmPipette => self.pipette = Pipette::Off,
+                Esc::CloseMenu => self.close_menu(ctx),
                 Esc::CloseEntry => self.fields.iter_mut().for_each(FieldState::cancel_entry),
                 Esc::FocusCanvas => ctx.memory_mut(|m| {
                     if let Some(id) = m.focused() {
@@ -574,6 +627,17 @@ impl App {
             ctx.memory(|m| m.focused().is_none()) && !entry_open && self.menu.is_none();
         if canvas_has_keys && ctx.input_mut(|i| i.consume_key(Modifiers::NONE, Key::Enter)) {
             self.enter_action(ctx);
+        }
+    }
+
+    /// Closes the open menu; the keyboard returns to the button that opened it.
+    pub(crate) fn close_menu(&mut self, ctx: &egui::Context) {
+        if let Some(kind) = self.menu.take() {
+            let name = match kind {
+                MenuKind::Preset => "preset",
+                MenuKind::Method => "method",
+            };
+            ctx.memory_mut(|m| m.request_focus(crate::bar::bar_id(name)));
         }
     }
 

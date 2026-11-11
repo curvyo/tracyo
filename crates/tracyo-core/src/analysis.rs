@@ -1,6 +1,6 @@
 //! The automatic analysis of a picture: the values it proposes and how they are applied.
 
-use vectrace::{Raster, Rgb8, Selection};
+use vectrace::{Rgb8, Selection};
 
 use crate::method::{Method, PictureValues};
 use crate::picture::Picture;
@@ -19,20 +19,12 @@ pub struct Analysis {
     pub tolerance: u8,
 }
 
-fn raster(picture: &Picture) -> Raster<'_> {
-    Raster {
-        width: picture.width,
-        height: picture.height,
-        rgba: &picture.rgba,
-    }
-}
-
 impl Analysis {
     /// The analysis of `picture`; when vectrace cannot analyse it the automatic Threshold and
     /// Brightness stand.
     #[must_use]
     pub fn of(picture: &Picture) -> Self {
-        let raster = raster(picture);
+        let raster = picture.raster();
         let suggested_background = vectrace::suggest_background(raster);
         let fallback = Self {
             suggested_background,
