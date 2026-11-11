@@ -1,8 +1,8 @@
 //! Pixel comparison of the app's states with the references of `specs/0001-trace-and-save`.
 
 mod common;
-
-use common::compare;
+#[path = "common/compare.rs"]
+mod compare;
 use egui_kittest::Harness;
 use egui_kittest::kittest::Queryable;
 use tracyo_app::App;

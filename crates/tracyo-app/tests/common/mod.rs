@@ -11,8 +11,6 @@ use tracyo_app::fonts::Source;
 use tracyo_app::{App, Options};
 
 /// The logo picture of the reference set.
-pub mod compare;
-
 pub fn logo() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../../specs/0001-trace-and-save/reference/input-logo.png")

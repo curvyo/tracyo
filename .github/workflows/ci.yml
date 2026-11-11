@@ -1,0 +1,58 @@
+# The gate of CLAUDE.md on ubuntu for every pull request and push to main (ADR 0007 section 7):
+# fmt, clippy, nextest (kittest and pixel tests included), deny, doc, the network-less session
+# test and a start smoke test. Windows and macOS run in nightly.yml.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  gate:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: System packages (software GL for wgpu, Xvfb, Liberation fonts)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y mesa-vulkan-drivers libegl1 xvfb fonts-liberation libxkbcommon-x11-0 libxcb-cursor0 jq
+      - name: Rust toolchain (from rust-toolchain.toml)
+        run: rustup show
+      - uses: Swatinem/rust-cache@v2
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-nextest,cargo-deny
+      - run: cargo fmt --all --check
+      - run: cargo clippy --workspace --all-targets -- -D warnings
+      - run: cargo nextest run --workspace --status-level fail
+        env:
+          TRACYO_PIXEL_OUT: ${{ github.workspace }}/pixel-out
+      - name: Pixel pictures and diffs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pixel-out
+          path: pixel-out
+          if-no-files-found: ignore
+      - run: cargo deny check
+      - run: cargo doc -q --workspace --no-deps
+        env:
+          RUSTDOCFLAGS: "-D warnings"
+      - name: Session test with and without network (criterion 23)
+        run: |
+          set -eu
+          exe=$(cargo test -p tracyo-app --test session --no-run --message-format=json | jq -r 'select(.executable != null and .target.name == "session") | .executable')
+          cd crates/tracyo-app
+          TRACYO_SESSION_OUT="$RUNNER_TEMP/with-network.svg" "$exe" --exact open_trace_and_save_the_logo
+          TRACYO_SESSION_OUT="$RUNNER_TEMP/without-network.svg" sudo -E unshare -n "$exe" --exact open_trace_and_save_the_logo
+          cmp "$RUNNER_TEMP/with-network.svg" "$RUNNER_TEMP/without-network.svg"
+      - name: Start smoke test
+        run: |
+          cargo build -p tracyo-app
+          status=0
+          timeout 5 xvfb-run -a target/debug/tracyo || status=$?
+          test "$status" -eq 124

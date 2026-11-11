@@ -1,0 +1,34 @@
+# Windows and macOS: build, clippy and the tests that do not need Linux (ADR 0007 section 7).
+name: Nightly
+
+on:
+  schedule:
+    - cron: "30 3 * * *"
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  host:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            # The fake workers of these tests are shell scripts; the pixel, start and heavy tests
+            # are Linux-only.
+            skip: "binary(pixels) | binary(heavy) | binary(start) | binary(session) | binary(flow) | binary(worker)"
+          - os: macos-latest
+            skip: "binary(pixels) | binary(heavy) | binary(start) | binary(session)"
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Rust toolchain (from rust-toolchain.toml)
+        run: rustup show
+      - uses: Swatinem/rust-cache@v2
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-nextest
+      - run: cargo clippy --workspace --all-targets -- -D warnings
+      - run: cargo nextest run --workspace --status-level fail -E 'not (${{ matrix.skip }})'

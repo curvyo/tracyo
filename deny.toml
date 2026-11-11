@@ -1,0 +1,61 @@
+[graph]
+targets = [
+    { triple = "x86_64-unknown-linux-gnu" },
+    { triple = "aarch64-unknown-linux-gnu" },
+    { triple = "x86_64-pc-windows-msvc" },
+    { triple = "x86_64-apple-darwin" },
+    { triple = "aarch64-apple-darwin" },
+]
+
+[licenses]
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Unicode-3.0",
+    "Zlib",
+    # File-level copyleft, compatible with AGPL-3.0 (option-ext, via dirs).
+    "MPL-2.0",
+]
+confidence-threshold = 0.9
+# Tracyo's own crates.
+exceptions = [
+    { allow = ["AGPL-3.0-or-later"], name = "tracyo-core" },
+    { allow = ["AGPL-3.0-or-later"], name = "tracyo-app" },
+]
+
+[bans]
+multiple-versions = "warn"
+wildcards = "deny"
+# Tracyo opens no network connection (spec criterion 23): no HTTP or TLS client, no browser
+# opener. `open` is only a dependency of egui_kittest, which is a dev dependency.
+deny = [
+    { name = "reqwest" },
+    { name = "hyper" },
+    { name = "ureq" },
+    { name = "ehttp" },
+    { name = "rustls" },
+    { name = "native-tls" },
+    { name = "openssl" },
+    { name = "openssl-sys" },
+    { name = "webbrowser" },
+    { name = "open", wrappers = ["egui_kittest"] },
+]
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-git = ["https://github.com/curvyo/vectrace"]
+
+[advisories]
+# zbus's helper crates are marked unmaintained in favour of zbus itself. They come in through
+# egui's accessibility stack (accesskit_unix) and have no safe upgrade; revisit with the next
+# egui bump (docs/technical-debt.md).
+ignore = [
+    { id = "RUSTSEC-2026-0370", reason = "zvariant: unmaintained, via accesskit_unix, no upgrade" },
+    { id = "RUSTSEC-2026-0371", reason = "zbus_names: unmaintained, via accesskit_unix, no upgrade" },
+    { id = "RUSTSEC-2026-0372", reason = "zvariant_derive: unmaintained, via accesskit_unix, no upgrade" },
+]

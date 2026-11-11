@@ -5,8 +5,11 @@ use eframe::egui::{
 };
 use tracyo_core::picture::Picture;
 
-/// The largest texture side (wgpu's GL fallback guarantees no more).
-const TILE: u32 = 2048;
+/// The side of a texture tile: at most 2048 (wgpu's GL fallback guarantees no more), and small
+/// enough that one tile's upload fits a frame of the UI thread.
+const TILE: u32 = 512;
+/// The time one frame may spend uploading picture tiles.
+const UPLOAD_BUDGET: std::time::Duration = std::time::Duration::from_millis(8);
 /// The zoom range, 2 % to 8000 %.
 const MIN_ZOOM: f32 = 0.02;
 const MAX_ZOOM: f32 = 80.0;
@@ -22,9 +25,10 @@ struct Tile {
     sharp: Option<TextureHandle>,
 }
 
-/// The textures of one picture.
+/// The textures of one picture, uploaded one tile per frame.
 pub struct Tiles {
     tiles: Vec<Tile>,
+    todo: std::collections::VecDeque<(u32, u32, u32, u32)>,
 }
 
 /// The pixels of the tile at (`x`, `y`) of size `w` x `h`.
@@ -39,30 +43,46 @@ fn tile_image(picture: &Picture, x: u32, y: u32, w: u32, h: u32) -> ColorImage {
 }
 
 impl Tiles {
-    /// Uploads `picture` in tiles.
+    /// The tiles of a picture of `width` x `height`, none uploaded yet.
     #[must_use]
-    pub fn new(ctx: &egui::Context, picture: &Picture) -> Self {
-        let mut tiles = Vec::new();
+    pub fn new(width: u32, height: u32) -> Self {
+        let mut todo = std::collections::VecDeque::new();
         let mut y = 0;
-        while y < picture.height {
-            let h = TILE.min(picture.height - y);
+        while y < height {
+            let h = TILE.min(height - y);
             let mut x = 0;
-            while x < picture.width {
-                let w = TILE.min(picture.width - x);
-                let image = tile_image(picture, x, y, w, h);
-                let smooth = ctx.load_texture(format!("picture-{x}-{y}"), image, TextureOptions::LINEAR);
-                tiles.push(Tile { x, y, w, h, smooth, sharp: None });
+            while x < width {
+                let w = TILE.min(width - x);
+                todo.push_back((x, y, w, h));
                 x += w;
             }
             y += h;
         }
-        Self { tiles }
+        Self { tiles: Vec::new(), todo }
+    }
+
+    /// Uploads tiles for at most `UPLOAD_BUDGET` of the frame (at least one); true while tiles
+    /// are left.
+    fn upload_next(&mut self, ctx: &egui::Context, picture: &Picture) -> bool {
+        let start = std::time::Instant::now();
+        while let Some((x, y, w, h)) = self.todo.pop_front() {
+            let image = tile_image(picture, x, y, w, h);
+            let smooth = ctx.load_texture(format!("picture-{x}-{y}"), image, TextureOptions::LINEAR);
+            self.tiles.push(Tile { x, y, w, h, smooth, sharp: None });
+            if start.elapsed() >= UPLOAD_BUDGET {
+                break;
+            }
+        }
+        !self.todo.is_empty()
     }
 
     /// Paints the picture with its top-left corner at `origin` at `zoom`, clipped to `clip`.
     pub fn paint(&mut self, painter: &egui::Painter, picture: &Picture, origin: Pos2, zoom: f32, clip: Rect) {
         let painter = painter.with_clip_rect(clip);
         let ctx = painter.ctx().clone();
+        if self.upload_next(&ctx, picture) {
+            ctx.request_repaint();
+        }
         for tile in &mut self.tiles {
             let rect = Rect::from_min_size(origin + vec2(tile.x as f32, tile.y as f32) * zoom, vec2(tile.w as f32, tile.h as f32) * zoom);
             if !rect.intersects(clip) {

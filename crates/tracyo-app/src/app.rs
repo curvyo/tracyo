@@ -275,7 +275,7 @@ impl App {
         self.picture_counter += 1;
         self.notice = None;
         let picture = Arc::new(loaded.picture);
-        let tiles = Tiles::new(ctx, &picture);
+        let tiles = Tiles::new(picture.width, picture.height);
         self.doc = Some(Doc {
             path: loaded.path,
             name: loaded.name,
