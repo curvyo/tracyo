@@ -167,6 +167,30 @@ impl App {
         self.result.as_ref().is_some_and(|r| !r.stale)
     }
 
+    /// The zoom of the picture on the canvas, if a picture is shown.
+    #[must_use]
+    pub fn zoom(&self) -> Option<f32> {
+        self.doc.as_ref().map(|d| d.view.zoom)
+    }
+
+    /// The name of the shown picture's file.
+    #[must_use]
+    pub fn picture_name(&self) -> Option<&str> {
+        self.doc.as_ref().map(|d| d.name.as_str())
+    }
+
+    /// The text of the notice slot, lines joined by a newline.
+    #[must_use]
+    pub fn notice_text(&self) -> Option<String> {
+        self.notice.as_ref().map(|n| n.lines.join("\n"))
+    }
+
+    /// The reason a result cannot be saved, if it cannot.
+    #[must_use]
+    pub fn nothing_to_save(&self) -> Option<&str> {
+        self.result.as_ref().and_then(|r| r.reason.as_deref())
+    }
+
     /// What the blue button looks like now.
     pub fn button(&mut self) -> tracyo_core::progress::Button {
         let now = self.now();

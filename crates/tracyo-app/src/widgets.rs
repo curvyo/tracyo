@@ -287,6 +287,9 @@ pub fn value_field(
         }
         // Keys.
         if resp.has_focus() {
+            ui.memory_mut(|m| {
+                m.set_focus_lock_filter(id, egui::EventFilter { horizontal_arrows: true, vertical_arrows: true, ..Default::default() });
+            });
             let mut key_value = None;
             ui.input_mut(|i| {
                 for (key, dir) in [
@@ -296,10 +299,10 @@ pub fn value_field(
                     (Key::ArrowUp, 1),
                 ] {
                     for mods in [
-                        Modifiers::NONE,
                         Modifiers::SHIFT,
                         Modifiers::CTRL,
                         Modifiers::COMMAND,
+                        Modifiers::NONE,
                     ] {
                         if i.consume_key(mods, key) {
                             key_value = Some(field.nudge(value, dir, stride_of(mods)));
@@ -940,6 +943,11 @@ pub fn menu(
             && !anchor.contains(p)
         {
             event = MenuEvent::Closed;
+        }
+    });
+    ctx.memory_mut(|m| {
+        if let Some(focused) = m.focused() {
+            m.set_focus_lock_filter(focused, egui::EventFilter { vertical_arrows: true, ..Default::default() });
         }
     });
     let keys = |k| ctx.input_mut(|i| i.consume_key(Modifiers::NONE, k));

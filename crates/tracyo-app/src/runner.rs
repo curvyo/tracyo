@@ -117,6 +117,8 @@ impl Runner {
     /// Wraps the worker command (for example `prlimit --as=...`): the first element is the
     /// program, the rest come before the worker's own program path.
     pub fn wrap_command(&mut self, prefix: Vec<String>) {
+        self.kill_worker();
+        self.job = None;
         self.spawn_prefix = prefix;
     }
 
