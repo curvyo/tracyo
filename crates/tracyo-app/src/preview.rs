@@ -78,7 +78,8 @@ impl Preview {
             let mut points: Vec<Pos2> = Vec::new();
             let mut flush = |points: &mut Vec<Pos2>, closed: bool| {
                 if points.len() >= 2 {
-                    let pts = std::mem::take(points);
+                    let pts = open_loop(std::mem::take(points), closed);
+                    let closed = false;
                     tessellator.tessellate_path(
                         &PathShape {
                             points: pts.clone(),
@@ -167,7 +168,58 @@ impl Preview {
     }
 }
 
+/// A closed outline as an open polyline that starts and ends in the middle of its first segment:
+/// epaint's closed strokes keep every miter, so a spike where an outline folds back (two colours
+/// sharing a one-pixel sliver) grows without limit, while its open strokes cut such corners off.
+fn open_loop(points: Vec<Pos2>, closed: bool) -> Vec<Pos2> {
+    if !closed || points.len() < 3 {
+        return points;
+    }
+    let middle = points[0].lerp(points[1], 0.5);
+    let mut open = Vec::with_capacity(points.len() + 2);
+    open.push(middle);
+    open.extend_from_slice(&points[1..]);
+    open.push(points[0]);
+    open.push(middle);
+    open
+}
+
 fn to_pos(p: kurbo::Point) -> Pos2 {
     #[allow(clippy::cast_possible_truncation)]
     Pos2::new(p.x as f32, p.y as f32)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A sliver of 0.2 px width and 100 px length: two colours sharing a one-pixel sliver make
+    /// outlines that fold back like this, and a closed stroke's miter would grow without limit.
+    fn sliver() -> BezPath {
+        let mut path = BezPath::new();
+        path.move_to((0.0, 0.0));
+        path.line_to((100.0 / PX_PER_MM, 0.0));
+        path.line_to((0.0, 0.2 / PX_PER_MM));
+        path.close_path();
+        path
+    }
+
+    #[test]
+    fn a_folded_back_outline_has_no_spike_longer_than_its_line_width() {
+        let preview = Preview::new(&[sliver()]);
+        let ctx = egui::Context::default();
+        let visible = Rect::from_min_max(Pos2::new(-50.0, -50.0), Pos2::new(150.0, 50.0));
+        let cache = preview.build(&ctx, 1.0, visible);
+        let reach = CASING_WIDTH;
+        for mesh in [&cache.casing, &cache.line] {
+            assert!(mesh.vertices.len() > 4);
+            for v in &mesh.vertices {
+                assert!(
+                    v.pos.x > -reach && v.pos.x < 100.0 + reach && v.pos.y.abs() < reach,
+                    "a vertex at {:?} lies far from the outline",
+                    v.pos
+                );
+            }
+        }
+    }
 }

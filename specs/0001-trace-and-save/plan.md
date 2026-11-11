@@ -53,7 +53,7 @@ the values come back after a restart.
 - [x] App: Method menu with three rows, Colour tolerance field, background chip, hex, Auto, pipettes (canvas chip, crosshair, click replaces, Shift adds, right press and Esc disarm), picked swatches with x, expander with changed-dot and tooltip, Advanced block (toggles, Denoise, Upscale, Corners, Analyse), blue button states of the reference — 12, 14, 9
 - [x] Kittest flows with the real worker (`tests/methods.rs`): analysis choice, Pick colours, background pipette, tolerance per method, block and restart, presets after Custom, Analyse, second picture — 1, 11, 12, 14, 18
 - [x] Pixel tests px-03, px-05 (whole row), px-06, px-07, px-09, px-12, px-13, px-14, by regions (ux-notes 12.2 step 6)
-- [ ] Output, Colours and the palette (slice 3), Recognise text and shapes (slice 4); px-04, px-10, px-11, px-15 wait for them
+- [x] Output, Colours and the palette moved to slice 3 (px-04, px-10, px-11 are done there); Recognise text and shapes are slice 4, px-15 slice 5
 
 Notes of the implementer (slice 2, branch `story/methods-advanced`):
 
@@ -75,15 +75,42 @@ Notes of the implementer (slice 2, branch `story/methods-advanced`):
 - The logo's analysis is Remove background, so a first start shows it, as Curvyo does (px-09);
   the session golden file `logo-session.svg` is the trace of that.
 
-## Slice 3: Multicolour and excluded colours (`story/trace-multicolour`)
+## Slice 3: Multicolour and excluded colours (`story/multicolour`, stacked on `story/methods-advanced`)
 
 Demo: Output Multicolour, Colours Auto or 2 to 16, the palette largest first, delete and Ctrl+click
 exclude; the SVG has one labelled layer per colour, largest at the bottom.
 
-- [ ] Output segmented control, Colours field with "Auto  N", palette swatches, pipette, delete, exclude, keys — 14 (multicolour part), 15 (`No colours found.`, `no colour in the palette`)
-- [ ] `svg`: one layer per colour, order, excluded and deleted colours, never an empty layer; goldens — 20d
-- [ ] Coverage test for multicolour; manual Inkscape check list prepared — 21
-- [ ] Pixel tests px-04, px-10, px-11
+- [x] `palette` (core): the palette strip order, colour names, same-colour test, delete, exclude and pick edits, swatch keys, the tracer's colour request; unit tests first — 14
+- [x] `settings`: Output and Colours (Auto at position 1, 2 to 16), remembered, clamped; request, protocol and job carry the palette; job tests for Auto, exclude, count, deleted palette — 14, 18
+- [x] Reasons: "No colours found.", "0 paths: no colour in the palette." (nothing is traced when every colour was deleted) — 15
+- [x] `svg`: one layer per colour in the result's order, never an empty layer, ids unique; goldens `three-colours.svg` and `multicolour-shapes.svg`, structure tests, resvg colour and hole check — 20d
+- [x] Coverage test for Multicolour (second reader draws every colour where the picture has it, covered area equals the outlines' area); manual Inkscape check list stays that of slice 5 — 21
+- [x] App: Output pill, Colours field ("Auto 3", dimmed with Pick colours), palette pipette, palette swatches (hover x, Ctrl+click exclude with the crossed circle, keys, tooltip with colour name), the palette at half strength while a trace runs or is stopped — 14
+- [x] Pixel tests px-04, px-10, px-11 and the whole-bar comparison of px-03, 05, 06, 07, 13, 14 (all but the two Recognise toggles of slice 4)
+
+Notes of the implementer (slice 3, branch `story/multicolour`):
+
+- Pixel numbers (limit 2 % and under 12): see the table in the report of the lead; each region of each test
+  prints its own line. Output row (pill to Drop border shapes): px-03 0.48 % (4), px-04 0.58 % (10), px-05 0.58 % (10), px-06
+  0.60 % (10), px-07 0.58 % (10), px-10 0.58 % (10) and its tooltip 0.49 % (6), px-11 0.60 % (10), px-13 0.60 % (10),
+  px-14 0.60 % (10). First row(s), divider, Denoise to Corners, gap and Analyse as in slice 2. Nothing was tuned; the reference
+  decided: the pill's outline is the chrome colour at 40 % drawn over the blue segment too, the palette at half strength is
+  flattened per swatch (not group opacity), the tooltip ring is the foreground at 10 % outside the box and its second line
+  sits in a 13 px line.
+- The two Recognise toggles (Recognise text, Recognise shapes) belong to slice 4; the references draw them, Tracyo does not
+  yet, so the tests skip exactly those 64 px of the block row and compare what follows shifted by them (debt 7).
+- The Colours field shows "Auto 3" in one colour with one space, as the reference renders it (ux-notes 4 said two spaces and a
+  muted count; the HTML collapses the spaces and Curvyo does not mute). A field with its bar at 0 draws no bar and no edge.
+- The multicolour preview is the same blue outline as with Single colour (Curvyo draws no layer colours in its preview); the
+  colours show in the palette row and in the saved file.
+- Bug found by the real-app run on `blütenzeit.png`: epaint's closed strokes keep every miter, so an outline that folds back
+  (two colours sharing a one-pixel sliver) drew a spike thousands of pixels long and covered the canvas; the preview now
+  strokes closed outlines as open polylines, which epaint cuts at sharp corners (unit test with a sliver).
+- Analysis in the worker process (ADR 0004 section 2) is not done: the worker is killed for every dragged value, so an
+  analysis in it would be killed too, and a second worker process only for Analyse is a change of that ADR (architect).
+  Debt 6 stays.
+- Ctrl+click needs `modifiers.command` in the frame of the release; tests send press and release in frames of their own
+  (`common::ctrl_click`), because egui_kittest queues a click's events into one frame whose modifiers end empty.
 
 ## Slice 4: Recognise text and Recognise shapes (`story/trace-text-shapes`)
 
