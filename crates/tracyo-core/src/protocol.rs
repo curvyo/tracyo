@@ -2,6 +2,7 @@
 
 use vectrace::{Rgb8, Selection, Swatches};
 
+use crate::palette::ColourSpec;
 use crate::picture::Picture;
 use crate::request::TraceRequest;
 use crate::settings::Settings;
@@ -148,6 +149,49 @@ fn encode_selection(selection: &Selection, out: &mut Vec<u8>) {
     }
 }
 
+/// Multicolour's palette: 0 for Single colour, else 1, the count (0 is Auto), the fixed colours and
+/// the excluded colours.
+fn encode_colours(spec: Option<&ColourSpec>, out: &mut Vec<u8>) {
+    let Some(spec) = spec else {
+        out.push(0);
+        return;
+    };
+    out.extend([1, spec.count.unwrap_or(0)]);
+    for list in [&spec.fixed, &spec.excluded] {
+        // invariant: a palette holds at most 16 colours.
+        out.push(u8::try_from(list.len()).unwrap_or(u8::MAX));
+        for c in list {
+            out.extend([c.r, c.g, c.b]);
+        }
+    }
+}
+
+fn decode_colour_list(r: &mut Reader<'_>) -> Result<Vec<Rgb8>, ProtocolError> {
+    let n = usize::from(r.u8()?);
+    let mut list = Vec::with_capacity(n);
+    for _ in 0..n {
+        list.push(Rgb8::new(r.u8()?, r.u8()?, r.u8()?));
+    }
+    Ok(list)
+}
+
+fn decode_colours(r: &mut Reader<'_>) -> Result<Option<ColourSpec>, ProtocolError> {
+    match r.u8()? {
+        0 => Ok(None),
+        1 => {
+            let count = r.u8()?;
+            let fixed = decode_colour_list(r)?;
+            let excluded = decode_colour_list(r)?;
+            Ok(Some(ColourSpec {
+                count: (count != 0).then_some(count),
+                fixed,
+                excluded,
+            }))
+        }
+        _ => Err(ProtocolError::Malformed),
+    }
+}
+
 fn decode_selection(r: &mut Reader<'_>) -> Result<Selection, ProtocolError> {
     match r.u8()? {
         0 => Ok(Selection::Brightness),
@@ -196,6 +240,7 @@ impl Request {
                     u8::from(t.invert),
                     u8::from(t.drop_border),
                 ]);
+                encode_colours(t.colours.as_ref(), &mut payload);
                 encode_selection(&t.selection, &mut payload);
                 frame(2, &payload)
             }
@@ -229,6 +274,7 @@ impl Request {
                 let ignore_below = r.f64()?;
                 let (corners, upscale, denoise, reduced) = (r.u8()?, r.u8()?, r.u8()?, r.u8()?);
                 let (invert, drop_border) = (r.u8()?, r.u8()?);
+                let colours = decode_colours(&mut r)?;
                 let selection = decode_selection(&mut r)?;
                 r.done()?;
                 let settings = Settings {
@@ -246,6 +292,7 @@ impl Request {
                     selection,
                     invert: invert != 0,
                     drop_border: drop_border != 0,
+                    colours,
                     reduced: reduced != 0,
                 }))
             }
@@ -351,6 +398,7 @@ mod tests {
             selection: Selection::Brightness,
             invert: true,
             drop_border: true,
+            colours: None,
             reduced: true,
         });
         assert_eq!(round_request(&r), r);
@@ -386,6 +434,7 @@ mod tests {
                 selection,
                 invert: false,
                 drop_border: false,
+                colours: None,
                 reduced: false,
             });
             assert_eq!(round_request(&r), r);
@@ -400,6 +449,7 @@ mod tests {
             selection: Selection::Brightness,
             invert: false,
             drop_border: false,
+            colours: None,
             reduced: false,
         })
         .encode();
@@ -407,6 +457,35 @@ mod tests {
         let mut bad = payload.to_vec();
         *bad.last_mut().unwrap() = 7;
         assert_eq!(Request::decode(tag, &bad), Err(ProtocolError::Malformed));
+    }
+
+    #[test]
+    fn a_palette_round_trips_with_auto_and_with_a_count() {
+        let spec = |count| ColourSpec {
+            count,
+            fixed: vec![Rgb8::new(1, 2, 3), Rgb8::new(4, 5, 6)],
+            excluded: vec![Rgb8::new(250, 251, 252)],
+        };
+        for colours in [
+            Some(spec(None)),
+            Some(spec(Some(16))),
+            Some(ColourSpec {
+                count: Some(2),
+                fixed: Vec::new(),
+                excluded: Vec::new(),
+            }),
+        ] {
+            let r = Request::Trace(TraceRequest {
+                threshold: 1,
+                settings: Settings::default(),
+                selection: Selection::Brightness,
+                invert: false,
+                drop_border: false,
+                colours,
+                reduced: false,
+            });
+            assert_eq!(round_request(&r), r);
+        }
     }
 
     #[test]
@@ -436,6 +515,7 @@ mod tests {
             selection: Selection::Brightness,
             invert: false,
             drop_border: false,
+            colours: None,
             reduced: false,
         })
         .encode();

@@ -206,24 +206,38 @@ pub fn esc(state: EscState) -> Esc {
     }
 }
 
-/// Why a result cannot be saved, `None` when it can; `picked` is the number of colours Pick
-/// colours has.
+/// What the reasons of a result that cannot be saved depend on besides the result.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[allow(clippy::struct_excessive_bools)] // independent facts of the picture's values
+pub struct SaveCase {
+    /// Pixels of the full picture.
+    pub picture_pixels: u64,
+    /// The method.
+    pub method: Method,
+    /// Colours Pick colours has.
+    pub picked: usize,
+    /// Output is Multicolour.
+    pub multicolour: bool,
+    /// Every colour of the Multicolour palette was deleted.
+    pub palette_deleted: bool,
+}
+
+/// Why a result cannot be saved, `None` when it can.
 #[must_use]
-pub fn nothing_to_save(
-    output: &Output,
-    picture_pixels: u64,
-    method: Method,
-    picked: usize,
-) -> Option<String> {
-    if method == Method::PickColours && picked == 0 {
+pub fn nothing_to_save(output: &Output, case: &SaveCase) -> Option<String> {
+    if case.method == Method::PickColours && case.picked == 0 {
         return Some("0 paths: no colour picked.".into());
+    }
+    if case.palette_deleted {
+        return Some("0 paths: no colour in the palette.".into());
     }
     match output.status {
         Status::TooDetailed => Some("Too much detail: raise Ignore below.".into()),
         Status::Invalid => Some("This image can't be traced.".into()),
-        Status::Traced if output.paths == 0 => Some(match method {
+        Status::Traced if output.paths == 0 && case.multicolour => Some("No colours found.".into()),
+        Status::Traced if output.paths == 0 => Some(match case.method {
             Method::Brightness => {
-                let direction = if output.foreground_pixels * 2 > picture_pixels {
+                let direction = if output.foreground_pixels * 2 > case.picture_pixels {
                     "too high"
                 } else {
                     "too low"
@@ -382,50 +396,101 @@ mod tests {
         }
     }
 
+    fn single(output: &Output, method: Method, picked: usize) -> Option<String> {
+        nothing_to_save(
+            output,
+            &SaveCase {
+                picture_pixels: 100,
+                method,
+                picked,
+                multicolour: false,
+                palette_deleted: false,
+            },
+        )
+    }
+
+    fn multi(output: &Output, method: Method, palette_deleted: bool) -> Option<String> {
+        nothing_to_save(
+            output,
+            &SaveCase {
+                picture_pixels: 100,
+                method,
+                picked: 1,
+                multicolour: true,
+                palette_deleted,
+            },
+        )
+    }
+
+    #[test]
+    fn multicolour_has_its_own_reasons() {
+        let empty = output(Status::Traced, 0, 10);
+        for method in Method::ALL {
+            assert_eq!(
+                multi(&empty, method, false).as_deref(),
+                Some("No colours found."),
+                "{method:?}"
+            );
+        }
+        assert_eq!(
+            multi(&empty, Method::Brightness, true).as_deref(),
+            Some("0 paths: no colour in the palette.")
+        );
+        assert_eq!(
+            multi(&output(Status::Traced, 4, 10), Method::Brightness, false),
+            None
+        );
+        assert_eq!(
+            multi(
+                &output(Status::TooDetailed, 0, 0),
+                Method::Brightness,
+                false
+            )
+            .as_deref(),
+            Some("Too much detail: raise Ignore below.")
+        );
+    }
+
     #[test]
     fn nothing_to_save_names_its_reason() {
         let b = Method::Brightness;
         assert_eq!(
-            nothing_to_save(&output(Status::Traced, 0, 10), 100, b, 0).as_deref(),
+            single(&output(Status::Traced, 0, 10), b, 0).as_deref(),
             Some("0 paths at this Threshold: too low.")
         );
         assert_eq!(
-            nothing_to_save(&output(Status::Traced, 0, 90), 100, b, 0).as_deref(),
+            single(&output(Status::Traced, 0, 90), b, 0).as_deref(),
             Some("0 paths at this Threshold: too high.")
         );
         assert_eq!(
-            nothing_to_save(&output(Status::TooDetailed, 0, 0), 100, b, 0).as_deref(),
+            single(&output(Status::TooDetailed, 0, 0), b, 0).as_deref(),
             Some("Too much detail: raise Ignore below.")
         );
-        assert_eq!(
-            nothing_to_save(&output(Status::Traced, 3, 10), 100, b, 0),
-            None
-        );
+        assert_eq!(single(&output(Status::Traced, 3, 10), b, 0), None);
     }
 
     #[test]
     fn the_colour_methods_have_their_own_reasons() {
         let empty = output(Status::Traced, 0, 10);
         assert_eq!(
-            nothing_to_save(&empty, 100, Method::RemoveBackground, 0).as_deref(),
+            single(&empty, Method::RemoveBackground, 0).as_deref(),
             Some("0 paths at this Colour tolerance: too high.")
         );
         assert_eq!(
-            nothing_to_save(&empty, 100, Method::PickColours, 2).as_deref(),
+            single(&empty, Method::PickColours, 2).as_deref(),
             Some("0 paths at this Colour tolerance: too low.")
         );
         assert_eq!(
-            nothing_to_save(&empty, 100, Method::PickColours, 0).as_deref(),
+            single(&empty, Method::PickColours, 0).as_deref(),
             Some("0 paths: no colour picked.")
         );
         assert_eq!(
-            nothing_to_save(&output(Status::Traced, 2, 10), 100, Method::PickColours, 1),
+            single(&output(Status::Traced, 2, 10), Method::PickColours, 1),
             None
         );
         assert_eq!(
-            nothing_to_save(
+            single(
                 &output(Status::TooDetailed, 0, 0),
-                100,
                 Method::RemoveBackground,
                 0
             )

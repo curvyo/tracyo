@@ -3,6 +3,7 @@
 
 use vectrace::{MAX_SWATCHES, Rgb8, Selection, Swatches};
 
+use crate::palette::{ColourSpec, Edits};
 use crate::settings::Settings;
 
 /// How pixels become shapes (the Method menu).
@@ -80,6 +81,8 @@ pub struct PictureValues {
     pub manual_background: Option<Rgb8>,
     /// The picked colours of Pick colours, in the order they were picked.
     pub swatches: Vec<Rgb8>,
+    /// The Multicolour palette's edits: added, excluded and deleted colours.
+    pub palette: Edits,
 }
 
 impl PictureValues {
@@ -92,6 +95,7 @@ impl PictureValues {
             drop_border: false,
             manual_background: None,
             swatches: Vec::new(),
+            palette: Edits::default(),
         }
     }
 
@@ -141,6 +145,42 @@ impl PictureValues {
                 tolerance: settings.pick_tolerance,
             },
         }
+    }
+}
+
+impl PictureValues {
+    /// What Multicolour asks the tracer for, `None` for Single colour. A deleted palette is traced
+    /// as exactly its colours; Pick colours has its picked colours as the palette.
+    #[must_use]
+    pub fn colour_spec(&self, settings: &Settings) -> Option<ColourSpec> {
+        if !settings.multicolour {
+            return None;
+        }
+        let own_palette = Method::from_index(settings.method) != Method::PickColours;
+        let kept = self.palette.kept.as_ref().filter(|_| own_palette);
+        let count = match kept {
+            // invariant: a kept palette holds at most 16 colours.
+            Some(kept) => Some(u8::try_from(kept.len()).unwrap_or(u8::MAX)),
+            None => (settings.colours != 0).then_some(settings.colours),
+        };
+        let fixed = match kept {
+            Some(kept) => kept.clone(),
+            None if own_palette => self.palette.fixed.clone(),
+            None => Vec::new(),
+        };
+        Some(ColourSpec {
+            count,
+            fixed,
+            excluded: self.palette.excluded.clone(),
+        })
+    }
+
+    /// Whether every colour of the Multicolour palette was deleted: nothing is traced.
+    #[must_use]
+    pub fn palette_deleted(&self, settings: &Settings) -> bool {
+        settings.multicolour
+            && Method::from_index(settings.method) != Method::PickColours
+            && self.palette.kept.as_ref().is_some_and(Vec::is_empty)
     }
 }
 
@@ -306,5 +346,64 @@ mod tests {
             changed_advanced(&s, &v).as_deref(),
             Some("Changed: Drop border shapes, Denoise, Upscale")
         );
+    }
+
+    #[test]
+    fn single_colour_asks_for_no_palette() {
+        let v = PictureValues::new(128);
+        assert_eq!(v.colour_spec(&Settings::default()), None);
+    }
+
+    #[test]
+    fn multicolour_asks_for_auto_or_the_typed_count_with_the_edits() {
+        let mut v = PictureValues::new(128);
+        let mut s = Settings {
+            multicolour: true,
+            ..Settings::default()
+        };
+        v.palette.fixed = vec![RED];
+        v.palette.excluded = vec![BLUE];
+        let spec = v.colour_spec(&s).unwrap();
+        assert_eq!(spec.count, None);
+        assert_eq!((spec.fixed, spec.excluded), (vec![RED], vec![BLUE]));
+        s.colours = 5;
+        assert_eq!(v.colour_spec(&s).unwrap().count, Some(5));
+    }
+
+    #[test]
+    fn a_deleted_palette_is_traced_as_exactly_its_colours() {
+        let mut v = PictureValues::new(128);
+        let s = Settings {
+            multicolour: true,
+            colours: 9,
+            ..Settings::default()
+        };
+        v.palette.fixed = vec![WHITE];
+        v.palette.delete(&[RED, BLUE, WHITE], BLUE);
+        let spec = v.colour_spec(&s).unwrap();
+        assert_eq!(spec.count, Some(2));
+        assert_eq!(spec.fixed, [RED, WHITE]);
+        assert!(!v.palette_deleted(&s));
+        v.palette.delete(&[RED, WHITE], RED);
+        v.palette.delete(&[WHITE], WHITE);
+        assert!(v.palette_deleted(&s));
+    }
+
+    #[test]
+    fn pick_colours_has_its_picked_colours_as_the_palette() {
+        let mut v = PictureValues::new(128);
+        v.swatches = vec![RED];
+        v.palette.fixed = vec![BLUE];
+        v.palette.delete(&[RED, BLUE], BLUE);
+        let s = Settings {
+            multicolour: true,
+            colours: 4,
+            method: 2,
+            ..Settings::default()
+        };
+        let spec = v.colour_spec(&s).unwrap();
+        assert!(spec.fixed.is_empty(), "the picked colours are the palette");
+        assert_eq!(spec.count, Some(4));
+        assert!(!v.palette_deleted(&s));
     }
 }

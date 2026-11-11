@@ -6,6 +6,7 @@
 pub mod analysis;
 pub mod job;
 pub mod method;
+pub mod palette;
 pub mod picture;
 pub mod progress;
 pub mod protocol;

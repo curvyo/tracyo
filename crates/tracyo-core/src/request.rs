@@ -2,6 +2,7 @@
 
 use vectrace::{PixelMap, Selection};
 
+use crate::palette::ColourSpec;
 use crate::picture::Picture;
 use crate::settings::Settings;
 
@@ -9,7 +10,7 @@ use crate::settings::Settings;
 pub const REDUCED_OVER_PIXELS: u64 = 4_000_000;
 
 /// One trace of the picture the worker holds.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct TraceRequest {
     /// The Threshold as a luma, 0 to 255.
     pub threshold: u8,
@@ -21,6 +22,8 @@ pub struct TraceRequest {
     pub invert: bool,
     /// Drop border shapes.
     pub drop_border: bool,
+    /// Multicolour with its palette; `None` is Single colour.
+    pub colours: Option<ColourSpec>,
     /// Trace the reduced copy instead of the full picture.
     pub reduced: bool,
 }

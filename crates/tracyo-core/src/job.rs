@@ -1,10 +1,19 @@
 //! Runs one trace of a kept picture with vectrace and reports whole percents.
 
 use vectrace::job::{Job, Mode};
-use vectrace::{Raster, TraceParams};
+use vectrace::{ColourParams, Raster, TraceParams};
 
 use crate::picture::{Picture, REDUCED_SIDE};
 use crate::request::{TraceRequest, pixel_map};
+
+/// The numbers of a Multicolour result with no outline and no palette colour (every colour of the
+/// palette was deleted): nothing is traced.
+#[must_use]
+pub fn empty_colour_wire() -> Vec<f64> {
+    // The header (status Traced, no paths, nodes, specks, pixels, whole picture, outlines), then
+    // the palette, layer and joined-region counts.
+    vec![0.0; 10]
+}
 
 /// The picture a worker holds and its lazily made reduced copy.
 #[derive(Debug)]
@@ -40,6 +49,12 @@ impl Session {
             ignore_background: request.drop_border,
             ..request.settings.trace_params(request.threshold)
         };
+        let colour_params = request.colours.as_ref().map(|spec| ColourParams {
+            trace: params,
+            colours: spec.count,
+            fixed: spec.fixed.clone(),
+            excluded: spec.excluded.clone(),
+        });
         let job = Job {
             raster: Raster {
                 width: picture.width,
@@ -47,7 +62,9 @@ impl Session {
                 rgba: &picture.rgba,
             },
             map: pixel_map(full_width, picture.width),
-            mode: Mode::Mono(&params),
+            mode: colour_params
+                .as_ref()
+                .map_or(Mode::Mono(&params), Mode::Colours),
             lines: &[],
             mask: None,
             shapes: false,
@@ -59,6 +76,7 @@ impl Session {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::palette::ColourSpec;
     use crate::settings::Settings;
     use vectrace::wire;
 
@@ -85,6 +103,7 @@ mod tests {
             selection: vectrace::Selection::Brightness,
             invert: false,
             drop_border: false,
+            colours: None,
             reduced,
         }
     }
@@ -206,5 +225,71 @@ mod tests {
             plain.foreground_pixels + inverted.foreground_pixels,
             40 * 40
         );
+    }
+
+    fn multicolour(spec: ColourSpec) -> wire::Output {
+        let mut session = Session::new(colours());
+        let request = TraceRequest {
+            selection: vectrace::Selection::RemoveBackground {
+                background: Some(vectrace::Rgb8::new(255, 255, 255)),
+                tolerance: 40,
+            },
+            colours: Some(spec),
+            ..request(128, false)
+        };
+        wire::read(&session.run(&request, &mut |_| {})).unwrap()
+    }
+
+    fn auto() -> ColourSpec {
+        ColourSpec {
+            count: None,
+            fixed: Vec::new(),
+            excluded: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn multicolour_gives_one_layer_per_colour_largest_first() {
+        let out = multicolour(auto());
+        let colours: Vec<_> = out.layers.iter().map(|l| l.colour).collect();
+        assert_eq!(
+            colours,
+            [
+                vectrace::Rgb8::new(255, 0, 0),
+                vectrace::Rgb8::new(0, 0, 255)
+            ]
+        );
+        assert_eq!(out.palette.len(), 2);
+        let held: usize = out.layers.iter().map(|l| l.outlines).sum();
+        assert_eq!(held, out.outlines.len());
+    }
+
+    #[test]
+    fn an_excluded_colour_has_no_layer_but_stays_in_the_palette() {
+        let out = multicolour(ColourSpec {
+            excluded: vec![vectrace::Rgb8::new(0, 0, 255)],
+            ..auto()
+        });
+        assert_eq!(out.layers.len(), 1);
+        assert_eq!(out.layers[0].colour, vectrace::Rgb8::new(255, 0, 0));
+        assert_eq!(out.palette.len(), 2);
+    }
+
+    #[test]
+    fn a_kept_palette_of_one_colour_traces_everything_in_it() {
+        let out = multicolour(ColourSpec {
+            count: Some(1),
+            fixed: vec![vectrace::Rgb8::new(255, 0, 0)],
+            excluded: Vec::new(),
+        });
+        assert_eq!(out.palette.len(), 1);
+        assert_eq!(out.layers.len(), 1);
+    }
+
+    #[test]
+    fn the_empty_wire_reads_as_a_traced_result_without_paths_or_colours() {
+        let out = wire::read(&empty_colour_wire()).unwrap();
+        assert_eq!(out.status, wire::Status::Traced);
+        assert_eq!((out.paths, out.palette.len(), out.layers.len()), (0, 0, 0));
     }
 }
