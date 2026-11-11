@@ -1,0 +1,6 @@
+[test-groups]
+heavy = { max-threads = 1 }
+
+[[profile.default.overrides]]
+filter = 'binary(heavy)'
+test-group = 'heavy'

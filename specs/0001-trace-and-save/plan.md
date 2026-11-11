@@ -11,16 +11,32 @@ Demo: `tracyo logo.png` or Ctrl+O or drop; the picture with the blue outline; dr
 Tolerance, Ignore below and Threshold; Stop with Esc; Save as… writes an SVG that opens in Inkscape
 with its size in mm. Method is Brightness only; no Advanced block yet.
 
-- [ ] Workspace, two crates, lints, profiles, `rust-toolchain.toml`, `deny.toml`, CI (`ci.yml`, `nightly.yml`), Renovate (ADR 0002, 0007) — 23a, 25
-- [ ] `picture`: decode PNG/JPEG/WebP with EXIF orientation, errors, reduced copy (ADR 0003 §5, 0004 §5) — 1, 2, 4, 7
-- [ ] `settings`: Logo preset and the six preset values, Smooth/Tolerance/Ignore below/Threshold ranges and steps, TOML round trip, corrupt file (ADR 0003 §8) — 11 (Logo only), 13, 18 (those values)
-- [ ] `protocol`, `job`, worker mode, runner with kill and re-spawn, out-of-memory reason (ADR 0004) — 7, 8, 24
-- [ ] `progress`: 400/300 ms rule, Stopped, Failed, Retry, Esc order; nothing-to-save reasons of Brightness (`too low`/`too high`, `Too much detail`) — 8, 9, 15 (part), 22
-- [ ] `svg`: frame, namedview, one `#000000` layer, path, numbers; goldens, XML-structure test, resvg coverage test (ADR 0005) — 20a-e, 20h, 21 (automatic)
-- [ ] App: window and title, open card, empty state, canvas (pan, zoom, fit, tiles), preview meshes, bar with About button (no panel yet), Preset (menu), Method button (Brightness), value fields, expander placeholder hidden, blue button states; theme tokens and fonts (ADR 0003) — 1, 3, 5, 6 (outline), 10, 11, 13, 19, 22
-- [ ] Dialogs (rfd) and atomic write; save traces the full picture first — 19
-- [ ] kittest end-to-end (open by argument, trace, stop, retry, save), frame-budget CPU-time test, OOM test, `unshare -n` session test, Xvfb start test — 7, 8, 19, 23b, 24
-- [ ] Pixel tests for px-00, px-01, px-02, px-05, px-06, px-07, px-08, px-13 (ux §12)
+- [x] Workspace, two crates, lints, profiles, `rust-toolchain.toml`, `deny.toml`, CI (`ci.yml`, `nightly.yml`), Renovate (ADR 0002, 0007) — 23a, 25
+- [x] `picture`: decode PNG/JPEG/WebP with EXIF orientation, errors, reduced copy (ADR 0003 §5, 0004 §5) — 1, 2, 4, 7
+- [x] `settings`: Logo preset and the six preset values, Smooth/Tolerance/Ignore below/Threshold ranges and steps, TOML round trip, corrupt file (ADR 0003 §8) — 11 (Logo only), 13, 18 (those values)
+- [x] `protocol`, `job`, worker mode, runner with kill and re-spawn, out-of-memory reason (ADR 0004) — 7, 8, 24
+- [x] `progress`: 400/300 ms rule, Stopped, Failed, Retry, Esc order; nothing-to-save reasons of Brightness (`too low`/`too high`, `Too much detail`) — 8, 9, 15 (part), 22
+- [x] `svg`: frame, namedview, one `#000000` layer, path, numbers; goldens, XML-structure test, resvg coverage test (ADR 0005) — 20a-e, 20h, 21 (automatic)
+- [x] App: window and title, open card, empty state, canvas (pan, zoom, fit, tiles), preview meshes, bar with About button (no panel yet), Preset (menu), Method button (Brightness), value fields, expander placeholder hidden, blue button states; theme tokens and fonts (ADR 0003) — 1, 3, 5, 6 (outline), 10, 11, 13, 19, 22
+- [x] Dialogs (rfd) and atomic write; save traces the full picture first — 19
+- [x] kittest end-to-end (open by argument, trace, stop, retry, save), frame-budget CPU-time test, OOM test, `unshare -n` session test, Xvfb start test — 7, 8, 19, 23b, 24
+- [x] Pixel tests: px-00, px-01, px-02 (bar), px-05 (bar left of the blue button) and px-08 (menu), Rust port of `compare.py` with its self-tests (ux §12) — see the notes below
+- [ ] Pixel tests px-06, px-07 and px-13: their references have the Advanced block open, so the blue button sits at another place; they come with slice 2, when the block exists
+
+Notes of the implementer (slice 1, branch `story/open-trace-save`):
+
+- The pixel comparison covers the bar rectangle only (the 12 px margin of the references holds
+  Curvyo's own page, a darker ground and "Page 1", which Tracyo does not have); the Open card
+  (x 12 to 60) is cut away before the bar is found. Measured: px-00 0.56 % (longest run 8 px),
+  px-01 1.57 % (8), px-02 0.56 % (8), px-05 left part 0.39 % (8), px-08 0.30 % (8); the limits are
+  those of ux-notes 12.2 (2 %, run under 12), nothing was tuned.
+- px-05 whole row: the reference shows the running button 75 px wide, ux-notes 3.3 keeps it 89 px;
+  compared as it is the row differs by 1.95 % with runs of 28 px along both button edges.
+- px-00 to px-02 differ from the reference only at glyph edges, the "mm" unit, the corners and the
+  slot of the expander (reserved and empty in this slice).
+- The menu opens 8 px below its button (the reference), ux-notes 5 says 4 px.
+- Debt added: `docs/technical-debt.md` 1 to 8.
+
 
 ## Slice 2: Methods and Advanced settings (`story/trace-methods-advanced`)
 

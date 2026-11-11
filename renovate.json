@@ -1,0 +1,22 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+  "schedule": ["before 6am on monday"],
+  "packageRules": [
+    {
+      "description": "eframe, egui and epaint change their look together; the pixel tests decide",
+      "matchPackageNames": ["eframe", "egui_kittest", "/^egui/", "/^epaint/"],
+      "groupName": "egui"
+    },
+    {
+      "description": "vectrace tag bumps stand alone: they may need the model files copied (ADR 0006)",
+      "matchPackageNames": ["vectrace", "https://github.com/curvyo/vectrace"],
+      "groupName": "vectrace"
+    },
+    {
+      "description": "the toolchain file stands alone",
+      "matchFileNames": ["rust-toolchain.toml"],
+      "groupName": "toolchain"
+    }
+  ]
+}
