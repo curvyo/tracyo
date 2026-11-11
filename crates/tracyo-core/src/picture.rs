@@ -49,6 +49,16 @@ fn narrow(value: u16) -> u8 {
 }
 
 impl Picture {
+    /// The picture as vectrace reads it.
+    #[must_use]
+    pub fn raster(&self) -> vectrace::Raster<'_> {
+        vectrace::Raster {
+            width: self.width,
+            height: self.height,
+            rgba: &self.rgba,
+        }
+    }
+
     /// Decodes PNG, JPEG or WebP `bytes` with the EXIF orientation applied.
     ///
     /// # Errors

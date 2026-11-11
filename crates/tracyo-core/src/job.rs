@@ -34,7 +34,12 @@ impl Session {
         } else {
             &self.full
         };
-        let params: TraceParams = request.settings.trace_params(request.threshold);
+        let params = TraceParams {
+            selection: request.selection,
+            invert: request.invert,
+            ignore_background: request.drop_border,
+            ..request.settings.trace_params(request.threshold)
+        };
         let job = Job {
             raster: Raster {
                 width: picture.width,
@@ -77,6 +82,9 @@ mod tests {
         TraceRequest {
             threshold,
             settings: Settings::default(),
+            selection: vectrace::Selection::Brightness,
+            invert: false,
+            drop_border: false,
             reduced,
         }
     }
@@ -121,5 +129,82 @@ mod tests {
         let mm = 25.4 / 96.0;
         assert!((bounds.x0 - 500.0 * mm).abs() < 0.5, "x0 = {}", bounds.x0);
         assert!((bounds.x1 - 1500.0 * mm).abs() < 0.5, "x1 = {}", bounds.x1);
+    }
+
+    /// A white 40 x 40 picture with a red 20 x 20 square at (10, 10) and a blue 6 x 6 one
+    /// touching the top-left corner.
+    fn colours() -> Picture {
+        let mut rgba = vec![255; 40 * 40 * 4];
+        let mut paint = |x0: usize, x1: usize, y0: usize, y1: usize, c: [u8; 3]| {
+            for y in y0..y1 {
+                for x in x0..x1 {
+                    let i = (y * 40 + x) * 4;
+                    rgba[i..i + 3].copy_from_slice(&c);
+                }
+            }
+        };
+        paint(10, 30, 10, 30, [255, 0, 0]);
+        paint(0, 6, 0, 6, [0, 0, 255]);
+        Picture {
+            width: 40,
+            height: 40,
+            rgba,
+        }
+    }
+
+    fn output_of(selection: vectrace::Selection, invert: bool, drop_border: bool) -> wire::Output {
+        let mut session = Session::new(colours());
+        let request = TraceRequest {
+            selection,
+            invert,
+            drop_border,
+            ..request(128, false)
+        };
+        wire::read(&session.run(&request, &mut |_| {})).unwrap()
+    }
+
+    fn paths_of(selection: vectrace::Selection, invert: bool, drop_border: bool) -> usize {
+        output_of(selection, invert, drop_border).paths
+    }
+
+    #[test]
+    fn remove_background_traces_everything_unlike_the_background() {
+        let white = Some(vectrace::Rgb8::new(255, 255, 255));
+        let selection = vectrace::Selection::RemoveBackground {
+            background: white,
+            tolerance: 40,
+        };
+        assert_eq!(paths_of(selection, false, false), 2);
+        assert_eq!(
+            paths_of(selection, false, true),
+            1,
+            "the blue one touches the border"
+        );
+    }
+
+    #[test]
+    fn pick_colours_traces_only_the_picked_colour() {
+        let selection = vectrace::Selection::PickColours {
+            swatches: vectrace::Swatches::from_slice(&[vectrace::Rgb8::new(255, 0, 0)]),
+            background: Some(vectrace::Rgb8::new(255, 255, 255)),
+            tolerance: 19,
+        };
+        assert_eq!(paths_of(selection, false, false), 1);
+        let none = vectrace::Selection::PickColours {
+            swatches: vectrace::Swatches::from_slice(&[]),
+            background: None,
+            tolerance: 19,
+        };
+        assert_eq!(paths_of(none, false, false), 0);
+    }
+
+    #[test]
+    fn invert_traces_what_brightness_leaves_out() {
+        let plain = output_of(vectrace::Selection::Brightness, false, false);
+        let inverted = output_of(vectrace::Selection::Brightness, true, false);
+        assert_eq!(
+            plain.foreground_pixels + inverted.foreground_pixels,
+            40 * 40
+        );
     }
 }

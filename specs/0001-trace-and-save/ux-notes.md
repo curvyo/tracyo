@@ -132,11 +132,20 @@ Content width: 8 + 28 + 132 + 176 + 150 + 150 + 150 + 171 + 28 + 89 + 8 x 8 + 8 
 At 1280 x 800 (bar width up to 1196): **one row, 36 px**. Remove background adds 176: two rows.
 At 800 x 600 (up to 716): two rows (i to Smooth 684 px; Tolerance, Ignore below, expander and button). `px-00-bar-closed.png` shows the one-row bar.
 
-**Blue button width (Proposal):** Curvyo's is 75 px at rest and while running because "Trace"
-fits; "Save as…" needs 89 px (Liberation Sans 14 px, 12 px side padding). The button keeps the
-width of "Save as…" at rest and while running, so the expander never jumps; Stopped and Failed
-grow it for Retry as in Curvyo. In `px-05-running-42.png` it shrinks to 75; that is the
-Curvyo-with-a-longer-label artefact this rule removes.
+**Blue button width (lead, 2026-11-11; the reference wins over the earlier Proposal):** at rest
+"Save as…" is 89 px (Liberation Sans 14 px, 12 px side padding); while running it is 75 px, as in
+`px-05-running-42.png` (Curvyo's `w-[75px]`), so the expander moves 14 px right while a trace
+shows its percentage. Stopped is 8 + "Stopped" (12 px) + 4 + Retry (8 + text + 8) = 106 px, Failed
+8 + 12 + 4 + "Failed" + 4 + Retry = 110 px (measured in `px-07`, `px-06`).
+
+**Bar width, as the reference measures it.** The bar is as wide as all its items on one line (the
+open Advanced block counts as one more zero-width item, so one more 8 px gap: 1162 px at rest, 1148
+while running), at most the cap. When the items do not fit on one line the bar takes the whole cap,
+the items wrap by whole items and the expander with the blue button goes to the far right of its
+row. The reference pictures were captured with a cap of 1164 px (`px-06`, `px-07`, `px-09`), not
+the 1196 px of a 1280 px window; the pixel tests for those three use a 1248 px wide window (cap =
+width - 84). With the cap of 1196 a Stopped bar with the Advanced block open (1179 px) stays on one
+row.
 
 ### 3.4 Tab order
 
@@ -206,7 +215,7 @@ Method second lines: "Dark and light pixels by a cut-off.", "Everything unlike t
 | Value field typing (double-click, Enter, F2, a digit) | white, 1 px `#2F6FEE` border plus 1 px inset `#2F6FEE`, label stays left, number right-aligned before the unit, all selected (`#3367D1` / white) | | | Enter or Tab commit, Escape restores |
 | Blue button | `#2F6FEE`, white 14 px, radius 8, 12 px padding | `#347AFF` | | ring 2 + gap 1 |
 | Swatch cell 24 x 28 | 20 x 20 colour, 1 px `#3A3A3F`, radius 4, opaque; cells touch (4 px between swatches) | swatch at 40 % (flatten to the bar) and `X` 12 px over a 3 px `#DCDCE0` casing; with Ctrl held `Ban` instead | excluded: 40 % and `Ban`; hover shows `X` | ring 2 around the 20 px swatch, and the hover look |
-| Menu (Preset, Method) | 4 px below the button (above if it would leave the window), left edges aligned, min 232 px wide, `#DCDCE0`, radius 10, shadow, 4 px top and bottom; rows 44 px: 4 px inset, 8 px padding, radius 8; a 12 px check column ("✓" for the current), name 14/20 weight 600, second line 12/16 at 70 % with 20 px indent | row ground `#B9C6E3` (follows the pointer and the keys) | after an edit ("Custom") the preset's row keeps `#B9C6E3` and no check | ring 2 on the row |
+| Menu (Preset, Method) | 8 px below the button (above if it would leave the window; the reference shows 8), left edges aligned, min 232 px wide, `#DCDCE0`, radius 10, shadow, 4 px top and bottom; rows 44 px: 4 px inset, 8 px padding, radius 8; a 12 px check column ("✓" for the current), name 14/20 weight 600, second line 12/16 at 70 % with 20 px indent | row ground `#B9C6E3` (follows the pointer and the keys) | after an edit ("Custom") the preset's row keeps `#B9C6E3` and no check | ring 2 on the row |
 
 Hidden, not disabled: a control that does not apply is absent (method groups, Colours, palette).
 The only dimmed controls are the blue button (nothing to save), the Colours field with Pick
@@ -363,13 +372,21 @@ ring. **Drop cue colour:** Curvyo's code uses `var(--accent)`, which is shadcn's
    (stands for another rasteriser) passes; a 30 x 20 px block or a field 2 px narrower fails.
 4. Look at `diff.png`: red may sit on glyph edges only, never along a border, a gap or a fill.
 5. Not compared by pixels: shadow halo, tooltips' exact x, scroll bars, the cursor.
+6. **Regions (slice 2).** The references with the Advanced block open show controls of later
+   slices (the Output pill, with Multicolour its Colours field and palette, the Recognise
+   toggles). `tests/pixels.rs` compares each control that exists where it is, region by region,
+   each with the tolerance of step 3: the first row or both rows, the divider, Invert and Drop
+   border shapes (px-03 only), Denoise to Corners (shifted by the missing controls: 241 px in
+   px-03, 469 px with the Multicolour row), the gap, Analyse. A later slice adds the Output pill
+   and the toggles and replaces the shifted regions with whole rows. The tests that need the
+   reference's 1164 px cap run in a 1248 px window (section 3.3).
 
 ## 13. Differences from Curvyo and from the spec draft (for the lead)
 
 | # | Item | Here | Note |
 |---|---|---|---|
 | 1 | Mask group, Parts, Part label | absent | spec criterion 10 |
-| 2 | Finish button | "Save as…", 89 px fixed at rest and running | spec criterion 22; section 3.3 |
+| 2 | Finish button | "Save as…", 89 px at rest, 75 px while running (as the reference) | spec criterion 22; section 3.3 |
 | 3 | Empty state | Curvyo's one-row bar without the sentence; no dimmed controls | spec criterion 3 asks for dimmed controls; Curvyo never shows them without an image |
 | 4 | Open error | notice slot with Curvyo's import texts | spec criterion 2 asks for "Cannot read this image." in the bar |
 | 5 | About | docked 280 px panel, "About Tracyo", Esc keeps it open | spec criterion 26 says a small window, Esc closes |

@@ -18,10 +18,20 @@ pub fn logo() -> PathBuf {
 
 /// A harness of 1280 x 800 around the app, with the embedded font and a settings file in `dir`.
 pub fn harness<'a>(dir: &Path, open: Option<PathBuf>, dialogs: Dialogs) -> Harness<'a, App> {
+    harness_sized(dir, open, dialogs, 1280.0)
+}
+
+/// As [`harness`] with a window `width` points wide.
+pub fn harness_sized<'a>(
+    dir: &Path,
+    open: Option<PathBuf>,
+    dialogs: Dialogs,
+    width: f32,
+) -> Harness<'a, App> {
     let config = Config::at(Some(dir.join("settings.toml")));
     let exe = PathBuf::from(env!("CARGO_BIN_EXE_tracyo"));
     let mut harness = Harness::builder()
-        .with_size(eframe::egui::vec2(1280.0, 800.0))
+        .with_size(eframe::egui::vec2(width, 800.0))
         .wgpu()
         .build_eframe(move |cc| {
             App::new(

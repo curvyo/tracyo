@@ -108,3 +108,10 @@ pub fn install_style(ctx: &egui::Context) {
         style.spacing.scroll = egui::style::ScrollStyle::thin();
     });
 }
+
+/// Swatch border.
+pub const SWATCH_BORDER: Color32 = TOOLBAR_ICON;
+/// Checkerboard, light cell.
+pub const CHECKER_A: Color32 = Color32::WHITE;
+/// Checkerboard, dark cell.
+pub const CHECKER_B: Color32 = Color32::from_rgb(0xC9, 0xC9, 0xCE);

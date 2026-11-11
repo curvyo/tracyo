@@ -21,7 +21,7 @@ with its size in mm. Method is Brightness only; no Advanced block yet.
 - [x] Dialogs (rfd) and atomic write; save traces the full picture first — 19
 - [x] kittest end-to-end (open by argument, trace, stop, retry, save), frame-budget CPU-time test, OOM test, `unshare -n` session test, Xvfb start test — 7, 8, 19, 23b, 24
 - [x] Pixel tests: px-00, px-01, px-02 (bar), px-05 (bar left of the blue button) and px-08 (menu), Rust port of `compare.py` with its self-tests (ux §12) — see the notes below
-- [ ] Pixel tests px-06, px-07 and px-13: their references have the Advanced block open, so the blue button sits at another place; they come with slice 2, when the block exists
+- [x] Pixel tests px-06, px-07 and px-13: their references have the Advanced block open; done with slice 2, when the block exists (see the slice 2 notes)
 
 Notes of the implementer (slice 1, branch `story/open-trace-save`):
 
@@ -30,27 +30,50 @@ Notes of the implementer (slice 1, branch `story/open-trace-save`):
   (x 12 to 60) is cut away before the bar is found. Measured: px-00 0.56 % (longest run 8 px),
   px-01 1.57 % (8), px-02 0.56 % (8), px-05 left part 0.39 % (8), px-08 0.30 % (8); the limits are
   those of ux-notes 12.2 (2 %, run under 12), nothing was tuned.
-- px-05 whole row: the reference shows the running button 75 px wide, ux-notes 3.3 keeps it 89 px;
-  compared as it is the row differs by 1.95 % with runs of 28 px along both button edges.
+- px-05 whole row: the reference shows the running button 75 px wide, ux-notes 3.3 kept it 89 px;
+  compared as it was the row differed by 1.95 % with runs of 28 px along both button edges
+  (resolved in slice 2: the button is 75 px).
 - px-00 to px-02 differ from the reference only at glyph edges, the "mm" unit, the corners and the
   slot of the expander (reserved and empty in this slice).
-- The menu opens 8 px below its button (the reference), ux-notes 5 says 4 px.
+- The menu opens 8 px below its button (the reference); ux-notes 5 said 4 px (corrected in slice 2).
 - Debt added: `docs/technical-debt.md` 1 to 8.
 
 
-## Slice 2: Methods and Advanced settings (`story/trace-methods-advanced`)
+## Slice 2: Methods and Advanced settings (`story/methods-advanced`, stacked on `story/open-trace-save`)
 
 Demo: Remove background and Pick colours with pipettes; the Advanced block with Invert, Drop
 border shapes, Denoise, Upscale, Corners, Analyse; all presets; every reason a save is dimmed;
 the values come back after a restart.
 
-- [ ] Method menu, Threshold vs Colour tolerance per method, background chip, hex, Auto, pipettes, picked swatches (up to 8) — 12
-- [ ] Analyse job and the one-time automatic analysis that never overrides a changed value — 14 (analysis part)
-- [ ] Advanced block with Invert, Drop border shapes, Denoise, Upscale, Corners and the Analyse button (Output comes in slice 3, Recognise text and shapes in slice 4); expander remembered, changed-dot — 14
-- [ ] All presets, "Custom" after an edit — 11
-- [ ] All nothing-to-save reasons — 15
-- [ ] Settings file complete — 18
-- [ ] Pixel tests px-03, px-09, px-12, px-14
+- [x] `method`: Method, per-picture values (Threshold, Invert, Drop border shapes, background Auto or picked, up to 8 picked colours), the tracer's selection, expander's "Changed: ..." text; unit tests first — 12, 14
+- [x] `analysis`: vectrace's analysis reduced to method, Threshold, background and Colour tolerance; applied when a picture opens (the picture is shown only after it answered, so no value can be changed before it) and by Analyse; with Pick colours only the Threshold is set — 14
+- [x] Trace request and protocol carry the selection, Invert and Drop border shapes; job tests for both methods, Invert, Drop border shapes — 4, 12
+- [x] `settings`: method, each method's Colour tolerance, Advanced open, Corners field; Custom after any of the six values, a pick restores; file tests — 11, 18
+- [x] Reasons of the colour methods, "0 paths: no colour picked." — 12, 15
+- [x] App: Method menu with three rows, Colour tolerance field, background chip, hex, Auto, pipettes (canvas chip, crosshair, click replaces, Shift adds, right press and Esc disarm), picked swatches with x, expander with changed-dot and tooltip, Advanced block (toggles, Denoise, Upscale, Corners, Analyse), blue button states of the reference — 12, 14, 9
+- [x] Kittest flows with the real worker (`tests/methods.rs`): analysis choice, Pick colours, background pipette, tolerance per method, block and restart, presets after Custom, Analyse, second picture — 1, 11, 12, 14, 18
+- [x] Pixel tests px-03, px-05 (whole row), px-06, px-07, px-09, px-12, px-13, px-14, by regions (ux-notes 12.2 step 6)
+- [ ] Output, Colours and the palette (slice 3), Recognise text and shapes (slice 4); px-04, px-10, px-11, px-15 wait for them
+
+Notes of the implementer (slice 2, branch `story/methods-advanced`):
+
+- Pixel numbers (share of differing pixels, longest run; limit 2 % and under 12): px-00 0.51 %
+  (8), px-01 1.57 % (8), px-02 0.51 % (8), px-03 row 0.39 % (8), toggles 0.56 % (1), settings
+  0.74 % (9), analyse 0.21 % (4); px-05 row 0.41 % (8), analyse 0.74 % (10); px-06 rows 0.25 %
+  (9); px-07 rows 0.24 % (8); px-08 0.30 % (8); px-09 rows 0.34 % (8), menu 0.18 % (4); px-12
+  0.73 % (8); px-13 row 0.42 % (8); px-14 row 0.40 % (8). Divider and gap regions 0 %. Nothing
+  was tuned.
+- px-05 now compares the whole first row: the running button is 75 px wide (lead's decision 1).
+  The menus open 8 px below their button and the expander has its slot filled (decisions 2, 3);
+  ux-notes 3.3, 5, 12.2 and 13 are corrected.
+- The bar width rule was measured on the references, not taken from ux-notes 3.3: all items on one
+  line plus one gap while the block is open, at most the cap; a wrapped bar takes the whole cap.
+  The references have a cap of 1164 px; px-06, px-07 and px-09 run in a 1248 px window.
+- The analysis runs on a thread of the app (as slice 1 ran `auto_threshold`), not in the worker
+  process of ADR 0004 section 2: killing the worker for every dragged value would kill the analysis.
+  Debt 6.
+- The logo's analysis is Remove background, so a first start shows it, as Curvyo does (px-09);
+  the session golden file `logo-session.svg` is the trace of that.
 
 ## Slice 3: Multicolour and excluded colours (`story/trace-multicolour`)
 

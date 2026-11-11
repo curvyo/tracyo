@@ -9,6 +9,7 @@ Known shortcuts, with where they come from. Remove an entry when it is fixed.
 | 3 | Linux file dialogs need a running `xdg-desktop-portal`; a missing portal looks like a cancel | `rfd` cannot tell them apart | ADR 0003 |
 | 4 | `RUSTSEC-2026-0370..0372` (`zvariant`, `zbus_names`, `zvariant_derive` unmaintained) are ignored in `deny.toml` | they come in through egui's accessibility stack and have no upgrade | `deny.toml` |
 | 5 | The hidden status region (AccessKit live region) of ux-notes section 3.1 is not built | not needed by a slice-1 criterion | ux-notes 3.1 |
-| 6 | The Method menu has the one row Brightness | the other methods arrive with slice 2 | plan slice 2 |
-| 7 | The expander's slot (28 px) is reserved and empty so the bar has its final width | the Advanced block arrives with slice 2 | plan slice 2 |
-| 8 | Pixel test px-05 compares the bar left of the blue button only | the reference shows the running button 75 px wide, ux-notes section 3.3 keeps it 89 px | ux-notes 3.3 |
+| 6 | The analysis runs on an app thread, not in the worker process of ADR 0004 section 2, and cannot be stopped | the worker is killed for every dragged value, which would kill a running analysis; an out-of-memory abort in it would take the app down | slice 2, ADR 0004 |
+| 7 | The pixel tests of references with the Advanced block open compare region by region | the references show the Output pill, the Multicolour palette and the Recognise toggles, which later slices build; Denoise to Corners are compared shifted | ux-notes 12.2 step 6 |
+| 8 | px-15 (About tooltip) is not compared | the reference reads "About Trace", Tracyo's text is "About Tracyo"; slice 5 decides the pixel test | plan slice 5 |
+| 9 | The picked-swatch row, its hover x and the pipette chip have no pixel reference | no reference picture shows them (px-10 and px-11 show the palette, slice 3) | ux-notes 5 |

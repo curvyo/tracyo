@@ -89,6 +89,9 @@ mod tests {
             Request::Trace(TraceRequest {
                 threshold: 128,
                 settings: Settings::default(),
+                selection: vectrace::Selection::Brightness,
+                invert: false,
+                drop_border: false,
                 reduced: false,
             })
             .encode(),
@@ -112,6 +115,9 @@ mod tests {
         let input = Request::Trace(TraceRequest {
             threshold: 1,
             settings: Settings::default(),
+            selection: vectrace::Selection::Brightness,
+            invert: false,
+            drop_border: false,
             reduced: false,
         })
         .encode();

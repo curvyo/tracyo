@@ -37,6 +37,9 @@ fn request() -> TraceRequest {
     TraceRequest {
         threshold: 128,
         settings: Settings::default(),
+        selection: vectrace::Selection::Brightness,
+        invert: false,
+        drop_border: false,
         reduced: false,
     }
 }

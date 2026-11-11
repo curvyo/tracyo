@@ -22,7 +22,7 @@ pub fn set_focus_visible(ctx: &egui::Context, visible: bool) {
     ctx.data_mut(|d| d.insert_temp(Id::unique("focus-visible"), visible));
 }
 
-fn radius(r: f32) -> CornerRadius {
+pub(crate) fn radius(r: f32) -> CornerRadius {
     // invariant: radii are small positive numbers.
     #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
     CornerRadius::same(r.round() as u8)
@@ -68,7 +68,7 @@ pub fn release_focus_after_mouse(ctx: &egui::Context, resp: &Response) {
 }
 
 /// The focus ring: 2 px accent outside a 1 px gap (or none).
-fn ring(ui: &Ui, rect: Rect, corner: f32, gap: bool) {
+pub(crate) fn ring(ui: &Ui, rect: Rect, corner: f32, gap: bool) {
     let grow = if gap { 1.0 } else { 0.0 };
     ui.painter().rect_stroke(
         rect.expand(grow),
@@ -78,7 +78,7 @@ fn ring(ui: &Ui, rect: Rect, corner: f32, gap: bool) {
     );
 }
 
-fn labelled(resp: &Response, kind: Role, name: &str) {
+pub(crate) fn labelled(resp: &Response, kind: Role, name: &str) {
     resp.widget_info(|| WidgetInfo::labeled(kind, true, name));
 }
 
@@ -565,20 +565,24 @@ pub struct BlueButton {
 #[must_use]
 pub fn blue_width(ui: &Ui, state: &Button) -> f32 {
     match state {
-        Button::Rest | Button::Running(_) => 89.0,
+        Button::Rest => 89.0,
+        Button::Running(_) => 75.0,
+        // 8 px, the word, 4 px, then Retry with 8 px of padding on each side.
         Button::Stopped => {
-            12.0 + text_width(ui, "Stopped", &theme::text12())
+            8.0 + text_width(ui, "Stopped", &theme::text12())
+                + 4.0
                 + 8.0
                 + text_width(ui, "Retry", &theme::text14())
-                + 12.0
+                + 8.0
         }
         Button::Failed(_) => {
-            12.0 + 12.0
+            8.0 + 12.0
                 + 4.0
                 + text_width(ui, "Failed", &theme::text12())
+                + 4.0
                 + 8.0
                 + text_width(ui, "Retry", &theme::text14())
-                + 12.0
+                + 8.0
         }
     }
 }
@@ -674,7 +678,7 @@ pub fn blue_button(
             ui.painter().rect_filled(rect, corner, theme::ACCENT);
             let retry_width = text_width(ui, "Retry", &theme::text14());
             let retry_rect = Rect::from_min_max(
-                pos2(rect.right() - 12.0 - retry_width - 4.0, rect.top()),
+                pos2(rect.right() - 8.0 - retry_width - 8.0, rect.top()),
                 rect.max,
             );
             let retry = ui.interact(retry_rect, id.with("retry"), Sense::click());
@@ -688,13 +692,13 @@ pub fn blue_button(
             }
             text(
                 ui,
-                pos2(rect.right() - 12.0, rect.center().y),
+                pos2(rect.right() - 8.0, rect.center().y),
                 Align2::RIGHT_CENTER,
                 "Retry",
                 theme::text14(),
                 Color32::WHITE,
             );
-            let mut x = rect.left() + 12.0;
+            let mut x = rect.left() + 8.0;
             if matches!(state, Button::Failed(_)) {
                 icons.paint(
                     ui,
