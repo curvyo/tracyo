@@ -186,8 +186,8 @@ Notes of the implementer (slice 5, branch `story/polish-about-release`):
   region at 0.57 %). px-15: button 1.02 % (1), box rows equal (22 of 22), glyphs 0.44 % (3).
 - Real-app run under Xvfb (debug and release builds): About panel open at 1280 x 800, the first frame of a tall picture below
   a bar of three lines (settings with the Advanced block, Multicolour, Remove background), the no-portal notice.
-- Release binary: 31 477 376 bytes (30.0 MiB) with `lto`, `codegen-units = 1`, `strip`; first frame (empty window, and a
-  picture visible) 0.13 to 0.17 s under Xvfb with llvmpipe, warm page cache (a cold disk cache cannot be flushed without root).
+- Release binary: 32 648 776 bytes (31.1 MiB) with `lto`, `codegen-units = 1`, `strip`; first frame (empty window, and a
+  picture visible) 0.13 to 0.15 s under Xvfb with llvmpipe, warm page cache (a cold disk cache cannot be flushed without root).
 - The Output row follows Curvyo's source (`TraceAdvanced.tsx`: `flex flex-wrap items-center gap-x-1`, the group `flex min-h-9`,
   the palette `flex flex-wrap`). Curvyo's built `dist` is older than its source (its palette sits on a row of its own and the
   toggles beside Denoise), so no 800 px picture was taken from it (debt 17).

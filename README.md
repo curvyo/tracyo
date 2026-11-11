@@ -56,7 +56,7 @@ Rust 1.99 (pinned in `rust-toolchain.toml`; the oldest that builds is the `rust-
 the program starts.
 
 ```text
-cargo build --release     # target/release/tracyo, about 30 MB with the text recognition model
+cargo build --release     # target/release/tracyo, about 31 MB with the text recognition model
 cargo nextest run --workspace
 python3 scripts/third-party.py    # rewrites THIRD-PARTY.md after a dependency change
 ```
