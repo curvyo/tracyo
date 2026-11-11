@@ -112,7 +112,18 @@ fn running_out_of_memory_shows_failed() {
         .stderr(Stdio::null())
         .spawn()
         .unwrap();
-    std::thread::sleep(std::time::Duration::from_millis(300));
+    // Wait until the child has exec'd the worker binary (before that it is a copy of this test
+    // process, whose address space is far larger), instead of a fixed sleep that a loaded
+    // machine can outrun.
+    let worker_exe = std::fs::canonicalize(env!("CARGO_BIN_EXE_tracyo")).unwrap();
+    let exec_start = std::time::Instant::now();
+    while std::fs::read_link(format!("/proc/{}/exe", idle.id())).ok() != Some(worker_exe.clone()) {
+        assert!(
+            exec_start.elapsed().as_secs() < 10,
+            "the idle worker never started"
+        );
+        std::thread::sleep(std::time::Duration::from_millis(5));
+    }
     let status = std::fs::read_to_string(format!("/proc/{}/status", idle.id())).unwrap();
     let vm_kb: u64 = status
         .lines()

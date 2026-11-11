@@ -19,7 +19,7 @@ fn fixed(open: Option<PathBuf>, save: Option<PathBuf>) -> Dialogs {
 
 fn opened<'a>(dir: &Path, save: Option<PathBuf>) -> Harness<'a, App> {
     let mut h = common::harness(dir, Some(common::logo()), fixed(None, save));
-    common::wait_until(&mut h, 60.0, App::has_result);
+    common::wait_for_result(&mut h, 60.0);
     h.run_steps(2);
     h
 }
@@ -78,7 +78,7 @@ fn ctrl_o_opens_the_picture_the_dialog_returns() {
     h.run_steps(2);
     assert!(h.state().picture_name().is_none());
     press_key(&mut h, Key::O, Modifiers::COMMAND);
-    common::wait_until(&mut h, 60.0, App::has_result);
+    common::wait_for_result(&mut h, 60.0);
     assert_eq!(h.state().picture_name(), Some("input-logo.png"));
 }
 
@@ -89,7 +89,7 @@ fn the_open_card_button_opens_the_picture() {
     let mut h = common::harness(dir.path(), None, fixed(Some(common::logo()), None));
     h.run_steps(2);
     h.get_by_label("Open image").click();
-    common::wait_until(&mut h, 60.0, App::has_result);
+    common::wait_for_result(&mut h, 60.0);
     assert!(h.state().picture_name().is_some());
 }
 
@@ -112,7 +112,7 @@ fn a_dropped_file_opens() {
     h.input_mut()
         .dropped_files
         .push(std::sync::Arc::new(Dropped(common::logo())));
-    common::wait_until(&mut h, 60.0, App::has_result);
+    common::wait_for_result(&mut h, 60.0);
     assert_eq!(h.state().picture_name(), Some("input-logo.png"));
 }
 
@@ -123,7 +123,7 @@ fn an_unreadable_file_keeps_the_picture_and_shows_a_notice() {
     let junk = dir.path().join("notes.txt");
     std::fs::write(&junk, "not a picture").unwrap();
     let mut h = common::harness(dir.path(), Some(common::logo()), fixed(Some(junk), None));
-    common::wait_until(&mut h, 60.0, App::has_result);
+    common::wait_for_result(&mut h, 60.0);
     press_key(&mut h, Key::O, Modifiers::COMMAND);
     common::wait_until(&mut h, 20.0, |app| app.notice_text().is_some());
     let notice = h.state().notice_text().unwrap();
@@ -181,7 +181,7 @@ fn esc_stops_and_retry_traces_again() {
     assert_eq!(h.state_mut().button(), Button::Stopped);
     h.state_mut().wrap_worker(Vec::new());
     h.get_by_label("Retry").click();
-    common::wait_until(&mut h, 60.0, App::has_result);
+    common::wait_for_result(&mut h, 60.0);
     assert_eq!(h.state_mut().button(), Button::Rest);
     h.run_steps(1);
 }
@@ -229,7 +229,7 @@ fn a_dying_worker_is_failed_with_a_reason() {
     // Retry with a healthy worker recovers.
     h.state_mut().wrap_worker(Vec::new());
     h.get_by_label("Retry").click();
-    common::wait_until(&mut h, 60.0, App::has_result);
+    common::wait_for_result(&mut h, 60.0);
 }
 
 /// Criterion 19 and 20: Save as… writes a well-formed SVG of the logo's size, atomically.
@@ -327,7 +327,7 @@ fn values_are_remembered_between_starts() {
     h.get_by_label("Smooth").focus();
     h.run_steps(2);
     press_key(&mut h, Key::ArrowRight, Modifiers::SHIFT);
-    common::wait_until(&mut h, 60.0, App::has_result);
+    common::wait_for_result(&mut h, 60.0);
     let text = std::fs::read_to_string(dir.path().join("settings.toml")).unwrap();
     assert!(text.contains("smooth = 90"), "{text}");
     drop(h);
@@ -343,7 +343,7 @@ fn a_preset_sets_its_values_and_an_edit_reads_custom() {
     h.get_by_label("Preset").click();
     h.run_steps(2);
     h.get_by_label("Photo").click();
-    common::wait_until(&mut h, 60.0, App::has_result);
+    common::wait_for_result(&mut h, 60.0);
     assert_eq!(h.state().settings().preset_label(), "Photo");
     assert_eq!(h.state().settings().smooth, 50);
     h.get_by_label("Smooth").focus();
@@ -364,7 +364,7 @@ fn a_typed_value_is_clamped_and_escape_restores() {
     h.event(Event::Text("250".into()));
     h.run_steps(2);
     press_key(&mut h, Key::Enter, Modifiers::NONE);
-    common::wait_until(&mut h, 60.0, App::has_result);
+    common::wait_for_result(&mut h, 60.0);
     assert_eq!(h.state().settings().smooth, 100);
     h.get_by_label("Smooth").focus();
     h.run_steps(2);
@@ -407,7 +407,7 @@ fn a_big_picture_saves_from_the_full_trace() {
     img.save(&big).unwrap();
     let target = dir.path().join("big.svg");
     let mut h = common::harness(dir.path(), Some(big), fixed(None, Some(target.clone())));
-    common::wait_until(&mut h, 120.0, App::has_result);
+    common::wait_for_result(&mut h, 120.0);
     let jobs = h.state().trace_jobs();
     h.get_by_label("Save as\u{2026}").click();
     let start = std::time::Instant::now();

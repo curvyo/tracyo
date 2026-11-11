@@ -6,7 +6,6 @@
 mod common;
 
 use egui_kittest::kittest::Queryable;
-use tracyo_app::App;
 use tracyo_app::dialogs::Dialogs;
 
 #[test]
@@ -22,7 +21,7 @@ fn open_trace_and_save_the_logo() {
             save: Some(target.clone()),
         },
     );
-    common::wait_until(&mut h, 120.0, App::has_result);
+    common::wait_for_result(&mut h, 120.0);
     h.get_by_label("Save as\u{2026}").click();
     h.run_steps(3);
     let text = std::fs::read_to_string(&target).expect("the SVG was written");
