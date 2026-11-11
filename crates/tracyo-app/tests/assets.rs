@@ -46,3 +46,29 @@ fn every_asset_is_listed_with_its_hash() {
         );
     }
 }
+
+/// The embedded model is the one `vectrace::ocr` expects, and its licence record names the same
+/// hashes (ADR 0006): a vectrace bump that changes them fails here until the files are copied
+/// again from the new tag.
+#[test]
+fn the_model_files_have_the_hashes_vectrace_expects() {
+    let dir = assets().join("models/paddleocr-latin");
+    let record = std::fs::read_to_string(dir.join("model.toml")).unwrap();
+    for (file, expected) in [
+        ("det.onnx", vectrace::ocr::DETECTOR_SHA256),
+        ("rec.onnx", vectrace::ocr::RECOGNISER_SHA256),
+        ("dict.txt", vectrace::ocr::ALPHABET_SHA256),
+    ] {
+        let hash = format!(
+            "{:x}",
+            Sha256::digest(std::fs::read(dir.join(file)).unwrap())
+        );
+        assert_eq!(hash, expected, "{file} differs from what vectrace expects");
+        assert!(
+            record.contains(&format!("sha256 = \"{expected}\"")),
+            "model.toml has no entry for {file}"
+        );
+    }
+    assert!(record.contains("licence = \"Apache-2.0\""));
+    assert!(dir.join("LICENSE").is_file());
+}
