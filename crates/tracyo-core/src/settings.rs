@@ -527,7 +527,12 @@ mod tests {
         for i in 0..4 {
             let p = s.with_preset(i);
             assert_eq!(
-                (p.method, p.remove_tolerance, p.pick_tolerance, p.advanced_open),
+                (
+                    p.method,
+                    p.remove_tolerance,
+                    p.pick_tolerance,
+                    p.advanced_open
+                ),
                 (2, 12, 77, true)
             );
         }
@@ -553,21 +558,34 @@ mod tests {
     #[test]
     fn the_colour_tolerances_start_at_40_and_19() {
         let s = Settings::default();
-        assert_eq!((s.remove_tolerance, s.pick_tolerance, s.method), (40, 19, 0));
+        assert_eq!(
+            (s.remove_tolerance, s.pick_tolerance, s.method),
+            (40, 19, 0)
+        );
         assert!(!s.advanced_open);
     }
 
     #[test]
     fn out_of_range_methods_and_tolerances_in_the_file_are_clamped() {
         let s = Settings::from_toml("method = 9\nremove_tolerance = 200\npick_tolerance = 101\n");
-        assert_eq!((s.method, s.remove_tolerance, s.pick_tolerance), (2, 100, 100));
+        assert_eq!(
+            (s.method, s.remove_tolerance, s.pick_tolerance),
+            (2, 100, 100)
+        );
     }
 
     #[test]
     fn the_new_fields_have_the_ranges_of_the_spec() {
-        assert_eq!((CORNERS.min, CORNERS.max, CORNERS.step, CORNERS.big_step), (0.0, 100.0, 1.0, 10.0));
         assert_eq!(
-            (COLOUR_TOLERANCE.min, COLOUR_TOLERANCE.max, COLOUR_TOLERANCE.big_step),
+            (CORNERS.min, CORNERS.max, CORNERS.step, CORNERS.big_step),
+            (0.0, 100.0, 1.0, 10.0)
+        );
+        assert_eq!(
+            (
+                COLOUR_TOLERANCE.min,
+                COLOUR_TOLERANCE.max,
+                COLOUR_TOLERANCE.big_step
+            ),
             (0.0, 100.0, 10.0)
         );
         assert_eq!(COLOUR_TOLERANCE.label, "Colour tolerance");

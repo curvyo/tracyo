@@ -18,11 +18,7 @@ pub enum Method {
 
 impl Method {
     /// The methods in menu order.
-    pub const ALL: [Self; 3] = [
-        Self::Brightness,
-        Self::RemoveBackground,
-        Self::PickColours,
-    ];
+    pub const ALL: [Self; 3] = [Self::Brightness, Self::RemoveBackground, Self::PickColours];
 
     /// The method at menu position `index`; Brightness for anything else.
     #[must_use]
@@ -183,7 +179,10 @@ mod tests {
 
     #[test]
     fn the_menu_has_three_methods_with_their_texts() {
-        let rows: Vec<_> = Method::ALL.iter().map(|m| (m.label(), m.detail())).collect();
+        let rows: Vec<_> = Method::ALL
+            .iter()
+            .map(|m| (m.label(), m.detail()))
+            .collect();
         assert_eq!(
             rows,
             [
@@ -212,7 +211,11 @@ mod tests {
         v.pick(BLUE, true);
         assert_eq!(v.swatches, [RED, BLUE]);
         v.pick(BLUE, true);
-        assert_eq!(v.swatches, [RED, BLUE], "a colour already picked is not added twice");
+        assert_eq!(
+            v.swatches,
+            [RED, BLUE],
+            "a colour already picked is not added twice"
+        );
         for i in 0..10 {
             v.pick(Rgb8::new(i, 1, 1), true);
         }

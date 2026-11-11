@@ -72,14 +72,9 @@ impl App {
         let Some(pointer) = ui.input(|i| i.pointer.hover_pos()) else {
             return;
         };
-        let colour = self
-            .pointer_picture
-            .and_then(|(x, y)| self.colour_at(x, y));
+        let colour = self.pointer_picture.and_then(|(x, y)| self.colour_at(x, y));
         let font = theme::text12();
-        let label = colour.map_or_else(
-            || "No colour here".to_owned(),
-            tracyo_core::method::hex,
-        );
+        let label = colour.map_or_else(|| "No colour here".to_owned(), tracyo_core::method::hex);
         let text_w = widgets::text_width(ui, &label, &font);
         let width = if colour.is_some() {
             1.0 + 6.0 + 16.0 + 6.0 + text_w + 6.0 + 1.0

@@ -77,7 +77,7 @@ fn the_analysis_chooses_remove_background_for_the_logo() {
     assert_eq!(h.state().settings().method, 1);
     let values = h.state().picture_values().unwrap();
     assert!(values.background_auto());
-    assert!(values.swatches.is_empty());
+    assert_eq!(values.swatches.len(), 0);
     assert_eq!(h.state().nothing_to_save(), None);
 }
 
@@ -123,7 +123,7 @@ fn pick_colours_arms_the_pipette_and_collects_colours() {
 
     h.get_by_label(&format!("Remove {}", hex(only[0]))).click();
     settle(&mut h);
-    assert!(h.state().picture_values().unwrap().swatches.is_empty());
+    assert_eq!(h.state().picture_values().unwrap().swatches.len(), 0);
     assert_eq!(
         h.state().nothing_to_save(),
         Some("0 paths: no colour picked.")
@@ -170,7 +170,10 @@ fn the_colour_tolerance_is_remembered_per_method() {
     assert_eq!(h.state().settings().remove_tolerance, after);
     let text = std::fs::read_to_string(dir.path().join("settings.toml")).unwrap();
     assert!(text.contains("pick_tolerance = 19"), "{text}");
-    assert!(text.contains(&format!("remove_tolerance = {after}")), "{text}");
+    assert!(
+        text.contains(&format!("remove_tolerance = {after}")),
+        "{text}"
+    );
     assert!(text.contains("method = 2"), "{text}");
 }
 
@@ -278,10 +281,7 @@ fn a_new_picture_resets_the_picture_values_and_keeps_the_settings() {
     settle(&mut h);
     press(&mut h, Key::O, Modifiers::COMMAND);
     common::wait_until(&mut h, 60.0, |app| {
-        app.has_result()
-            && app
-                .picture_values()
-                .is_some_and(|v| !v.invert)
+        app.has_result() && app.picture_values().is_some_and(|v| !v.invert)
     });
     assert_eq!(h.state().settings().corners, 71);
 }

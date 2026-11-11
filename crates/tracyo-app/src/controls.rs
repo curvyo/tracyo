@@ -72,7 +72,11 @@ pub fn segmented(
             Align2::CENTER_CENTER,
             label,
             theme::text14(),
-            if on { Color32::WHITE } else { theme::TOOLBAR_ICON },
+            if on {
+                Color32::WHITE
+            } else {
+                theme::TOOLBAR_ICON
+            },
         );
         if on && resp.has_focus() && focus_visible(ui.ctx()) {
             ui.painter().rect_stroke(
@@ -97,7 +101,11 @@ pub fn segmented(
                     - i32::from(inp.consume_key(Modifiers::NONE, Key::ArrowLeft))
             });
             if step != 0 {
-                let next = (selected as i32 + step).clamp(0, labels.len() as i32 - 1) as usize;
+                let next = if step < 0 {
+                    selected.saturating_sub(1)
+                } else {
+                    (selected + 1).min(labels.len() - 1)
+                };
                 if next != selected {
                     chosen = Some(next);
                     ui.memory_mut(|m| m.request_focus(id.with(next)));
@@ -134,7 +142,11 @@ pub fn text_toggle(ui: &mut Ui, rect: Rect, id: Id, label: &str, pressed: bool) 
         Align2::CENTER_CENTER,
         label,
         theme::text14(),
-        if pressed { Color32::WHITE } else { theme::TOOLBAR_ICON },
+        if pressed {
+            Color32::WHITE
+        } else {
+            theme::TOOLBAR_ICON
+        },
     );
     if resp.has_focus() && focus_visible(ui.ctx()) {
         ring(ui, rect, theme::RADIUS_BUTTON, false);
@@ -235,10 +247,7 @@ pub fn swatch_cell(
     let faded = resp.hovered() || (resp.has_focus() && focus_visible(ui.ctx()));
     let swatch_rect = Rect::from_center_size(cell.center(), vec2(20.0, 20.0));
     let (border, fill) = if faded {
-        (
-            over_bar(theme::SWATCH_BORDER, 0.4),
-            over_bar(colour, 0.4),
-        )
+        (over_bar(theme::SWATCH_BORDER, 0.4), over_bar(colour, 0.4))
     } else {
         (theme::SWATCH_BORDER, colour)
     };

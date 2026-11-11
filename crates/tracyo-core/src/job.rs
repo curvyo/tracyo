@@ -175,7 +175,11 @@ mod tests {
             tolerance: 40,
         };
         assert_eq!(paths_of(selection, false, false), 2);
-        assert_eq!(paths_of(selection, false, true), 1, "the blue one touches the border");
+        assert_eq!(
+            paths_of(selection, false, true),
+            1,
+            "the blue one touches the border"
+        );
     }
 
     #[test]
@@ -198,6 +202,9 @@ mod tests {
     fn invert_traces_what_brightness_leaves_out() {
         let plain = output_of(vectrace::Selection::Brightness, false, false);
         let inverted = output_of(vectrace::Selection::Brightness, true, false);
-        assert_eq!(plain.foreground_pixels + inverted.foreground_pixels, 40 * 40);
+        assert_eq!(
+            plain.foreground_pixels + inverted.foreground_pixels,
+            40 * 40
+        );
     }
 }

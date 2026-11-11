@@ -397,7 +397,10 @@ mod tests {
             nothing_to_save(&output(Status::TooDetailed, 0, 0), 100, b, 0).as_deref(),
             Some("Too much detail: raise Ignore below.")
         );
-        assert_eq!(nothing_to_save(&output(Status::Traced, 3, 10), 100, b, 0), None);
+        assert_eq!(
+            nothing_to_save(&output(Status::Traced, 3, 10), 100, b, 0),
+            None
+        );
     }
 
     #[test]
@@ -420,8 +423,13 @@ mod tests {
             None
         );
         assert_eq!(
-            nothing_to_save(&output(Status::TooDetailed, 0, 0), 100, Method::RemoveBackground, 0)
-                .as_deref(),
+            nothing_to_save(
+                &output(Status::TooDetailed, 0, 0),
+                100,
+                Method::RemoveBackground,
+                0
+            )
+            .as_deref(),
             Some("Too much detail: raise Ignore below.")
         );
     }

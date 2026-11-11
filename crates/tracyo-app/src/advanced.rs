@@ -21,14 +21,9 @@ const ANALYSE_W: f32 = 75.0;
 
 impl App {
     /// Where the block's items sit when `inner` px are inside the bar's padding.
-    pub(crate) fn block_layout(&self, ui: &egui::Ui, inner: f32) -> BlockFlow {
+    pub(crate) fn block_layout(ui: &egui::Ui, inner: f32) -> BlockFlow {
         let cell = |labels: &[&str]| (LABEL_W + segmented_width(ui, labels, 8.0)).max(MIN_CELL);
-        let widths = [
-            28.0 + 4.0 + 28.0,
-            cell(&DENOISE),
-            cell(&UPSCALE),
-            MIN_CELL,
-        ];
+        let widths = [28.0 + 4.0 + 28.0, cell(&DENOISE), cell(&UPSCALE), MIN_CELL];
         block_flow(&widths, ANALYSE_W, inner - 4.0)
     }
 
@@ -46,7 +41,10 @@ impl App {
         // The divider: 4 px under the rows, full width of the content.
         let y = origin.y;
         ui.painter().line_segment(
-            [Pos2::new(origin.x, y + 0.5), Pos2::new(origin.x + inner, y + 0.5)],
+            [
+                Pos2::new(origin.x, y + 0.5),
+                Pos2::new(origin.x + inner, y + 0.5),
+            ],
             Stroke::new(1.0, theme::DIVIDER),
         );
         let content = origin + vec2(0.0, 1.0 + 4.0);
@@ -153,12 +151,8 @@ impl App {
         }
 
         // Analyse.
-        let analyse = controls::accent_button(
-            ui,
-            at(block.tail, ANALYSE_W),
-            bar_id("analyse"),
-            "Analyse",
-        );
+        let analyse =
+            controls::accent_button(ui, at(block.tail, ANALYSE_W), bar_id("analyse"), "Analyse");
         widgets::release_focus_after_mouse(ctx, &analyse);
         if analyse.clicked() {
             self.analyse_again(ctx);

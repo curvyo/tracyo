@@ -31,7 +31,7 @@ pub struct Flow {
 struct Rows {
     items: Vec<(f32, f32)>,
     tail: (f32, f32),
-    rows: f32,
+    count: f32,
 }
 
 /// Flows `widths` in whole items, wrapping when `inner` would be passed; `tail` is the last
@@ -54,7 +54,7 @@ fn rows(widths: &[f32], tail: f32, inner: f32) -> Rows {
     Rows {
         items,
         tail: (inner - tail, row),
-        rows: row + 1.0,
+        count: row + 1.0,
     }
 }
 
@@ -74,7 +74,7 @@ pub fn flow(widths: &[f32], tail: f32, max_inner: f32, block_open: bool) -> Flow
             .map(|&(x, row)| pos2(PAD + x, row * ROW + 4.0))
             .collect(),
         tail: pos2(PAD + r.tail.0, r.tail.1 * ROW + 4.0),
-        size: vec2(inner + 2.0 * PAD, r.rows * ROW),
+        size: vec2(inner + 2.0 * PAD, r.count * ROW),
     }
 }
 
@@ -100,7 +100,7 @@ pub fn block_flow(widths: &[f32], tail: f32, inner: f32) -> BlockFlow {
             .map(|&(x, row)| pos2(x, row * ROW + 4.0))
             .collect(),
         tail: pos2(r.tail.0, r.tail.1 * ROW + 4.0),
-        rows: r.rows,
+        rows: r.count,
     }
 }
 
@@ -215,7 +215,7 @@ impl App {
                 let open = self.settings.advanced_open;
                 let layout = flow(&widths, 28.0 + PAD + blue_w, max_inner, open);
                 let inner = layout.size.x - 2.0 * PAD;
-                let block = open.then(|| self.block_layout(ui, inner));
+                let block = open.then(|| Self::block_layout(ui, inner));
                 let height = layout.size.y + block.as_ref().map_or(0.0, |b| block_height(b.rows));
                 let (bar, _) =
                     ui.allocate_exact_size(vec2(layout.size.x, height), egui::Sense::hover());
@@ -240,10 +240,17 @@ impl App {
                 widgets::reset_tooltip(ctx, &about);
                 widgets::release_focus_after_mouse(ctx, &about);
 
-                self.drop_buttons(ui, ctx, method, [at(layout.items[1], 132.0), at(layout.items[2], 176.0)]);
+                self.drop_buttons(
+                    ui,
+                    ctx,
+                    method,
+                    [at(layout.items[1], 132.0), at(layout.items[2], 176.0)],
+                );
 
                 let mut next = 3;
-                changed = self.main_field(ui, ctx, at(layout.items[next], 150.0)).or(changed);
+                changed = self
+                    .main_field(ui, ctx, at(layout.items[next], 150.0))
+                    .or(changed);
                 next += 1;
                 if group_w.is_some() {
                     let origin = bar.min + layout.items[next].to_vec2();
@@ -272,7 +279,9 @@ impl App {
                 self.tail(ui, ctx, &state, blue_w, bar.min + layout.tail.to_vec2());
                 if let Some(block) = block {
                     let origin = bar.min + vec2(PAD, layout.size.y + 4.0);
-                    changed = self.advanced_block(ui, ctx, &block, origin, inner).or(changed);
+                    changed = self
+                        .advanced_block(ui, ctx, &block, origin, inner)
+                        .or(changed);
                 }
                 if let Some(dragging) = changed {
                     self.values_changed(ctx, dragging);
@@ -312,7 +321,13 @@ impl App {
     }
 
     /// The Preset and Method buttons.
-    fn drop_buttons(&mut self, ui: &mut egui::Ui, ctx: &egui::Context, method: Method, rects: [Rect; 2]) {
+    fn drop_buttons(
+        &mut self,
+        ui: &mut egui::Ui,
+        ctx: &egui::Context,
+        method: Method,
+        rects: [Rect; 2],
+    ) {
         let [preset_rect, method_rect] = rects;
         let preset = widgets::drop_button(
             ui,

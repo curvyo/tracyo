@@ -49,7 +49,12 @@ impl App {
             name,
             self.pipette == kind,
         );
-        widgets::tooltip(ctx, &resp, Side::Below, &plain("Pick a colour from the image"));
+        widgets::tooltip(
+            ctx,
+            &resp,
+            Side::Below,
+            &plain("Pick a colour from the image"),
+        );
         widgets::reset_tooltip(ctx, &resp);
         widgets::release_focus_after_mouse(ctx, &resp);
         if resp.clicked() {
@@ -110,14 +115,19 @@ impl App {
         let mut remove = None;
         let mut focus = None;
         for (i, colour) in swatches.iter().enumerate() {
-            let cell = Rect::from_min_size(
-                origin + vec2(30.0 + 24.0 * i as f32, 0.0),
-                vec2(24.0, 28.0),
-            );
+            let cell =
+                Rect::from_min_size(origin + vec2(30.0 + 24.0 * i as f32, 0.0), vec2(24.0, 28.0));
             let id: Id = bar_id("picked").with(i);
             let name = format!("Remove {}", hex(*colour));
-            let (resp, clicked) =
-                controls::swatch_cell(ui, &mut self.icons, cell, id, colour32(*colour), &name, i == stop);
+            let (resp, clicked) = controls::swatch_cell(
+                ui,
+                &mut self.icons,
+                cell,
+                id,
+                colour32(*colour),
+                &name,
+                i == stop,
+            );
             widgets::tooltip(ctx, &resp, Side::Below, &plain(&hex(*colour)));
             widgets::reset_tooltip(ctx, &resp);
             if clicked {

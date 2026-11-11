@@ -65,7 +65,9 @@ impl App {
     pub(crate) fn remove_picked(&mut self, ctx: &egui::Context, index: usize) {
         let Some(doc) = &mut self.doc else { return };
         doc.values.remove(index);
-        self.picked_stop = self.picked_stop.min(doc.values.swatches.len().saturating_sub(1));
+        self.picked_stop = self
+            .picked_stop
+            .min(doc.values.swatches.len().saturating_sub(1));
         self.values_changed(ctx, false);
     }
 
