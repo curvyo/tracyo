@@ -217,3 +217,48 @@ fn the_first_frame_fits_below_a_bar_of_three_rows() {
         app.bar_bottom()
     );
 }
+
+/// Eight bands of the 1600 px picture, in eight colours that stay eight in the palette.
+const BANDS: [[u8; 3]; 8] = [
+    [200, 30, 40],
+    [30, 120, 60],
+    [30, 60, 200],
+    [240, 200, 40],
+    [120, 40, 160],
+    [240, 120, 30],
+    [30, 180, 190],
+    [20, 20, 20],
+];
+
+/// The palette of a Multicolour trace arrives after the first frame and wraps the bar onto
+/// another line; the picture, still where the fit put it, is fitted again below the bar. A
+/// picture the user has panned stays where it is.
+#[test]
+fn a_bar_that_grows_after_the_fit_does_not_cover_the_picture() {
+    let dir = tempfile::tempdir().unwrap();
+    let tall = dir.path().join("tall.png");
+    image::RgbaImage::from_fn(400, 1600, |_, y| {
+        let [r, g, b] = BANDS[(y / 200) as usize];
+        image::Rgba([r, g, b, 255])
+    })
+    .save(&tall)
+    .unwrap();
+    std::fs::write(
+        dir.path().join("settings.toml"),
+        "advanced_open = true\nmethod = 1\nmulticolour = true\n",
+    )
+    .unwrap();
+    let mut h = common::harness(dir.path(), Some(tall), fixed());
+    common::wait_until(&mut h, 20.0, |a| {
+        a.has_result() && !a.palette_colours().is_empty()
+    });
+    h.run_steps(5);
+    let app = h.state();
+    let zoom = app.zoom().unwrap();
+    let top = app.picture_point_on_screen(0, 0).unwrap().y - 0.5 * zoom;
+    assert!(
+        top >= app.bar_bottom() + 12.0 - 1.0,
+        "picture top {top}, bar bottom {}",
+        app.bar_bottom()
+    );
+}

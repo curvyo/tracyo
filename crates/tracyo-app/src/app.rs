@@ -74,6 +74,8 @@ pub(crate) struct Doc {
     pub values: PictureValues,
     pub analysis: Analysis,
     pub view: View,
+    /// Set while the view is still where the last fit put it: whether that fit may enlarge.
+    pub auto_fit: Option<bool>,
     pub text: TextState,
 }
 
@@ -409,6 +411,7 @@ impl App {
                 zoom: 1.0,
                 offset: vec2(0.0, 0.0),
             },
+            auto_fit: None,
             text: TextState::Unread,
         });
         self.fit_next_frame = true;

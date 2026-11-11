@@ -19,7 +19,7 @@ path = "src/main.rs"
 tracyo-core = { path = "../tracyo-core", version = "0.1.0" }
 vectrace.workspace = true
 kurbo.workspace = true
-eframe = { version = "=0.37.0", default-features = false, features = ["wgpu", "x11", "wayland", "accesskit"] }
+eframe = { version = "=0.37.0", default-features = false, features = ["wgpu", "x11", "wayland", "accesskit", "clipboard"] }
 rfd = { version = "0.18", default-features = false, features = ["xdg-portal"] }
 fontdb = "0.24"
 resvg = { version = "0.50", default-features = false }

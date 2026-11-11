@@ -19,6 +19,9 @@ allow = [
     "Zlib",
     # File-level copyleft, compatible with AGPL-3.0 (option-ext, via dirs).
     "MPL-2.0",
+    # Boost: permissive (clipboard-win and error-code, the Windows clipboard of egui's `clipboard`
+    # feature, ADR 0003 section 1).
+    "BSL-1.0",
 ]
 confidence-threshold = 0.9
 # Tracyo's own crates.
