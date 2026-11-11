@@ -377,8 +377,9 @@ ring. **Drop cue colour:** Curvyo's code uses `var(--accent)`, which is shadcn's
    toggles). `tests/pixels.rs` compares each control that exists where it is, region by region,
    each with the tolerance of step 3: the first row or both rows, the divider, Invert and Drop
    border shapes (px-03 only), Denoise to Corners (shifted by the missing controls: 241 px in
-   px-03, 469 px with the Multicolour row), the gap, Analyse. Slice 3 added the Output pill,
-   Colours and the palette; only the two Recognise toggles (slice 4) are still skipped (64 px, Denoise to Analyse shifted by them). The tests that need the
+   px-03, 469 px with the Multicolour row), the gap, Analyse. Slices 3 and 4 added the Output pill,
+   Colours, the palette and the four toggles, so the whole block row is compared: the left padding, the Output row up to
+   Recognise shapes, the 8 px gap, Denoise to Corners, the gap and Analyse. The tests that need the
    reference's 1164 px cap run in a 1248 px window (section 3.3).
 
 ## 13. Differences from Curvyo and from the spec draft (for the lead)

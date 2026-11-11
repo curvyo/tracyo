@@ -112,16 +112,45 @@ Notes of the implementer (slice 3, branch `story/multicolour`):
 - Ctrl+click needs `modifiers.command` in the frame of the release; tests send press and release in frames of their own
   (`common::ctrl_click`), because egui_kittest queues a click's events into one frame whose modifiers end empty.
 
-## Slice 4: Recognise text and Recognise shapes (`story/trace-text-shapes`)
+## Slice 4: Recognise text and Recognise shapes (`story/text-shapes`, stacked on `story/multicolour`)
 
 Demo: a logo with text and a circle; "Reading text" with Stop; the preview shows recognised text
 outlines and shapes; in Inkscape the rectangle and circle are editable and the text is text.
 
-- [ ] Assets: model copied from vectrace v0.1.0, `ASSETS.md`, hash test (ADR 0006) — 16, 23
-- [ ] ReadText job, lines kept per picture and scaled for the reduced copy, "Reading text" progress — 16
-- [ ] Shapes flag in the trace request; preview of shapes and text outlines — 6, 17
-- [ ] `svg`: primitives, bands, regions with holes, polygons and stars as paths, text elements, escaping; goldens — 20f, 20g
-- [ ] `unshare -n` session test with text and shapes on — 23b
+- [x] Assets: model copied from vectrace v0.1.0, `ASSETS.md`, hash test (ADR 0006); the lucide `scan-text` and `shapes` icons; `precision.png` as the OCR fixture picture (CC0, noted in `ASSETS.md`) — 16, 23
+- [x] `settings`: Recognise text and Recognise shapes remembered; the expander's "Changed:" text names them — 18
+- [x] Request, protocol and job: the shapes flag and the read lines in the trace request, `ReadText`, `Lines` and `TextFailed` frames, `Session::read_text`, the lines scaled for the reduced copy; unit tests first — 16, 17
+- [x] ReadText job in the worker (model embedded, loaded on the first `ReadText` only), lines kept per picture in the app, "Reading text" as the running button's name, one percent over read and trace (`stages`), a failed reader says Curvyo's notice and traces without text; a value changed during the read does not restart it; Esc stops, Retry reads again — 16
+- [x] Preview of shapes (the primitive's outline where the traced one was) and of the text lines' outlines — 6, 17
+- [x] `svg`: `shapes::plan` (rect, circle, ellipse, polygon and star as straight-sided `<path>`, bands as stroked primitives, regions with holes stay in the path with the primitives' geometry), `text::place`, `<text>` with escaping, layer of the text's colour, ids per element kind; goldens `recognised-shapes.svg` and `recognised-text.svg`, structure tests, second-reader tests for the rotation and the band, OCR test on `precision.png` — 20f, 20g
+- [x] Session test with text and shapes on in a network-less namespace (CI step added; run locally with `unshare -rn`, files identical) — 23b
+- [x] Pixel tests compare the whole block row including the four toggles (debt 7 gone)
+
+Notes of the implementer (slice 4, branch `story/text-shapes`):
+
+- Pixel numbers (share of differing pixels, longest run; limit 2 % and under 12): 80 comparisons, all pass, nothing tuned.
+  Largest: px-01 1.57 % (8, the empty bar, as before) and the 8 px left pad of the block row 1.39 % (3, four pixels of the
+  bar's corner). Output row with the four toggles (pill to Recognise shapes): px-03 0.49 % (4), px-04 0.57 % (10), px-05
+  0.57 % (10), px-06 0.59 % (10), px-07 0.57 % (10), px-10 0.57 % (10), px-11 0.59 % (10), px-13 0.59 % (10), px-14 0.59 % (10).
+  Denoise to Corners now sits unshifted: 0.74 % (9) in every picture; Analyse 0.21 % (4), 0.74 % (10) while running; dividers and
+  gaps 0 %. First rows and the other states as in slices 2 and 3.
+- The preview, the SVG and the progress follow `~/curvyo/docs/tracing-images.md` "Recognise text" and "Recognise shapes". The text
+  fit to fonts is not done (spec Frage 1 A): every line is `sans-serif` stretched by `textLength` to the width of its outlines;
+  its font size is the ink's extent across the line (ADR 0005 section 7).
+- "Reading text" is the accessible name of the running button while the text is read ("Tracing" otherwise); what is drawn is the
+  percentage as for any trace. The job's percent runs over both stages with Curvyo's weights (read 40, trace 15 without the font
+  fit), so the read ends at 72 %.
+- A value changed while the text is read keeps the read running and the trace of the latest values follows it (the worker is not
+  killed, so a drag cannot restart the read); Recognise text switched off during the read stops it and traces without text.
+- The notice of a failed reader is Curvyo's text "Text recognition failed. Traced without text." in the notice slot (status, 3 s);
+  the picture is then traced without text for as long as it is shown (Curvyo keeps its bar line for that too).
+- Decisions on ADR 0005 section 6: ids are numbered per element kind in document order (`path1`, `rect1`, `circle1`, `ellipse1`,
+  `text1`), not by layer; a text whose colour has no layer (white text on a red box when white is the background) gets a layer of
+  its own above the others; a layer that holds only text is written; a text of an excluded colour is left out of the file and
+  the preview. Curvyo's `keeps_fill` rule is ported as a safety net; for outlines wound as the traced ones it never refuses.
+- The real Save as… dialog cannot be driven under Xvfb (no `xdg-desktop-portal`, debt 3), so the exported SVG of the real-app run
+  is the one the session test writes through the same button with the fixed dialog; Inkscape 1.4 draws its text stretched to the
+  original width, `rsvg-convert` ignores `textLength` and draws it at the font's natural width.
 
 ## Slice 5: Polish to the pixel references, About, platforms, releases (`story/trace-polish`)
 
