@@ -20,6 +20,9 @@ fn trace() -> (Picture, vectrace::wire::Output) {
     let request = TraceRequest {
         threshold: 128,
         settings: Settings::default(),
+        selection: vectrace::Selection::Brightness,
+        invert: false,
+        drop_border: false,
         reduced: false,
     };
     let output = vectrace::wire::read(&session.run(&request, &mut |_| {})).unwrap();

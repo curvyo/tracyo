@@ -1,5 +1,7 @@
 //! The worker's request and reply frames as bytes: a tag, a little-endian length, the payload.
 
+use vectrace::{Rgb8, Selection, Swatches};
+
 use crate::picture::Picture;
 use crate::request::TraceRequest;
 use crate::settings::Settings;
@@ -102,6 +104,79 @@ impl<'a> Reader<'a> {
     }
 }
 
+/// A colour as three bytes, with a leading 1; `None` is a single 0.
+fn encode_colour(colour: Option<Rgb8>, out: &mut Vec<u8>) {
+    match colour {
+        Some(c) => out.extend([1, c.r, c.g, c.b]),
+        None => out.push(0),
+    }
+}
+
+fn decode_colour(r: &mut Reader<'_>) -> Result<Option<Rgb8>, ProtocolError> {
+    match r.u8()? {
+        0 => Ok(None),
+        1 => Ok(Some(Rgb8::new(r.u8()?, r.u8()?, r.u8()?))),
+        _ => Err(ProtocolError::Malformed),
+    }
+}
+
+/// The method index, its Colour tolerance, its background and its picked colours.
+fn encode_selection(selection: &Selection, out: &mut Vec<u8>) {
+    out.push(selection.index());
+    match selection {
+        Selection::Brightness => {}
+        Selection::RemoveBackground {
+            background,
+            tolerance,
+        } => {
+            out.push(*tolerance);
+            encode_colour(*background, out);
+        }
+        Selection::PickColours {
+            swatches,
+            background,
+            tolerance,
+        } => {
+            out.push(*tolerance);
+            encode_colour(*background, out);
+            // invariant: at most MAX_SWATCHES (8) colours.
+            out.push(u8::try_from(swatches.as_slice().len()).unwrap_or(u8::MAX));
+            for c in swatches.as_slice() {
+                out.extend([c.r, c.g, c.b]);
+            }
+        }
+    }
+}
+
+fn decode_selection(r: &mut Reader<'_>) -> Result<Selection, ProtocolError> {
+    match r.u8()? {
+        0 => Ok(Selection::Brightness),
+        1 => {
+            let tolerance = r.u8()?;
+            let background = decode_colour(r)?;
+            Ok(Selection::RemoveBackground {
+                background,
+                tolerance,
+            })
+        }
+        2 => {
+            let tolerance = r.u8()?;
+            let background = decode_colour(r)?;
+            let count = usize::from(r.u8()?);
+            let mut colours = Vec::with_capacity(count);
+            for _ in 0..count {
+                colours.push(Rgb8::new(r.u8()?, r.u8()?, r.u8()?));
+            }
+            Ok(Selection::PickColours {
+                swatches: Swatches::from_slice(&colours),
+                background,
+                tolerance,
+            })
+        }
+        _ => Err(ProtocolError::Malformed),
+    }
+}
+
 impl Request {
     /// The whole frame, header included.
     #[must_use]
@@ -118,7 +193,10 @@ impl Request {
                     u8::from(s.upscale_auto),
                     s.denoise,
                     u8::from(t.reduced),
+                    u8::from(t.invert),
+                    u8::from(t.drop_border),
                 ]);
+                encode_selection(&t.selection, &mut payload);
                 frame(2, &payload)
             }
         }
@@ -150,6 +228,8 @@ impl Request {
                 let tolerance = r.f64()?;
                 let ignore_below = r.f64()?;
                 let (corners, upscale, denoise, reduced) = (r.u8()?, r.u8()?, r.u8()?, r.u8()?);
+                let (invert, drop_border) = (r.u8()?, r.u8()?);
+                let selection = decode_selection(&mut r)?;
                 r.done()?;
                 let settings = Settings {
                     smooth,
@@ -158,11 +238,14 @@ impl Request {
                     corners,
                     upscale_auto: upscale != 0,
                     denoise,
-                    window: None,
+                    ..Settings::default()
                 };
                 Ok(Self::Trace(TraceRequest {
                     threshold,
                     settings,
+                    selection,
+                    invert: invert != 0,
+                    drop_border: drop_border != 0,
                     reduced: reduced != 0,
                 }))
             }
@@ -260,14 +343,70 @@ mod tests {
             corners: 12,
             upscale_auto: true,
             denoise: 2,
-            window: None,
+            ..Settings::default()
         };
         let r = Request::Trace(TraceRequest {
             threshold: 158,
             settings,
+            selection: Selection::Brightness,
+            invert: true,
+            drop_border: true,
             reduced: true,
         });
         assert_eq!(round_request(&r), r);
+    }
+
+    #[test]
+    fn every_selection_round_trips() {
+        let colours = [Rgb8::new(1, 2, 3), Rgb8::new(250, 251, 252)];
+        for selection in [
+            Selection::Brightness,
+            Selection::RemoveBackground {
+                background: Some(Rgb8::new(255, 255, 255)),
+                tolerance: 40,
+            },
+            Selection::RemoveBackground {
+                background: None,
+                tolerance: 0,
+            },
+            Selection::PickColours {
+                swatches: Swatches::from_slice(&colours),
+                background: None,
+                tolerance: 19,
+            },
+            Selection::PickColours {
+                swatches: Swatches::from_slice(&[]),
+                background: Some(Rgb8::new(9, 9, 9)),
+                tolerance: 100,
+            },
+        ] {
+            let r = Request::Trace(TraceRequest {
+                threshold: 1,
+                settings: Settings::default(),
+                selection,
+                invert: false,
+                drop_border: false,
+                reduced: false,
+            });
+            assert_eq!(round_request(&r), r);
+        }
+    }
+
+    #[test]
+    fn an_unknown_method_in_a_trace_is_refused() {
+        let bytes = Request::Trace(TraceRequest {
+            threshold: 1,
+            settings: Settings::default(),
+            selection: Selection::Brightness,
+            invert: false,
+            drop_border: false,
+            reduced: false,
+        })
+        .encode();
+        let (tag, payload) = split(&bytes);
+        let mut bad = payload.to_vec();
+        *bad.last_mut().unwrap() = 7;
+        assert_eq!(Request::decode(tag, &bad), Err(ProtocolError::Malformed));
     }
 
     #[test]
@@ -294,6 +433,9 @@ mod tests {
         let bytes = Request::Trace(TraceRequest {
             threshold: 1,
             settings: Settings::default(),
+            selection: Selection::Brightness,
+            invert: false,
+            drop_border: false,
             reduced: false,
         })
         .encode();

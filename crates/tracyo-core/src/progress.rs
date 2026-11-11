@@ -5,6 +5,8 @@ use std::time::Duration;
 
 use vectrace::wire::{Output, Status};
 
+use crate::method::Method;
+
 /// A running job shows its percentage only after this long.
 pub const SHOW_AFTER: Duration = Duration::from_millis(400);
 /// Once shown, the running look stays at least this long.
@@ -204,20 +206,33 @@ pub fn esc(state: EscState) -> Esc {
     }
 }
 
-/// Why a Brightness result cannot be saved, `None` when it can.
+/// Why a result cannot be saved, `None` when it can; `picked` is the number of colours Pick
+/// colours has.
 #[must_use]
-pub fn nothing_to_save(output: &Output, picture_pixels: u64) -> Option<String> {
+pub fn nothing_to_save(
+    output: &Output,
+    picture_pixels: u64,
+    method: Method,
+    picked: usize,
+) -> Option<String> {
+    if method == Method::PickColours && picked == 0 {
+        return Some("0 paths: no colour picked.".into());
+    }
     match output.status {
         Status::TooDetailed => Some("Too much detail: raise Ignore below.".into()),
         Status::Invalid => Some("This image can't be traced.".into()),
-        Status::Traced if output.paths == 0 => {
-            let direction = if output.foreground_pixels * 2 > picture_pixels {
-                "too high"
-            } else {
-                "too low"
-            };
-            Some(format!("0 paths at this Threshold: {direction}."))
-        }
+        Status::Traced if output.paths == 0 => Some(match method {
+            Method::Brightness => {
+                let direction = if output.foreground_pixels * 2 > picture_pixels {
+                    "too high"
+                } else {
+                    "too low"
+                };
+                format!("0 paths at this Threshold: {direction}.")
+            }
+            Method::RemoveBackground => "0 paths at this Colour tolerance: too high.".into(),
+            Method::PickColours => "0 paths at this Colour tolerance: too low.".into(),
+        }),
         Status::Traced => None,
     }
 }
@@ -369,19 +384,46 @@ mod tests {
 
     #[test]
     fn nothing_to_save_names_its_reason() {
+        let b = Method::Brightness;
         assert_eq!(
-            nothing_to_save(&output(Status::Traced, 0, 10), 100).as_deref(),
+            nothing_to_save(&output(Status::Traced, 0, 10), 100, b, 0).as_deref(),
             Some("0 paths at this Threshold: too low.")
         );
         assert_eq!(
-            nothing_to_save(&output(Status::Traced, 0, 90), 100).as_deref(),
+            nothing_to_save(&output(Status::Traced, 0, 90), 100, b, 0).as_deref(),
             Some("0 paths at this Threshold: too high.")
         );
         assert_eq!(
-            nothing_to_save(&output(Status::TooDetailed, 0, 0), 100).as_deref(),
+            nothing_to_save(&output(Status::TooDetailed, 0, 0), 100, b, 0).as_deref(),
             Some("Too much detail: raise Ignore below.")
         );
-        assert_eq!(nothing_to_save(&output(Status::Traced, 3, 10), 100), None);
+        assert_eq!(nothing_to_save(&output(Status::Traced, 3, 10), 100, b, 0), None);
+    }
+
+    #[test]
+    fn the_colour_methods_have_their_own_reasons() {
+        let empty = output(Status::Traced, 0, 10);
+        assert_eq!(
+            nothing_to_save(&empty, 100, Method::RemoveBackground, 0).as_deref(),
+            Some("0 paths at this Colour tolerance: too high.")
+        );
+        assert_eq!(
+            nothing_to_save(&empty, 100, Method::PickColours, 2).as_deref(),
+            Some("0 paths at this Colour tolerance: too low.")
+        );
+        assert_eq!(
+            nothing_to_save(&empty, 100, Method::PickColours, 0).as_deref(),
+            Some("0 paths: no colour picked.")
+        );
+        assert_eq!(
+            nothing_to_save(&output(Status::Traced, 2, 10), 100, Method::PickColours, 1),
+            None
+        );
+        assert_eq!(
+            nothing_to_save(&output(Status::TooDetailed, 0, 0), 100, Method::RemoveBackground, 0)
+                .as_deref(),
+            Some("Too much detail: raise Ignore below.")
+        );
     }
 
     #[test]

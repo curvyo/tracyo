@@ -1,6 +1,6 @@
 //! The trace request a picture and the settings make, and the map from its pixels to millimetres.
 
-use vectrace::PixelMap;
+use vectrace::{PixelMap, Selection};
 
 use crate::picture::Picture;
 use crate::settings::Settings;
@@ -15,6 +15,12 @@ pub struct TraceRequest {
     pub threshold: u8,
     /// The values of the bar (only the six preset values and the sliders are read).
     pub settings: Settings,
+    /// The method with its background, picked colours and Colour tolerance.
+    pub selection: Selection,
+    /// Invert.
+    pub invert: bool,
+    /// Drop border shapes.
+    pub drop_border: bool,
     /// Trace the reduced copy instead of the full picture.
     pub reduced: bool,
 }
