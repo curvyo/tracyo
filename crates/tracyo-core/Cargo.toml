@@ -14,6 +14,7 @@ image.workspace = true
 serde.workspace = true
 toml.workspace = true
 thiserror.workspace = true
+i_overlay.workspace = true
 
 [dev-dependencies]
 roxmltree = "0.21"

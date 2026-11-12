@@ -131,6 +131,11 @@ do not edit it by hand.
 | hashbrown | 0.17.1 | MIT OR Apache-2.0 | [a60eea817514](#text-a60eea817514), [ff8f68cb076c](#text-ff8f68cb076c) |
 | hex | 0.4.3 | MIT OR Apache-2.0 | [c6596eb7be85](#text-c6596eb7be85), [f7bdb3426d04](#text-f7bdb3426d04) |
 | hybrid-array | 0.4.15 | MIT OR Apache-2.0 | [70c9d40f1f95](#text-70c9d40f1f95), [a9040321c371](#text-a9040321c371) |
+| i_float | 5.0.0 | MIT | [260cc580f53a](#text-260cc580f53a) |
+| i_key_sort | 0.11.0 | MIT | none in the package |
+| i_overlay | 9.0.1 | MIT OR Apache-2.0 | none in the package |
+| i_shape | 5.0.0 | MIT | [260cc580f53a](#text-260cc580f53a) |
+| i_tree | 0.19.1 | MIT | [47e00f18b265](#text-47e00f18b265) |
 | image | 0.25.10 | MIT OR Apache-2.0 | [0d542e0c8804](#text-0d542e0c8804), [c77a4cf9da72](#text-c77a4cf9da72) |
 | image-webp | 0.2.4 | MIT OR Apache-2.0 | [0d542e0c8804](#text-0d542e0c8804), [c77a4cf9da72](#text-c77a4cf9da72) |
 | imagesize | 0.15.0 | MIT | [fa0d694967d5](#text-fa0d694967d5) |
@@ -365,6 +370,8 @@ copyright notice is in the repository named here:
 - egui-winit 0.37.0, MIT OR Apache-2.0, https://github.com/emilk/egui/tree/main/crates/egui-winit
 - emath 0.37.0, MIT OR Apache-2.0, https://github.com/emilk/egui/tree/main/crates/emath
 - epaint 0.37.0, MIT OR Apache-2.0, https://github.com/emilk/egui/tree/main/crates/epaint
+- i_key_sort 0.11.0, MIT, https://github.com/iShape-Rust/iKeySort
+- i_overlay 9.0.1, MIT OR Apache-2.0, https://github.com/iShape-Rust/iOverlay
 - objc-sys 0.3.5, MIT, https://github.com/madsmtm/objc2
 - objc2 0.5.3, MIT, https://github.com/madsmtm/objc2
 - objc2 0.6.5, MIT, https://github.com/madsmtm/objc2
@@ -7297,6 +7304,64 @@ CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
 OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
+```
+
+<a id="text-260cc580f53a"></a>
+### Text 260cc580f53a
+
+Shipped by: i_float 5.0.0, i_shape 5.0.0.
+
+```text
+MIT License
+
+Copyright (c) 2023 iShape-Rust
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+<a id="text-47e00f18b265"></a>
+### Text 47e00f18b265
+
+Shipped by: i_tree 0.19.1.
+
+```text
+MIT License
+
+Copyright (c) 2024 iShape-Rust
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
 ```
 
 <a id="text-fa0d694967d5"></a>
