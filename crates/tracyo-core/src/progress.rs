@@ -167,8 +167,9 @@ impl Progress {
     }
 }
 
-/// What Esc does, in order: stop a trace, disarm the pipette, close a menu or entry, then
-/// return the keyboard to the canvas. It never closes the window.
+/// What Esc does, in order: stop a trace, disarm the pipette, close a menu or entry, release the
+/// Rectangle tool, clear the region selection, then return the keyboard to the canvas. It never
+/// closes the window.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Esc {
     /// Stop the running trace.
@@ -179,13 +180,17 @@ pub enum Esc {
     CloseMenu,
     /// Restore and close a number entry.
     CloseEntry,
+    /// Release the Rectangle tool.
+    ReleaseRectangle,
+    /// Clear the region selection.
+    ClearSelection,
     /// Give the keyboard back to the canvas.
     FocusCanvas,
 }
 
 /// What is going on when Esc is pressed.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
-#[allow(clippy::struct_excessive_bools)] // four independent facts of the window
+#[allow(clippy::struct_excessive_bools)] // independent facts of the window
 pub struct EscState {
     /// A trace is running.
     pub running: bool,
@@ -195,6 +200,10 @@ pub struct EscState {
     pub menu_open: bool,
     /// A number entry is open.
     pub entry_open: bool,
+    /// The Rectangle tool is pressed.
+    pub rectangle_pressed: bool,
+    /// A region is selected.
+    pub region_selected: bool,
 }
 
 /// The first thing Esc does for this state.
@@ -208,6 +217,10 @@ pub fn esc(state: EscState) -> Esc {
         Esc::CloseMenu
     } else if state.entry_open {
         Esc::CloseEntry
+    } else if state.rectangle_pressed {
+        Esc::ReleaseRectangle
+    } else if state.region_selected {
+        Esc::ClearSelection
     } else {
         Esc::FocusCanvas
     }
@@ -383,6 +396,8 @@ mod tests {
             pipette_armed: true,
             menu_open: true,
             entry_open: true,
+            rectangle_pressed: true,
+            region_selected: true,
         };
         assert_eq!(esc(all), Esc::StopTrace);
         let all = EscState {
@@ -400,6 +415,16 @@ mod tests {
             ..all
         };
         assert_eq!(esc(all), Esc::CloseEntry);
+        let all = EscState {
+            entry_open: false,
+            ..all
+        };
+        assert_eq!(esc(all), Esc::ReleaseRectangle);
+        let all = EscState {
+            rectangle_pressed: false,
+            ..all
+        };
+        assert_eq!(esc(all), Esc::ClearSelection);
         assert_eq!(esc(EscState::default()), Esc::FocusCanvas);
     }
 

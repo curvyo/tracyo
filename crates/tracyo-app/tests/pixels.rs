@@ -1,21 +1,29 @@
 //! Pixel comparison of the app's states with the references of `specs/0001-trace-and-save`.
+//!
+//! Those references are older than the Mask group: their bar has none. The bar of a picture now has
+//! the 224 px group (and its gap) between Preset and Method, so each state is rendered in a window
+//! 232 px wider than the reference's, which keeps the rows wrapped as they were, and compared in
+//! two parts: everything left of the group as is, everything right of it moved 232 px to the right.
+//! The group itself is compared with the references of `specs/0002-trace-parts` in `masks.rs`.
 
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
 mod common;
 #[path = "common/compare.rs"]
 mod compare;
+#[path = "common/px.rs"]
+mod px;
 use egui_kittest::Harness;
 use egui_kittest::kittest::Queryable;
+use px::Region;
 use tracyo_app::App;
 use tracyo_app::dialogs::Dialogs;
 use tracyo_core::progress::Button;
 
+const SPEC: &str = "0001-trace-and-save";
+
 fn reference(name: &str) -> image::RgbImage {
-    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../specs/0001-trace-and-save/reference")
-        .join(name);
-    image::open(path).expect("reference picture").to_rgb8()
+    px::reference(SPEC, name)
 }
 
 /// Compares the `width` x `height` bar of `rendered` with the reference `name`.
@@ -47,55 +55,51 @@ fn check_at(name: &str, rendered: &image::RgbaImage, offset: (u32, u32), width: 
     assert!(outcome.passed(), "{name}: {}", outcome.summary());
 }
 
-/// One rectangle of a comparison: `size` pixels at `reference_at` from the reference bar's corner
-/// and at `got_at` from the render's.
-struct Region {
-    name: &'static str,
-    reference_at: (u32, u32),
-    got_at: (u32, u32),
-    size: (u32, u32),
-}
+/// Width of the Mask group and its gap.
+const MASK_SHIFT: u32 = 232;
+/// Where the group stands in the bar (the end of Preset and its gap).
+const MASK_AT: u32 = 184;
 
-impl Region {
-    /// A region at the same place in both pictures.
-    fn same(name: &'static str, at: (u32, u32), size: (u32, u32)) -> Self {
-        Self {
-            name,
-            reference_at: at,
-            got_at: at,
-            size,
-        }
-    }
-}
-
-/// Compares every region and asserts that all pass; each has its own numbers and diff picture.
-fn check_regions(name: &str, rendered: &image::RgbaImage, regions: &[Region]) {
-    let out = compare::out_dir();
-    let full = compare::rgb(rendered);
-    let got = image::imageops::crop_imm(&full, 60, 0, full.width() - 60, full.height()).to_image();
-    got.save(out.join(format!("render-{name}.png")))
-        .expect("save render");
-    let reference = reference(&format!("{name}.png"));
-    let mut failed = Vec::new();
+/// `regions` of the bar of the reference, as they sit in the bar that has the Mask group: a region
+/// left of the group stays, one right of it moves by the group's width, one across it is split.
+fn with_mask_group(regions: Vec<Region>) -> Vec<Region> {
+    let mut out = Vec::new();
     for r in regions {
-        let outcome = compare::compare_between(
-            &reference,
-            &got,
-            r.reference_at,
-            r.got_at,
-            r.size.0,
-            r.size.1,
-        );
-        outcome
-            .diff
-            .save(out.join(format!("diff-{name}-{}.png", r.name)))
-            .expect("save diff");
-        println!("{name} {}: {}", r.name, outcome.summary());
-        if !outcome.passed() {
-            failed.push(r.name);
+        let (x, w) = (r.reference_at.0, r.size.0);
+        if x + w <= MASK_AT {
+            out.push(r);
+        } else if x >= MASK_AT {
+            out.push(Region {
+                got_at: (r.got_at.0 + MASK_SHIFT, r.got_at.1),
+                ..r
+            });
+        } else {
+            let left = MASK_AT - x;
+            out.push(Region {
+                name: r.name,
+                reference_at: r.reference_at,
+                got_at: r.got_at,
+                size: (left, r.size.1),
+            });
+            out.push(Region {
+                name: r.name,
+                reference_at: (MASK_AT, r.reference_at.1),
+                got_at: (r.got_at.0 + MASK_AT + MASK_SHIFT, r.got_at.1),
+                size: (w - left, r.size.1),
+            });
         }
     }
-    assert!(failed.is_empty(), "{name}: failed regions {failed:?}");
+    out
+}
+
+/// A bar of `width` x `height` compared as one region of the reference.
+fn bar(name: &'static str, width: u32, height: u32) -> Vec<Region> {
+    with_mask_group(vec![Region::same(name, (0, 0), (width, height))])
+}
+
+/// Compares every region with the reference `name` of 0001 and asserts that all pass.
+fn check_regions(name: &str, rendered: &image::RgbaImage, regions: &[Region]) {
+    px::check_regions(SPEC, name, rendered, regions);
 }
 
 /// Denoise, Upscale and Corners with their gaps.
@@ -132,7 +136,13 @@ fn block_regions(bar_w: u32, rows: u32, output_w: u32) -> Vec<Region> {
         (settings_at + SETTINGS_W, controls),
         (analyse - (settings_at + SETTINGS_W), 36),
     ));
-    regions.push(Region::same("analyse", (analyse, controls), (79, 36)));
+    // Analyse is flush right, so it moves with the right edge of the wider bar.
+    regions.push(Region {
+        name: "analyse",
+        reference_at: (analyse, controls),
+        got_at: (analyse + MASK_SHIFT, controls),
+        size: (79, 36),
+    });
     regions
 }
 
@@ -166,9 +176,14 @@ fn choose_method(h: &mut Harness<'_, App>, method: &str) {
     h.run_steps(3);
 }
 
+/// The window of the states the references show in one row: 1280 px and the Mask group.
+const WINDOW: f32 = 1280.0 + 232.0;
+/// The window of the states whose bar the references show capped at 1164 px, and the group.
+const CAPPED: f32 = 1248.0 + 232.0;
+
 /// The logo with Brightness chosen, as the reference script leaves it for most states.
 fn opened<'a>(dir: &std::path::Path) -> Harness<'a, App> {
-    let mut h = analysed(dir, 1280.0);
+    let mut h = analysed(dir, WINDOW);
     choose_method(&mut h, "Brightness");
     h
 }
@@ -222,7 +237,7 @@ fn staged_running() -> Vec<String> {
 /// Presses the Smooth field at 81 % and moves the pointer away: Smooth is 81, the preset Custom.
 fn smooth_81(h: &mut Harness<'_, App>) {
     use eframe::egui::{Event, Modifiers, PointerButton, pos2};
-    let at = pos2(598.0 + 0.81 * 150.0, 30.0);
+    let at = pos2(598.0 + 232.0 + 0.81 * 150.0, 30.0);
     h.event(Event::PointerMoved(at));
     h.run_steps(1);
     h.event(Event::PointerButton {
@@ -246,7 +261,11 @@ fn smooth_81(h: &mut Harness<'_, App>) {
 fn px_00_bar_closed() {
     let dir = tempfile::tempdir().unwrap();
     let mut h = opened(dir.path());
-    check("px-00-bar-closed", &h.render().unwrap(), 1154, 36);
+    check_regions(
+        "px-00-bar-closed",
+        &h.render().unwrap(),
+        &bar("bar", 1154, 36),
+    );
 }
 
 #[test]
@@ -261,7 +280,7 @@ fn px_01_empty() {
 fn px_02_preview() {
     let dir = tempfile::tempdir().unwrap();
     let mut h = opened(dir.path());
-    check("px-02-preview", &h.render().unwrap(), 1154, 36);
+    check_regions("px-02-preview", &h.render().unwrap(), &bar("bar", 1154, 36));
 }
 
 #[test]
@@ -269,7 +288,7 @@ fn px_03_advanced_open() {
     let dir = tempfile::tempdir().unwrap();
     let mut h = opened(dir.path());
     open_advanced(&mut h);
-    let mut regions = vec![Region::same("row", (0, 0), (1162, 36))];
+    let mut regions = bar("row", 1162, 36);
     regions.extend(block_regions(1162, 1, output_width(None)));
     check_regions("px-03-advanced-open", &h.render().unwrap(), &regions);
 }
@@ -280,7 +299,7 @@ fn px_04_multicolour_palette() {
     let mut h = opened(dir.path());
     open_advanced(&mut h);
     choose_multicolour(&mut h);
-    let mut regions = vec![Region::same("row", (0, 0), (1162, 36))];
+    let mut regions = bar("row", 1162, 36);
     regions.extend(block_regions(1162, 1, output_width(Some(SWATCHES))));
     check_regions("px-04-multicolour-palette", &h.render().unwrap(), &regions);
 }
@@ -296,7 +315,7 @@ fn px_10_palette_swatch_hover() {
     h.run_steps(30);
     h.set_render_cursor(false);
     h.run_steps(1);
-    let mut regions = vec![Region::same("row", (0, 0), (1162, 36))];
+    let mut regions = bar("row", 1162, 36);
     regions.extend(block_regions(1162, 1, output_width(Some(SWATCHES))));
     // The tooltip under the second swatch with its 1 px ring: two lines, 8 px below the cell.
     regions.push(Region::same("tooltip", (323, 84), (104, 39)));
@@ -309,7 +328,7 @@ fn px_11_palette_excluded() {
     let mut h = opened(dir.path());
     open_advanced(&mut h);
     multicolour_excluded(&mut h);
-    let mut regions = vec![Region::same("row", (0, 0), (1162, 36))];
+    let mut regions = bar("row", 1162, 36);
     regions.extend(block_regions(1162, 1, output_width(Some(SWATCHES))));
     check_regions("px-11-palette-excluded", &h.render().unwrap(), &regions);
 }
@@ -330,7 +349,7 @@ fn px_05_running_42() {
     }
     h.run_steps(2);
     // The whole first row, the blue button 75 px wide as in the reference.
-    let mut regions = vec![Region::same("row", (0, 0), (1148, 36))];
+    let mut regions = bar("row", 1148, 36);
     regions.extend(block_regions(1148, 1, output_width(Some(SWATCHES))));
     check_regions("px-05-running-42", &h.render().unwrap(), &regions);
     assert!(matches!(h.state_mut().button(), Button::Running(Some(42))));
@@ -338,7 +357,7 @@ fn px_05_running_42() {
 
 /// Smooth 81, Advanced open, in a window whose bar is capped at the reference's 1164 px.
 fn custom_with_block<'a>(dir: &std::path::Path) -> Harness<'a, App> {
-    let mut h = analysed(dir, 1248.0);
+    let mut h = analysed(dir, CAPPED);
     choose_method(&mut h, "Brightness");
     open_advanced(&mut h);
     multicolour_excluded(&mut h);
@@ -368,7 +387,7 @@ fn px_07_stopped() {
     let mut h = custom_with_block(dir.path());
     stopped_state(&mut h);
     // Both rows: the expander and "Stopped" with Retry wrap to the second row at the cap.
-    let mut regions = vec![Region::same("rows", (0, 0), (1164, 72))];
+    let mut regions = bar("rows", 1164, 72);
     regions.extend(block_regions(1164, 2, output_width(Some(SWATCHES))));
     check_regions("px-07-stopped", &h.render().unwrap(), &regions);
 }
@@ -392,7 +411,7 @@ fn px_06_failed() {
     }
     h.remove_cursor();
     h.run_steps(3);
-    let mut regions = vec![Region::same("rows", (0, 0), (1164, 72))];
+    let mut regions = bar("rows", 1164, 72);
     regions.extend(block_regions(1164, 2, output_width(Some(SWATCHES))));
     check_regions("px-06-failed", &h.render().unwrap(), &regions);
 }
@@ -411,7 +430,7 @@ fn px_13_trace_button_focus() {
     h.run_steps(3);
     h.remove_cursor();
     h.run_steps(2);
-    let mut regions = vec![Region::same("row", (0, 0), (1162, 36))];
+    let mut regions = bar("row", 1162, 36);
     regions.extend(block_regions(1162, 1, output_width(Some(SWATCHES))));
     check_regions("px-13-trace-button-focus", &h.render().unwrap(), &regions);
 }
@@ -419,16 +438,16 @@ fn px_13_trace_button_focus() {
 #[test]
 fn px_09_method_menu() {
     let dir = tempfile::tempdir().unwrap();
-    let mut h = analysed(dir.path(), 1248.0);
+    let mut h = analysed(dir.path(), CAPPED);
     h.get_by_label("Method").click();
     h.run_steps(3);
     h.remove_cursor();
     h.run_steps(3);
     // Both rows of the Remove background bar (capped at 1164 px) and the menu below them.
-    let regions = [
+    let regions = with_mask_group(vec![
         Region::same("rows", (0, 0), (1164, 72)),
         Region::same("menu", (184, 72), (232, 108)),
-    ];
+    ]);
     check_regions("px-09-method-menu", &h.render().unwrap(), &regions);
 }
 
@@ -446,7 +465,11 @@ fn px_12_value_field_tooltip() {
     h.run_steps(30);
     h.set_render_cursor(false);
     h.run_steps(1);
-    check("px-12-value-field-tooltip", &h.render().unwrap(), 1154, 36);
+    check_regions(
+        "px-12-value-field-tooltip",
+        &h.render().unwrap(),
+        &bar("bar", 1154, 36),
+    );
 }
 
 #[test]
@@ -461,7 +484,7 @@ fn px_14_preset_hover() {
     h.run_steps(3);
     h.set_render_cursor(false);
     h.run_steps(1);
-    let mut regions = vec![Region::same("row", (0, 0), (1162, 36))];
+    let mut regions = bar("row", 1162, 36);
     regions.extend(block_regions(1162, 1, output_width(Some(SWATCHES))));
     check_regions("px-14-preset-hover", &h.render().unwrap(), &regions);
 }

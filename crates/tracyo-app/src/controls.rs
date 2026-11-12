@@ -40,6 +40,32 @@ pub fn segmented(
     pad: f32,
 ) -> Option<usize> {
     let widths: Vec<f32> = labels.iter().map(|l| seg_width(ui, l, pad)).collect();
+    segments(ui, origin, id, name, labels, &widths, selected)
+}
+
+/// As [`segmented`] with every segment `width` px wide (the Mask pill: 64 px each).
+pub fn segmented_equal(
+    ui: &mut Ui,
+    origin: Pos2,
+    id: Id,
+    name: &str,
+    labels: &[&str],
+    selected: usize,
+    width: f32,
+) -> Option<usize> {
+    let widths = vec![width; labels.len()];
+    segments(ui, origin, id, name, labels, &widths, selected)
+}
+
+fn segments(
+    ui: &mut Ui,
+    origin: Pos2,
+    id: Id,
+    name: &str,
+    labels: &[&str],
+    widths: &[f32],
+    selected: usize,
+) -> Option<usize> {
     let total: f32 = widths.iter().sum();
     let whole = Rect::from_min_size(origin, vec2(total, CONTROL_H));
     let mut chosen = None;

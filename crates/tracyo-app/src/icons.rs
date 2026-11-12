@@ -31,6 +31,10 @@ pub enum Icon {
     ChevronsDown,
     /// The expander while it is open.
     ChevronsUp,
+    /// The Rectangle tool.
+    Square,
+    /// The Subtract toggle.
+    SquareMinus,
 }
 
 impl Icon {
@@ -48,6 +52,8 @@ impl Icon {
             Self::ImageMinus => include_str!("../../../assets/icons/lucide/image-minus.svg"),
             Self::ChevronsDown => include_str!("../../../assets/icons/lucide/chevrons-down.svg"),
             Self::ChevronsUp => include_str!("../../../assets/icons/lucide/chevrons-up.svg"),
+            Self::Square => include_str!("../../../assets/icons/lucide/square.svg"),
+            Self::SquareMinus => include_str!("../../../assets/icons/lucide/square-minus.svg"),
         }
     }
 }
