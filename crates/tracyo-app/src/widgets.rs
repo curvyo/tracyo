@@ -750,8 +750,6 @@ pub enum Side {
     Below,
     /// Left of the control.
     Left,
-    /// Right of the control, 10 px away.
-    Right,
 }
 
 /// One line of a tooltip: text, font and colour.
@@ -797,7 +795,6 @@ pub fn tooltip(ctx: &egui::Context, resp: &Response, side: Side, lines: &[Line])
             anchor.left() - 8.0 - size.x,
             anchor.center().y - size.y / 2.0,
         ),
-        Side::Right => pos2(anchor.right() + 10.0, anchor.center().y - size.y / 2.0),
     };
     if side == Side::Below && pos.y + size.y > screen.bottom() {
         pos.y = anchor.top() - 8.0 - size.y;

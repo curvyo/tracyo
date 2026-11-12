@@ -101,6 +101,7 @@ impl App {
             doc.mask.mode = part.mode;
             doc.mask.regions = part.regions;
             doc.mask.selected = None;
+            doc.mask.selected_corner = None;
             doc.mask.drag = None;
             let (w, h) = (doc.picture.width, doc.picture.height);
             doc.mask.recompute(w, h);
@@ -115,6 +116,7 @@ impl App {
 
     /// Add part: a part copied from the active one, without regions, Inside, becomes active.
     pub(crate) fn add_part(&mut self, ctx: &egui::Context) {
+        self.finish_lasso(ctx);
         let Some(live) = self.live_part() else { return };
         let Some(doc) = &mut self.doc else { return };
         let Some(new) = doc.parts.add(live) else {
@@ -127,11 +129,16 @@ impl App {
 
     /// A click, an arrow, Home or End on a chip: part `index` becomes active.
     pub(crate) fn select_part(&mut self, ctx: &egui::Context, index: usize) {
-        let Some(live) = self.live_part() else { return };
-        let Some(doc) = &mut self.doc else { return };
-        if index == doc.parts.active_index() {
+        if self
+            .doc
+            .as_ref()
+            .is_none_or(|d| index == d.parts.active_index())
+        {
             return;
         }
+        self.finish_lasso(ctx);
+        let Some(live) = self.live_part() else { return };
+        let Some(doc) = &mut self.doc else { return };
         let before = self.settings;
         let Some(next) = doc.parts.select(live, index) else {
             return;
@@ -145,6 +152,7 @@ impl App {
 
     /// The trash: the active part goes, the part before it becomes active.
     pub(crate) fn remove_part(&mut self, ctx: &egui::Context) {
+        self.finish_lasso(ctx);
         let Some(live) = self.live_part() else { return };
         let Some(doc) = &mut self.doc else { return };
         doc.parts.store(live);
@@ -339,7 +347,7 @@ impl App {
             return self.mask_regions();
         }
         doc.parts.all().get(index).map_or_else(Vec::new, |p| {
-            p.regions.iter().map(|r| (r.rect, r.subtract)).collect()
+            p.regions.iter().map(|r| (r.bounds(), r.subtract)).collect()
         })
     }
 }

@@ -26,7 +26,7 @@ use crate::canvas::{Tiles, View};
 use crate::config::{self, Config};
 use crate::dialogs::{Choice, Dialogs};
 use crate::icons::Icons;
-use crate::mask::MaskState;
+use crate::mask::{MaskState, Tool};
 use crate::parts_state::{PartCache, PartKeys};
 use crate::preview::Preview;
 use crate::runner::{Event, Runner};
@@ -35,8 +35,8 @@ use crate::{fonts, theme};
 
 /// Height of the status bar.
 pub const STATUS_HEIGHT: f32 = 24.0;
-/// Where the bar and the Open card float.
-pub const BAR_POS: Pos2 = pos2(72.0, 12.0);
+/// The distance of the bar from the top and from the sides of the canvas at least.
+pub const BAR_MARGIN: f32 = 12.0;
 
 /// What the app is started with.
 pub struct Options {
@@ -213,7 +213,7 @@ impl App {
             analysing: None,
             region_analysing: None,
             notice: None,
-            bar_bottom: BAR_POS.y + 36.0,
+            bar_bottom: BAR_MARGIN + 36.0,
             pending_save: None,
             failed_write: None,
             last_open_dir: None,
@@ -948,31 +948,45 @@ impl App {
         // An armed trash takes the first Escape: it only disarms.
         let esc = esc && self.trash.take().is_none();
         if esc && !self.cancel_drag() {
-            let (rectangle_pressed, region_selected) =
-                self.doc.as_ref().map_or((false, false), |d| {
-                    (d.mask.rectangle, d.mask.selected.is_some())
+            let (lasso_drawing, region_tool_pressed, region_selected) =
+                self.doc.as_ref().map_or((false, false, false), |d| {
+                    (
+                        !d.mask.draft.is_empty(),
+                        d.mask.tool != Tool::None,
+                        d.mask.selected.is_some(),
+                    )
                 });
             let state = EscState {
+                lasso_drawing,
                 running: self.progress.is_running(),
                 pipette_armed: self.pipette != Pipette::Off,
                 menu_open: self.menu.is_some(),
                 entry_open,
-                rectangle_pressed,
+                region_tool_pressed,
                 region_selected,
             };
             match progress::esc(state) {
+                Esc::FinishLasso => {
+                    self.finish_lasso(ctx);
+                    if let Some(doc) = &mut self.doc
+                        && doc.mask.tool == Tool::Lasso
+                    {
+                        doc.mask.tool = Tool::None;
+                    }
+                }
                 Esc::StopTrace => self.stop_trace(),
                 Esc::DisarmPipette => self.pipette = Pipette::Off,
                 Esc::CloseMenu => self.close_menu(ctx),
                 Esc::CloseEntry => self.fields.iter_mut().for_each(FieldState::cancel_entry),
-                Esc::ReleaseRectangle => {
+                Esc::ReleaseRegionTool => {
                     if let Some(doc) = &mut self.doc {
-                        doc.mask.rectangle = false;
+                        doc.mask.tool = Tool::None;
                     }
                 }
                 Esc::ClearSelection => {
                     if let Some(doc) = &mut self.doc {
                         doc.mask.selected = None;
+                        doc.mask.selected_corner = None;
                     }
                 }
                 Esc::FocusCanvas => ctx.memory_mut(|m| {
@@ -999,7 +1013,12 @@ impl App {
         let canvas_has_keys =
             ctx.memory(|m| m.focused().is_none()) && !entry_open && self.menu.is_none();
         if canvas_has_keys && ctx.input_mut(|i| i.consume_key(Modifiers::NONE, Key::Enter)) {
-            self.enter_action(ctx);
+            // Enter finishes a lasso in progress; else it is Save as….
+            if self.doc.as_ref().is_some_and(|d| !d.mask.draft.is_empty()) {
+                self.finish_lasso(ctx);
+            } else {
+                self.enter_action(ctx);
+            }
         }
         if canvas_has_keys {
             self.region_keys(ctx);
@@ -1043,8 +1062,7 @@ impl eframe::App for App {
             pos2(screen.max.x - docked, screen.max.y - STATUS_HEIGHT),
         );
         // The bar first: the picture is fitted below the bar's height of this very frame.
-        self.open_card(&ctx);
-        self.bar(&ctx, canvas);
+        self.bar(ui, &ctx, canvas);
         self.canvas(ui, canvas);
         self.status_bar(ui, screen);
         if self.about_open {

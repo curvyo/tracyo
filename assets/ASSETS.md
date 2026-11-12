@@ -35,6 +35,7 @@ licence text is `icons/lucide/LICENSE`.
 | `icons/lucide/chevrons-up.svg` | `6df1d2dc6e8141e81c0e45ff9a57c17dfbc3c49df2b0ceabe9a8ec3f60f1b3c0` |
 | `icons/lucide/square.svg` | `b039603faf398f9a953ac245ff7a03eae11009b81f7130bf38a4bda819b03c10` |
 | `icons/lucide/square-minus.svg` | `0956033f77c18eb42b6fcc4901d3405aeab13872d4b8bef67b72a7b86fca002d` |
+| `icons/lucide/lasso.svg` | `6f5932375f7ce33cb99f58c56be9ef7ddbc7c6fdda02eca58bcc2306c8ea5be8` |
 | `icons/lucide/plus.svg` | `24fad69418db84378f6d368e7609d85f89364381a5ecbc7f5c10687d9204f18c` |
 | `icons/lucide/trash-2.svg` | `58049d9ef9a117aba81f01c9c11e1fbfb4a31df43163e82f07cba65e3c507e5a` |
 | `icons/lucide/LICENSE` | `b495047bd93a9b06913511076f504daba17d5bbeb3e0650f3bb53a4220329c57` |
