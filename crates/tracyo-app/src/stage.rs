@@ -7,6 +7,7 @@ use tracyo_core::progress::Button;
 
 use crate::app::{App, Pipette, STATUS_HEIGHT, dashed_frame};
 use crate::canvas::View;
+use crate::region_paint;
 use crate::theme;
 use crate::widgets;
 
@@ -59,6 +60,7 @@ impl App {
                 doc.auto_fit = None;
             }
         }
+        self.region_input(ui, &resp, canvas, space);
         let armed = self.pipette != Pipette::Off;
         let pick = armed && !space && resp.clicked_by(PointerButton::Primary);
         let add = ui.input(|i| i.modifiers.shift);
@@ -68,7 +70,9 @@ impl App {
         if armed && resp.hovered() && !space {
             ui.ctx().set_cursor_icon(egui::CursorIcon::Crosshair);
         }
-        if resp.double_clicked() && !space && !armed {
+        let on_mask = self.doc.as_ref().is_some_and(|d| d.mask.rectangle)
+            || self.pointer_over_region(ui, canvas);
+        if resp.double_clicked() && !space && !armed && !on_mask {
             let ctx = ui.ctx().clone();
             self.enter_action(&ctx);
         }
@@ -174,9 +178,13 @@ impl App {
             0.0,
             Color32::from_white_alpha(166),
         );
+        region_paint::wash_and_outlines(&painter, &doc.mask, origin, zoom, canvas);
         if let Some(result) = &mut self.result {
             result.preview.paint(&painter, origin, zoom, canvas, alpha);
         }
+        let pointer = hover.filter(|_| canvas_hovered);
+        let space = ui.input(|i| i.key_down(Key::Space));
+        region_paint::overlays(ui, &doc.mask, origin, zoom, canvas, pointer, space);
         if let Some(p) = hover.filter(|p| canvas.contains(*p) && canvas_hovered) {
             let pic = doc.view.picture_point(p - canvas.min);
             if pic.x >= 0.0

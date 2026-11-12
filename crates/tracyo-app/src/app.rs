@@ -7,6 +7,7 @@ use std::time::{Duration, Instant};
 
 use eframe::egui::{self, Key, Modifiers, Pos2, Rect, Shape, Stroke, Ui, pos2, vec2};
 use tracyo_core::analysis::Analysis;
+use tracyo_core::clip::MaskPlan;
 use tracyo_core::method::{Method, PictureValues};
 use tracyo_core::picture::{Picture, ReadError};
 use tracyo_core::progress::{self, Esc, EscState, Progress, SaveCase};
@@ -23,6 +24,7 @@ use crate::canvas::{Tiles, View};
 use crate::config::{self, Config};
 use crate::dialogs::{Choice, Dialogs};
 use crate::icons::Icons;
+use crate::mask::MaskState;
 use crate::preview::Preview;
 use crate::runner::{Event, Runner};
 use crate::widgets::{FieldState, set_focus_visible};
@@ -73,6 +75,11 @@ pub(crate) struct Doc {
     pub tiles: Tiles,
     pub values: PictureValues,
     pub analysis: Analysis,
+    /// The analysis of the whole picture, kept while a mask makes `analysis` another.
+    pub whole_analysis: Analysis,
+    /// The maker set the Threshold by hand: a mask does not change it.
+    pub threshold_set: bool,
+    pub mask: MaskState,
     pub view: View,
     /// Set while the view is still where the last fit put it: whether that fit may enlarge.
     pub auto_fit: Option<bool>,
@@ -132,6 +139,8 @@ pub struct App {
     pub(crate) picked_stop: usize,
     pub(crate) palette_stop: usize,
     pub(crate) analysing: Option<Receiver<Analysis>>,
+    /// The analysis of the pixels a mask keeps, and whether it answers the Analyse button.
+    pub(crate) region_analysing: Option<(Receiver<Analysis>, bool)>,
     pub(crate) notice: Option<Notice>,
     pub(crate) bar_bottom: f32,
     pub(crate) pending_save: Option<PathBuf>,
@@ -184,6 +193,7 @@ impl App {
             picked_stop: 0,
             palette_stop: 0,
             analysing: None,
+            region_analysing: None,
             notice: None,
             bar_bottom: BAR_POS.y + 36.0,
             pending_save: None,
@@ -323,6 +333,17 @@ impl App {
         ))
     }
 
+    /// Where picture coordinate (`x`, `y`) (a pixel corner, not a pixel centre) is shown on the
+    /// canvas, in window points.
+    #[must_use]
+    pub fn picture_corner_on_screen(&self, x: f32, y: f32) -> Option<Pos2> {
+        let doc = self.doc.as_ref()?;
+        Some(pos2(
+            doc.view.offset.x + x * doc.view.zoom,
+            doc.view.offset.y + y * doc.view.zoom,
+        ))
+    }
+
     /// The bottom edge of the Trace bar as it was laid out in the last frame, in window points.
     #[must_use]
     pub fn bar_bottom(&self) -> f32 {
@@ -395,6 +416,7 @@ impl App {
         self.notice = None;
         self.pipette = Pipette::Off;
         self.analysing = None;
+        self.region_analysing = None;
         let mut values = PictureValues::new(loaded.analysis.threshold);
         loaded.analysis.apply(&mut self.settings, &mut values);
         let picture = Arc::new(loaded.picture);
@@ -407,6 +429,9 @@ impl App {
             tiles,
             values,
             analysis: loaded.analysis,
+            whole_analysis: loaded.analysis,
+            threshold_set: false,
+            mask: MaskState::new(),
             view: View {
                 zoom: 1.0,
                 offset: vec2(0.0, 0.0),
@@ -460,8 +485,12 @@ impl App {
     /// and the picture's text not read yet, the text is read first and the trace follows it.
     pub(crate) fn start_trace(&mut self, ctx: &egui::Context, dragging: bool, for_saving: bool) {
         let Some(doc) = &self.doc else { return };
+        if let MaskPlan::Nothing(notice) = doc.mask.plan {
+            self.trace_nothing(ctx, Some(notice));
+            return;
+        }
         if doc.values.palette_deleted(&self.settings) {
-            self.trace_nothing(ctx);
+            self.trace_nothing(ctx, None);
             return;
         }
         let needs_read = self.settings.recognise_text && matches!(doc.text, TextState::Unread);
@@ -535,7 +564,10 @@ impl App {
             reduced,
             shapes: self.settings.recognise_shapes,
             lines,
-            clip: None,
+            clip: match &doc.mask.plan {
+                MaskPlan::Clip(clip) => Some(clip.clone()),
+                _ => None,
+            },
         };
         self.last_request_reduced = reduced;
         self.job_counter += 1;
@@ -568,8 +600,9 @@ impl App {
         self.dispatch_trace(ctx, dragging, for_saving, true);
     }
 
-    /// Every colour of the palette was deleted: nothing is traced, the result is empty at once.
-    fn trace_nothing(&mut self, ctx: &egui::Context) {
+    /// Every colour of the palette was deleted, or the mask keeps none of the picture: nothing is
+    /// traced, the result is empty at once; `notice` is why, when the mask is the reason.
+    fn trace_nothing(&mut self, ctx: &egui::Context, notice: Option<&'static str>) {
         self.runner.stop();
         self.reading = false;
         self.after_read = None;
@@ -578,6 +611,9 @@ impl App {
         self.pending_save = None;
         self.last_request_reduced = false;
         self.finish_trace(ctx, &tracyo_core::job::empty_colour_wire());
+        if let (Some(text), Some(result)) = (notice, &mut self.result) {
+            result.reason = Some(text.to_owned());
+        }
     }
 
     pub(crate) fn stop_trace(&mut self) {
@@ -787,6 +823,7 @@ impl App {
         self.finish_loading(ctx);
         self.handle_events(ctx);
         self.finish_analysing(ctx);
+        self.finish_region_analysis(ctx);
         if let Some(n) = &self.notice
             && ctx.input(|i| i.time) >= n.until
         {
@@ -809,18 +846,34 @@ impl App {
     fn keys(&mut self, ctx: &egui::Context) {
         let entry_open = self.fields.iter().any(FieldState::entry_open);
         let esc = ctx.input_mut(|i| i.consume_key(Modifiers::NONE, Key::Escape));
-        if esc {
+        if esc && !self.cancel_drag() {
+            let (rectangle_pressed, region_selected) =
+                self.doc.as_ref().map_or((false, false), |d| {
+                    (d.mask.rectangle, d.mask.selected.is_some())
+                });
             let state = EscState {
                 running: self.progress.is_running(),
                 pipette_armed: self.pipette != Pipette::Off,
                 menu_open: self.menu.is_some(),
                 entry_open,
+                rectangle_pressed,
+                region_selected,
             };
             match progress::esc(state) {
                 Esc::StopTrace => self.stop_trace(),
                 Esc::DisarmPipette => self.pipette = Pipette::Off,
                 Esc::CloseMenu => self.close_menu(ctx),
                 Esc::CloseEntry => self.fields.iter_mut().for_each(FieldState::cancel_entry),
+                Esc::ReleaseRectangle => {
+                    if let Some(doc) = &mut self.doc {
+                        doc.mask.rectangle = false;
+                    }
+                }
+                Esc::ClearSelection => {
+                    if let Some(doc) = &mut self.doc {
+                        doc.mask.selected = None;
+                    }
+                }
                 Esc::FocusCanvas => ctx.memory_mut(|m| {
                     if let Some(id) = m.focused() {
                         m.surrender_focus(id);
@@ -846,6 +899,9 @@ impl App {
             ctx.memory(|m| m.focused().is_none()) && !entry_open && self.menu.is_none();
         if canvas_has_keys && ctx.input_mut(|i| i.consume_key(Modifiers::NONE, Key::Enter)) {
             self.enter_action(ctx);
+        }
+        if canvas_has_keys {
+            self.region_keys(ctx);
         }
     }
 

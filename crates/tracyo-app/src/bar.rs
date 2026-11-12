@@ -217,7 +217,7 @@ impl App {
                 let blue_w = widgets::blue_width(ui, &state);
                 let method = Method::from_index(self.settings.method);
                 let group_w = self.group_width(method);
-                let mut widths = vec![28.0, 132.0, 176.0, 150.0];
+                let mut widths = vec![28.0, 132.0, crate::mask_group::WIDTH, 176.0, 150.0];
                 widths.extend(group_w);
                 widths.extend([150.0, 150.0, 171.0]);
                 let open = self.settings.advanced_open;
@@ -255,10 +255,11 @@ impl App {
                     ui,
                     ctx,
                     method,
-                    [at(layout.items[1], 132.0), at(layout.items[2], 176.0)],
+                    [at(layout.items[1], 132.0), at(layout.items[3], 176.0)],
                 );
+                self.mask_group(ui, ctx, bar.min + layout.items[2].to_vec2());
 
-                let mut next = 3;
+                let mut next = 4;
                 changed = self
                     .main_field(ui, ctx, at(layout.items[next], 150.0))
                     .or(changed);
@@ -403,6 +404,7 @@ impl App {
             Method::Brightness => {
                 if let Some(doc) = &mut self.doc {
                     doc.values.threshold = settings::luma_of_percent(v);
+                    doc.threshold_set = true;
                 }
             }
             Method::RemoveBackground => self.settings.remove_tolerance = whole,

@@ -119,9 +119,14 @@ impl App {
         }
     }
 
-    /// The Analyse button: analyses the shown picture again on a thread and applies the result
-    /// when it arrives.
+    /// The Analyse button: analyses the pixels the mask keeps (the whole picture without a mask)
+    /// again on a thread and applies the result when it arrives.
     pub(crate) fn analyse_again(&mut self, ctx: &egui::Context) {
+        self.analyse_kept(ctx, true);
+    }
+
+    /// The whole picture analysed again on a thread.
+    pub(crate) fn analyse_whole(&mut self, ctx: &egui::Context) {
         let Some(doc) = &self.doc else { return };
         let picture = std::sync::Arc::clone(&doc.picture);
         let repaint = ctx.clone();
@@ -145,8 +150,17 @@ impl App {
             }
         };
         self.analysing = None;
+        self.apply_full_analysis(ctx, analysis);
+    }
+
+    /// Takes every analysed value: the Analyse button's answer.
+    pub(crate) fn apply_full_analysis(&mut self, ctx: &egui::Context, analysis: Analysis) {
         let Some(doc) = &mut self.doc else { return };
         analysis.apply(&mut self.settings, &mut doc.values);
+        doc.threshold_set = false;
+        if !matches!(doc.mask.plan, tracyo_core::clip::MaskPlan::Clip(_)) {
+            doc.whole_analysis = analysis;
+        }
         doc.analysis = analysis;
         self.values_changed(ctx, false);
     }
