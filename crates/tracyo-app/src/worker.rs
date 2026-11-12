@@ -147,6 +147,7 @@ mod tests {
                 reduced: false,
                 shapes: false,
                 lines: Vec::new(),
+                clip: None,
             })
             .encode(),
         );
@@ -176,6 +177,7 @@ mod tests {
             reduced: false,
             shapes: false,
             lines: Vec::new(),
+            clip: None,
         })
         .encode();
         let mut output = Vec::new();
@@ -236,6 +238,7 @@ mod tests {
                 reduced: false,
                 shapes: true,
                 lines: Vec::new(),
+                clip: None,
             })
             .encode(),
         );

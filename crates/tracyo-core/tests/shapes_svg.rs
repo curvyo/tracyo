@@ -117,6 +117,7 @@ fn trace(shapes: bool) -> (Picture, vectrace::wire::Output) {
         reduced: false,
         shapes,
         lines: Vec::new(),
+        clip: None,
     };
     let output = vectrace::wire::read(&session.run(&request, &mut |_| {})).unwrap();
     (picture, output)

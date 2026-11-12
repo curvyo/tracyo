@@ -4,12 +4,15 @@
 #![forbid(unsafe_code)]
 
 pub mod analysis;
+pub mod clip;
+pub mod grid;
 pub mod job;
 pub mod method;
 pub mod palette;
 pub mod picture;
 pub mod progress;
 pub mod protocol;
+pub mod regions;
 pub mod request;
 pub mod settings;
 pub mod shapes;

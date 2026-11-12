@@ -3,6 +3,7 @@
 use vectrace::ocr::OcrLine;
 use vectrace::{Rgb8, Selection, Swatches};
 
+use crate::clip::Clip;
 use crate::palette::ColourSpec;
 use crate::picture::Picture;
 use crate::request::TraceRequest;
@@ -258,6 +259,37 @@ fn encode_lines(lines: &[OcrLine], out: &mut Vec<u8>) {
     }
 }
 
+/// A clip: 1 for Outside, 0 for Inside, the count of grid numbers, the numbers.
+fn encode_clip(clip: &Clip, out: &mut Vec<u8>) {
+    out.push(u8::from(clip.outside()));
+    let units = clip.to_units();
+    // invariant: a clip has far fewer than 4 billion numbers.
+    out.extend(u32::try_from(units.len()).unwrap_or(u32::MAX).to_le_bytes());
+    for v in units {
+        out.extend(v.to_le_bytes());
+    }
+}
+
+fn decode_clip(r: &mut Reader<'_>) -> Result<Clip, ProtocolError> {
+    let outside = match r.u8()? {
+        0 => false,
+        1 => true,
+        _ => return Err(ProtocolError::Malformed),
+    };
+    let n = r.u32()? as usize;
+    // The bytes must be there before anything is reserved for them.
+    if r.0.len() / 8 < n {
+        return Err(ProtocolError::Malformed);
+    }
+    let units: Vec<i64> = (0..n)
+        .map(|_| {
+            r.take(8)
+                .map(|b| i64::from_le_bytes([b[0], b[1], b[2], b[3], b[4], b[5], b[6], b[7]]))
+        })
+        .collect::<Result<_, _>>()?;
+    Clip::from_units(&units, outside).ok_or(ProtocolError::Malformed)
+}
+
 fn decode_floats(r: &mut Reader<'_>) -> Result<Vec<f64>, ProtocolError> {
     let n = r.u32()? as usize;
     // The bytes must be there before anything is reserved for them.
@@ -313,6 +345,11 @@ impl Request {
                 encode_colours(t.colours.as_ref(), &mut payload);
                 encode_selection(&t.selection, &mut payload);
                 encode_lines(&t.lines, &mut payload);
+                // A clip follows the lines only when there is one, so a request without it is
+                // byte for byte the one of the first version.
+                if let Some(clip) = &t.clip {
+                    encode_clip(clip, &mut payload);
+                }
                 frame(2, &payload)
             }
             Self::ReadText => frame(3, &[]),
@@ -349,6 +386,11 @@ impl Request {
                 let colours = decode_colours(&mut r)?;
                 let selection = decode_selection(&mut r)?;
                 let lines = decode_lines(&mut r)?;
+                let clip = if r.0.is_empty() {
+                    None
+                } else {
+                    Some(decode_clip(&mut r)?)
+                };
                 r.done()?;
                 let settings = Settings {
                     smooth,
@@ -369,6 +411,7 @@ impl Request {
                     reduced: reduced != 0,
                     shapes: shapes != 0,
                     lines,
+                    clip,
                 }))
             }
             3 => {
@@ -494,6 +537,7 @@ mod tests {
             reduced: true,
             shapes: false,
             lines: Vec::new(),
+            clip: None,
         });
         assert_eq!(round_request(&r), r);
     }
@@ -519,6 +563,7 @@ mod tests {
             reduced: false,
             shapes: true,
             lines: vec![line("PR\u{c4}ZISION"), line("")],
+            clip: None,
         });
         assert_eq!(round_request(&r), r);
     }
@@ -581,6 +626,7 @@ mod tests {
                 reduced: false,
                 shapes: false,
                 lines: Vec::new(),
+                clip: None,
             });
             assert_eq!(round_request(&r), r);
         }
@@ -598,6 +644,7 @@ mod tests {
             reduced: false,
             shapes: false,
             lines: Vec::new(),
+            clip: None,
         })
         .encode();
         let (tag, payload) = split(&bytes);
@@ -634,6 +681,7 @@ mod tests {
                 reduced: false,
                 shapes: false,
                 lines: Vec::new(),
+                clip: None,
             });
             assert_eq!(round_request(&r), r);
         }
@@ -670,6 +718,7 @@ mod tests {
             reduced: false,
             shapes: false,
             lines: Vec::new(),
+            clip: None,
         })
         .encode();
         let (tag, payload) = split(&bytes);
@@ -692,5 +741,93 @@ mod tests {
     fn unknown_tags_are_refused() {
         assert_eq!(Request::decode(9, &[]), Err(ProtocolError::UnknownTag(9)));
         assert_eq!(Reply::decode(0, &[]), Err(ProtocolError::UnknownTag(0)));
+    }
+
+    fn clip(outside: bool) -> Clip {
+        use crate::regions::{MaskMode, PxRect, Region};
+        let regions = [
+            Region {
+                rect: PxRect::new(0, 0, 50, 40),
+                subtract: false,
+            },
+            Region {
+                rect: PxRect::new(10, 10, 20, 20),
+                subtract: true,
+            },
+        ];
+        let mode = if outside {
+            MaskMode::Outside
+        } else {
+            MaskMode::Inside
+        };
+        Clip::of_regions(&regions, mode, vectrace::PixelMap::scale(0.26, 0.26))
+            .unwrap()
+            .unwrap()
+    }
+
+    fn plain_trace() -> TraceRequest {
+        TraceRequest {
+            threshold: 100,
+            settings: Settings::default(),
+            selection: Selection::Brightness,
+            invert: false,
+            drop_border: false,
+            colours: None,
+            reduced: false,
+            shapes: false,
+            lines: Vec::new(),
+            clip: None,
+        }
+    }
+
+    #[test]
+    fn a_trace_with_a_clip_round_trips_inside_and_outside() {
+        for outside in [false, true] {
+            let r = Request::Trace(TraceRequest {
+                clip: Some(clip(outside)),
+                ..plain_trace()
+            });
+            assert_eq!(round_request(&r), r);
+        }
+    }
+
+    #[test]
+    fn a_trace_without_a_clip_is_the_frame_of_the_first_version() {
+        let with = Request::Trace(TraceRequest {
+            clip: Some(clip(false)),
+            ..plain_trace()
+        })
+        .encode();
+        let without = Request::Trace(plain_trace()).encode();
+        assert!(with.len() > without.len());
+        // The payload of a request without a clip ends with the (empty) line list.
+        assert!(without.ends_with(&[0, 0, 0, 0]));
+        assert_eq!(
+            round_request(&Request::Trace(plain_trace())),
+            Request::Trace(plain_trace())
+        );
+    }
+
+    #[test]
+    fn a_damaged_clip_is_refused() {
+        let Request::Trace(t) = Request::Trace(TraceRequest {
+            clip: Some(clip(false)),
+            ..plain_trace()
+        }) else {
+            unreachable!()
+        };
+        let bytes = Request::Trace(t).encode();
+        let (tag, payload) = split(&bytes);
+        assert_eq!(
+            Request::decode(tag, &payload[..payload.len() - 1]),
+            Err(ProtocolError::Malformed)
+        );
+        let mut bad_mode = payload.to_vec();
+        let mode_at = payload.len() - clip(false).to_units().len() * 8 - 4 - 1;
+        bad_mode[mode_at] = 7;
+        assert_eq!(
+            Request::decode(tag, &bad_mode),
+            Err(ProtocolError::Malformed)
+        );
     }
 }

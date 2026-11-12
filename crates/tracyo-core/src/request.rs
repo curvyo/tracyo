@@ -3,6 +3,7 @@
 use vectrace::ocr::OcrLine;
 use vectrace::{PixelMap, Selection};
 
+use crate::clip::Clip;
 use crate::palette::ColourSpec;
 use crate::picture::Picture;
 use crate::settings::Settings;
@@ -33,6 +34,8 @@ pub struct TraceRequest {
     /// The text lines read from the full picture (source pixels); empty traces no text. The
     /// worker scales them for the reduced copy.
     pub lines: Vec<OcrLine>,
+    /// The area of the part this trace keeps; `None` traces the whole picture.
+    pub clip: Option<Clip>,
 }
 
 /// Whether a trace of `picture` is made from the reduced copy: while a value is dragged, and
