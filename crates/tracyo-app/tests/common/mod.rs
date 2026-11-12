@@ -30,10 +30,23 @@ pub fn harness_sized<'a>(
     dialogs: Dialogs,
     width: f32,
 ) -> Harness<'a, App> {
+    harness_stepped(dir, open, dialogs, width, 0.25)
+}
+
+/// As [`harness_sized`] with `step_dt` seconds of simulated time per frame (the default of 0.25 s
+/// keeps two clicks of a test apart; a double click needs a smaller one).
+pub fn harness_stepped<'a>(
+    dir: &Path,
+    open: Option<PathBuf>,
+    dialogs: Dialogs,
+    width: f32,
+    step_dt: f32,
+) -> Harness<'a, App> {
     let config = Config::at(Some(dir.join("settings.toml")));
     let exe = PathBuf::from(env!("CARGO_BIN_EXE_tracyo"));
     let mut harness = Harness::builder()
         .with_size(eframe::egui::vec2(width, 800.0))
+        .with_step_dt(step_dt)
         .wgpu()
         .build_eframe(move |cc| {
             App::new(
