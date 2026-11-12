@@ -153,7 +153,7 @@ fn fixed() -> Dialogs {
 /// reference script sees it before it chooses a method.
 fn analysed<'a>(dir: &std::path::Path, width: f32) -> Harness<'a, App> {
     let mut h = common::harness_sized(dir, Some(common::logo()), fixed(), width);
-    common::wait_until(&mut h, 60.0, App::has_result);
+    common::wait_for_result(&mut h, 60.0);
     h.run_steps(3);
     h
 }
@@ -164,7 +164,7 @@ fn choose_method(h: &mut Harness<'_, App>, method: &str) {
     h.run_steps(3);
     h.get_by_label(method).click();
     h.run_steps(3);
-    common::wait_until(h, 60.0, App::has_result);
+    common::wait_for_result(h, 60.0);
     h.remove_cursor();
     h.run_steps(3);
 }
@@ -335,7 +335,7 @@ fn px_13_trace_button_focus() {
     let mut h = opened(dir.path());
     open_advanced(&mut h);
     smooth_81(&mut h);
-    common::wait_until(&mut h, 60.0, App::has_result);
+    common::wait_for_result(&mut h, 60.0);
     h.get_by_label("Fewer trace options").focus();
     h.run_steps(2);
     h.key_press(eframe::egui::Key::Tab);
@@ -386,7 +386,7 @@ fn px_14_preset_hover() {
     let mut h = opened(dir.path());
     open_advanced(&mut h);
     smooth_81(&mut h);
-    common::wait_until(&mut h, 60.0, App::has_result);
+    common::wait_for_result(&mut h, 60.0);
     h.get_by_label("Preset").hover();
     h.run_steps(3);
     h.set_render_cursor(false);

@@ -61,3 +61,18 @@ pub fn wait_until(harness: &mut Harness<'_, App>, limit: f32, mut done: impl FnM
         std::thread::sleep(std::time::Duration::from_millis(20));
     }
 }
+
+/// Steps frames until a settled result is there and the blue button offers Save as…. A result
+/// alone is not enough: a running look that was shown stays up for 300 ms after the job ends.
+pub fn wait_for_result(harness: &mut Harness<'_, App>, limit: f32) {
+    use egui_kittest::kittest::Queryable;
+    let start = std::time::Instant::now();
+    loop {
+        harness.step();
+        if harness.state().has_result() && harness.query_by_label("Save as\u{2026}").is_some() {
+            return;
+        }
+        assert!(start.elapsed().as_secs_f32() < limit, "timed out");
+        std::thread::sleep(std::time::Duration::from_millis(20));
+    }
+}

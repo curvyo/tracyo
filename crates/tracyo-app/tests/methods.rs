@@ -23,7 +23,7 @@ fn fixed() -> Dialogs {
 
 fn opened<'a>(dir: &Path) -> Harness<'a, App> {
     let mut h = common::harness(dir, Some(common::logo()), fixed());
-    common::wait_until(&mut h, 60.0, App::has_result);
+    common::wait_for_result(&mut h, 60.0);
     h.run_steps(3);
     h
 }
@@ -39,7 +39,7 @@ fn choose(h: &mut Harness<'_, App>, method: &str) {
     h.run_steps(3);
     h.get_by_label(method).click();
     h.run_steps(3);
-    common::wait_until(h, 60.0, App::has_result);
+    common::wait_for_result(h, 60.0);
     h.run_steps(2);
 }
 
@@ -62,7 +62,7 @@ fn click_picture(h: &mut Harness<'_, App>, x: u32, y: u32, modifiers: Modifiers)
 }
 
 fn settle(h: &mut Harness<'_, App>) {
-    common::wait_until(h, 60.0, App::has_result);
+    common::wait_for_result(h, 60.0);
     h.run_steps(2);
 }
 
@@ -213,7 +213,7 @@ fn the_advanced_block_works_and_is_remembered() {
 
     drop(h);
     let mut again = common::harness(dir.path(), Some(common::logo()), fixed());
-    common::wait_until(&mut again, 60.0, App::has_result);
+    common::wait_for_result(&mut again, 60.0);
     again.run_steps(3);
     assert!(again.state().settings().advanced_open);
     assert!(again.query_by_label("Fewer trace options").is_some());
