@@ -70,8 +70,9 @@ Subtract.
 
 Customer, 2026-11-13 (Frage 8 A): the whole Mask group leaves the first row and stands in the Parts
 row of Advanced, behind the chips, Add part and the trash. **The first row is `0001 §3.2`'s again**
-(Preset, Method, the method's field and group, Smooth, Tolerance, Ignore below, expander, Save as…),
-with no Mask group; its widths, rows and wrap are those of `0001 §3.3`.
+(Open, About, Preset, Method, the method's field and group, Smooth, Tolerance, Ignore below,
+expander, Save as…), with no Mask group; its widths, rows, wrap and centring are those of `0001 §3.1`
+and `§3.3` (1190 px, one row at 1280 px, x 45).
 
 The group, 4 px apart: Rectangle 28, Lasso 28, Subtract 28, the Mask segments 128, Clear mask 28 =
 **256 px** (Curvyo's is 192: Pick 28, segments 128, Clear mask 28). It is shown whenever the Parts row
@@ -317,8 +318,9 @@ contrast of `#2F6FEE` on white).
 Method, tolerance and pass rule are `0001 §12.2` with `reference/compare.py` (copied unchanged):
 1 px neighbourhood, 24 per channel, at most 2 % differing pixels, no run of 12 or more. The
 pictures were rendered with Liberation Sans; re-run `capture.cjs` on the machine that photographs
-Tracyo if its UI font differs. **Window:** the `px-*` bars wrap at a cap of **1164 px**: run these
-tests in a **1248 x 800** window (cap = width - 84), `pixels_per_point = 1`, picture
+Tracyo if its UI font differs. **Window:** every case runs in a **1280 x 800** window (bar cap
+1256, the bar centred, `0001 §3.1`), the whole window rendered with nothing cut off; `compare.py`
+finds the centred bar by its ground as in `0001 §12.2` step 3. `pixels_per_point = 1`, picture
 `0001-trace-and-save/reference/input-logo.png`, Method Brightness. Regions: R1 = picture px
 (24, 25)-(324, 235), R2 = (344, 315)-(619, 405), R4 = (330, 30)-(610, 310) (the box of Curvyo's E1),
 R3 = (100, 450)-(300, 520) (below the picture). The `px-*` pictures are those re-captured after
