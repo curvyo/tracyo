@@ -491,6 +491,10 @@ fn criterion_28_the_saved_svg_is_cut_on_the_slanted_side() {
     press(&mut h, Key::S, Modifiers::COMMAND | Modifiers::SHIFT);
     common::wait_until(&mut h, 60.0, |_| save.exists());
     h.run_steps(5);
+    // TRACYO_KEEP_SVG=<folder> keeps the file, to look at it with another reader.
+    if let Some(keep) = std::env::var_os("TRACYO_KEEP_SVG") {
+        std::fs::copy(&save, Path::new(&keep).join("lasso-p1.svg")).unwrap();
+    }
     let paths = saved_paths(&save);
     assert_ne!(paths.len(), 0);
     let s = 25.4 / 96.0;
