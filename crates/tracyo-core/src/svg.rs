@@ -1,5 +1,6 @@
 //! The Inkscape SVG of a trace result.
 
+use std::f64::consts::PI;
 use std::fmt::Write;
 
 use kurbo::{BezPath, PathEl, Point};
@@ -151,6 +152,8 @@ fn path_data(outlines: &[BezPath]) -> String {
 #[derive(Default)]
 struct Ids {
     path: usize,
+    polygon: usize,
+    star: usize,
     rect: usize,
     circle: usize,
     ellipse: usize,
@@ -180,11 +183,9 @@ fn escape(value: &str) -> String {
     out
 }
 
-/// The paint attributes of an element of colour `colour`; `rule` adds the even-odd fill rule of a
-/// path.
-fn paint(style: Style, colour: &str, rule: bool) -> String {
+/// The paint attributes of an element of colour `colour`.
+fn paint(style: Style, colour: &str) -> String {
     match style {
-        Style::Fill if rule => format!("fill=\"{colour}\" fill-rule=\"evenodd\" stroke=\"none\""),
         Style::Fill => format!("fill=\"{colour}\" stroke=\"none\""),
         Style::Stroke { width, join } => {
             let join = match join {
@@ -211,14 +212,22 @@ fn turn(rotation: Angle, centre: Point) -> String {
     }
 }
 
-/// One element for a recognised shape: `<rect>`, `<circle>`, `<ellipse>`, or a `<path>` of
-/// straight sides for a polygon or a star.
+/// The corners of the closed straight-sided `outline`, without the closing segment.
+fn corners(outline: &BezPath) -> Vec<Point> {
+    outline
+        .elements()
+        .iter()
+        .filter_map(|e| match *e {
+            PathEl::MoveTo(p) | PathEl::LineTo(p) => Some(p),
+            _ => None,
+        })
+        .collect()
+}
+
+/// One element for a recognised shape: `<rect>`, `<circle>`, `<ellipse>`, `<polygon>` or
+/// Inkscape's star object (a `<path>` with `sodipodi:*` attributes and the star's own `d`).
 fn element(element: &Element, colour: &str, ids: &mut Ids) -> String {
-    let is_path = matches!(
-        element.primitive,
-        Primitive::Polygon { .. } | Primitive::Star { .. }
-    );
-    let paint = paint(element.style, colour, is_path);
+    let paint = paint(element.style, colour);
     match element.primitive {
         Primitive::Rect {
             origin,
@@ -263,12 +272,39 @@ fn element(element: &Element, colour: &str, ids: &mut Ids) -> String {
                 )
             }
         }
-        Primitive::Polygon { .. } | Primitive::Star { .. } => {
-            ids.path += 1;
+        Primitive::Polygon { .. } => {
+            ids.polygon += 1;
             let outline = shapes::primitive_path(&element.primitive, element.rotation);
+            let points: Vec<String> = corners(&outline)
+                .into_iter()
+                .map(|p| format!("{},{}", number(p.x), number(p.y)))
+                .collect();
             format!(
-                "<path id=\"path{}\" {paint} d=\"{}\"/>",
-                ids.path,
+                "<polygon id=\"polygon{}\" points=\"{}\" {paint}/>",
+                ids.polygon,
+                points.join(" ")
+            )
+        }
+        Primitive::Star {
+            centre,
+            radius,
+            angle,
+            points,
+            inner_ratio,
+        } => {
+            ids.star += 1;
+            let outline = shapes::primitive_path(&element.primitive, element.rotation);
+            let arg1 = angle.as_radians() + element.rotation.as_radians();
+            let arg2 = arg1 + PI / f64::from(points);
+            format!(
+                "<path id=\"star{}\" sodipodi:type=\"star\" sodipodi:cx=\"{}\" sodipodi:cy=\"{}\" sodipodi:r1=\"{}\" sodipodi:r2=\"{}\" sodipodi:arg1=\"{}\" sodipodi:arg2=\"{}\" sodipodi:sides=\"{points}\" inkscape:flatsided=\"false\" inkscape:rounded=\"0\" inkscape:randomized=\"0\" {paint} d=\"{}\"/>",
+                ids.star,
+                number(centre.x),
+                number(centre.y),
+                number(radius.as_mm()),
+                number(radius.as_mm() * inner_ratio),
+                number(arg1),
+                number(arg2),
                 path_data(&[outline])
             )
         }
