@@ -1,10 +1,8 @@
-//! Pixel comparison of the app's states with the references of `specs/0001-trace-and-save`.
-//!
-//! Those references are older than the Mask group: their bar has none. The bar of a picture now has
-//! the 224 px group (and its gap) between Preset and Method, so each state is rendered in a window
-//! 232 px wider than the reference's, which keeps the rows wrapped as they were, and compared in
-//! two parts: everything left of the group as is, everything right of it moved 232 px to the right.
-//! The group itself is compared with the references of `specs/0002-trace-parts` in `masks.rs`.
+//! Pixel comparison of the app's states with the references of `specs/0001-trace-and-save`,
+//! re-captured on 2026-11-13: a 1280 x 800 window for every case, the bar centred with Open as its
+//! first control, the Advanced block with the Parts row and the Mask group of `0002`. Each region
+//! is compared where it stands in the reference; the 0002 cases of the Parts row and the Mask
+//! group are in `masks.rs` and `parts.rs`.
 
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
@@ -26,75 +24,9 @@ fn reference(name: &str) -> image::RgbImage {
     px::reference(SPEC, name)
 }
 
-/// Compares the `width` x `height` bar of `rendered` with the reference `name`.
-fn check(name: &str, rendered: &image::RgbaImage, width: u32, height: u32) {
-    check_at(name, rendered, (0, 0), width, height);
-}
-
-/// As `check` for a region `(dx, dy)` from the bar's top-left corner.
-fn check_at(name: &str, rendered: &image::RgbaImage, offset: (u32, u32), width: u32, height: u32) {
-    let out = compare::out_dir();
-    // The Open card (x 12 to 60) is Tracyo's own rail element; the references have none, so the
-    // picture starts right of it and the bar is found by its ground.
-    let full = compare::rgb(rendered);
-    let got = image::imageops::crop_imm(&full, 60, 0, full.width() - 60, full.height()).to_image();
-    got.save(out.join(format!("render-{name}.png")))
-        .expect("save render");
-    let outcome = compare::compare_at(
-        &reference(&format!("{name}.png")),
-        &got,
-        offset,
-        width,
-        height,
-    );
-    outcome
-        .diff
-        .save(out.join(format!("diff-{name}.png")))
-        .expect("save diff");
-    println!("{name}: {}", outcome.summary());
-    assert!(outcome.passed(), "{name}: {}", outcome.summary());
-}
-
-/// Width of the Mask group and its gap.
-const MASK_SHIFT: u32 = 232;
-/// Where the group stands in the bar (the end of Preset and its gap).
-const MASK_AT: u32 = 184;
-
-/// `regions` of the bar of the reference, as they sit in the bar that has the Mask group: a region
-/// left of the group stays, one right of it moves by the group's width, one across it is split.
-fn with_mask_group(regions: Vec<Region>) -> Vec<Region> {
-    let mut out = Vec::new();
-    for r in regions {
-        let (x, w) = (r.reference_at.0, r.size.0);
-        if x + w <= MASK_AT {
-            out.push(r);
-        } else if x >= MASK_AT {
-            out.push(Region {
-                got_at: (r.got_at.0 + MASK_SHIFT, r.got_at.1),
-                ..r
-            });
-        } else {
-            let left = MASK_AT - x;
-            out.push(Region {
-                name: r.name,
-                reference_at: r.reference_at,
-                got_at: r.got_at,
-                size: (left, r.size.1),
-            });
-            out.push(Region {
-                name: r.name,
-                reference_at: (MASK_AT, r.reference_at.1),
-                got_at: (r.got_at.0 + MASK_AT + MASK_SHIFT, r.got_at.1),
-                size: (w - left, r.size.1),
-            });
-        }
-    }
-    out
-}
-
 /// A bar of `width` x `height` compared as one region of the reference.
 fn bar(name: &'static str, width: u32, height: u32) -> Vec<Region> {
-    with_mask_group(vec![Region::same(name, (0, 0), (width, height))])
+    vec![Region::same(name, (0, 0), (width, height))]
 }
 
 /// Compares every region with the reference `name` of 0001 and asserts that all pass.
@@ -102,63 +34,9 @@ fn check_regions(name: &str, rendered: &image::RgbaImage, regions: &[Region]) {
     px::check_regions(SPEC, name, rendered, regions);
 }
 
-/// Denoise, Upscale and Corners with their gaps.
-const SETTINGS_W: u32 = 185 + 8 + 150 + 8 + 150;
-/// Invert, Drop border shapes, Recognise text and Recognise shapes with their gaps.
-const TOGGLES_W: u32 = 4 * 28 + 3 * 4;
-/// The Output pill, with its gap to what follows.
-const PILL_W: u32 = 173 + 4;
-
-/// The width of the Output row up to the end of Recognise shapes: Single colour, or Multicolour
-/// with `swatches` palette swatches (Colours field, pipette and 24 px cells).
-fn output_width(swatches: Option<u32>) -> u32 {
-    PILL_W + swatches.map_or(0, |n| 120 + 4 + 28 + 24 * n + 4) + TOGGLES_W
-}
-
-/// The regions of the Advanced block for a bar `bar_w` wide with `rows` rows above the block, an
-/// Output row of `output_w` px (see [`output_width`]): the divider, the whole Output row with its
-/// four toggles, Denoise to Corners, the gap and Analyse, with the paddings between them: every
-/// pixel of the block's row is compared.
-fn block_regions(bar_w: u32, rows: u32, output_w: u32) -> Vec<Region> {
-    let top = rows * 36;
-    let controls = top + 9;
-    let settings_at = 8 + output_w + 8;
-    let mut regions = vec![
-        Region::same("divider", (0, top), (bar_w, 13)),
-        Region::same("left-pad", (0, controls), (8, 36)),
-        Region::same("output", (8, controls), (output_w, 36)),
-        Region::same("output-gap", (8 + output_w, controls), (8, 36)),
-        Region::same("settings", (settings_at, controls), (SETTINGS_W, 36)),
-    ];
-    let analyse = bar_w - 91;
-    // The block of a picture also holds the Parts row (128 px for one part) after Corners, which
-    // the 0001 references do not have: the gap of the reference is compared left of it (8 px),
-    // right of it (between its end and a stretch of the same width as the reference's before
-    // Analyse) and at Analyse; the row itself is compared in `parts.rs`.
-    let gap_at = settings_at + SETTINGS_W;
-    let gap = analyse - gap_at;
-    regions.push(Region::same("gap-left", (gap_at, controls), (8, 36)));
-    regions.push(Region {
-        name: "gap-middle",
-        reference_at: (gap_at, controls),
-        got_at: (gap_at + 8 + 128, controls),
-        size: (gap.min(96), 36),
-    });
-    regions.push(Region {
-        name: "gap-right",
-        reference_at: (gap_at, controls),
-        got_at: (gap_at + MASK_SHIFT, controls),
-        size: (gap, 36),
-    });
-    // Analyse is flush right, so it moves with the right edge of the wider bar.
-    regions.push(Region {
-        name: "analyse",
-        reference_at: (analyse, controls),
-        got_at: (analyse + MASK_SHIFT, controls),
-        size: (79, 36),
-    });
-    regions
-}
+/// The bar of the first row alone is 36 px high; with Advanced open it is 121 px (the Output line,
+/// the Parts row and the block's padding).
+const OPEN_H: u32 = 121;
 
 /// The three swatches of the logo's Brightness palette.
 const SWATCHES: u32 = 3;
@@ -190,10 +68,8 @@ fn choose_method(h: &mut Harness<'_, App>, method: &str) {
     h.run_steps(3);
 }
 
-/// The window of the states the references show in one row: 1280 px and the Mask group.
-const WINDOW: f32 = 1280.0 + 232.0;
-/// The window of the states whose bar the references show capped at 1164 px, and the group.
-const CAPPED: f32 = 1248.0 + 232.0;
+/// The window of every case.
+const WINDOW: f32 = 1280.0;
 
 /// The logo with Brightness chosen, as the reference script leaves it for most states.
 fn opened<'a>(dir: &std::path::Path) -> Harness<'a, App> {
@@ -251,7 +127,8 @@ fn staged_running() -> Vec<String> {
 /// Presses the Smooth field at 81 % and moves the pointer away: Smooth is 81, the preset Custom.
 fn smooth_81(h: &mut Harness<'_, App>) {
     use eframe::egui::{Event, Modifiers, PointerButton, pos2};
-    let at = pos2(598.0 + 232.0 + 0.81 * 150.0, 30.0);
+    // Smooth stands at 562..712 of the bar, which stands at x = 45; 81 % of its width.
+    let at = pos2(45.0 + 562.0 + 0.81 * 150.0, 30.0);
     h.event(Event::PointerMoved(at));
     h.run_steps(1);
     h.event(Event::PointerButton {
@@ -278,7 +155,7 @@ fn px_00_bar_closed() {
     check_regions(
         "px-00-bar-closed",
         &h.render().unwrap(),
-        &bar("bar", 1154, 36),
+        &bar("bar", 1190, 36),
     );
 }
 
@@ -287,14 +164,14 @@ fn px_01_empty() {
     let dir = tempfile::tempdir().unwrap();
     let mut h = common::harness(dir.path(), None, fixed());
     h.run_steps(3);
-    check("px-01-empty", &h.render().unwrap(), 165, 36);
+    check_regions("px-01-empty", &h.render().unwrap(), &bar("bar", 165, 36));
 }
 
 #[test]
 fn px_02_preview() {
     let dir = tempfile::tempdir().unwrap();
     let mut h = opened(dir.path());
-    check_regions("px-02-preview", &h.render().unwrap(), &bar("bar", 1154, 36));
+    check_regions("px-02-preview", &h.render().unwrap(), &bar("bar", 1190, 36));
 }
 
 #[test]
@@ -302,9 +179,11 @@ fn px_03_advanced_open() {
     let dir = tempfile::tempdir().unwrap();
     let mut h = opened(dir.path());
     open_advanced(&mut h);
-    let mut regions = bar("row", 1162, 36);
-    regions.extend(block_regions(1162, 1, output_width(None)));
-    check_regions("px-03-advanced-open", &h.render().unwrap(), &regions);
+    check_regions(
+        "px-03-advanced-open",
+        &h.render().unwrap(),
+        &bar("bar", 1198, OPEN_H),
+    );
 }
 
 #[test]
@@ -313,9 +192,11 @@ fn px_04_multicolour_palette() {
     let mut h = opened(dir.path());
     open_advanced(&mut h);
     choose_multicolour(&mut h);
-    let mut regions = bar("row", 1162, 36);
-    regions.extend(block_regions(1162, 1, output_width(Some(SWATCHES))));
-    check_regions("px-04-multicolour-palette", &h.render().unwrap(), &regions);
+    check_regions(
+        "px-04-multicolour-palette",
+        &h.render().unwrap(),
+        &bar("bar", 1198, OPEN_H),
+    );
 }
 
 #[test]
@@ -329,9 +210,9 @@ fn px_10_palette_swatch_hover() {
     h.run_steps(30);
     h.set_render_cursor(false);
     h.run_steps(1);
-    let mut regions = bar("row", 1162, 36);
-    regions.extend(block_regions(1162, 1, output_width(Some(SWATCHES))));
-    // The tooltip under the second swatch with its 1 px ring: two lines, 8 px below the cell.
+    let mut regions = bar("bar", 1198, OPEN_H);
+    // The tooltip under the second swatch with its 1 px ring: two lines, 8 px below the cell. It
+    // reaches 2 px below the bar.
     regions.push(Region::same("tooltip", (323, 84), (104, 39)));
     check_regions("px-10-palette-swatch-hover", &h.render().unwrap(), &regions);
 }
@@ -342,9 +223,11 @@ fn px_11_palette_excluded() {
     let mut h = opened(dir.path());
     open_advanced(&mut h);
     multicolour_excluded(&mut h);
-    let mut regions = bar("row", 1162, 36);
-    regions.extend(block_regions(1162, 1, output_width(Some(SWATCHES))));
-    check_regions("px-11-palette-excluded", &h.render().unwrap(), &regions);
+    check_regions(
+        "px-11-palette-excluded",
+        &h.render().unwrap(),
+        &bar("bar", 1198, OPEN_H),
+    );
 }
 
 #[test]
@@ -362,17 +245,18 @@ fn px_05_running_42() {
         assert!(start.elapsed().as_secs() < 20, "never showed 42 %");
     }
     h.run_steps(2);
-    // The whole first row, the blue button 75 px wide as in the reference.
-    let mut regions = bar("row", 1148, 36);
-    regions.extend(block_regions(1148, 1, output_width(Some(SWATCHES))));
-    check_regions("px-05-running-42", &h.render().unwrap(), &regions);
+    // The blue button is 75 px wide as in the reference: the bar is 14 px narrower.
+    check_regions(
+        "px-05-running-42",
+        &h.render().unwrap(),
+        &bar("bar", 1184, OPEN_H),
+    );
     assert!(matches!(h.state_mut().button(), Button::Running(Some(42))));
 }
 
-/// Smooth 81, Advanced open, in a window whose bar is capped at the reference's 1164 px.
+/// Smooth 81, Advanced open, Multicolour with the second colour excluded.
 fn custom_with_block<'a>(dir: &std::path::Path) -> Harness<'a, App> {
-    let mut h = analysed(dir, CAPPED);
-    choose_method(&mut h, "Brightness");
+    let mut h = opened(dir);
     open_advanced(&mut h);
     multicolour_excluded(&mut h);
     h
@@ -400,10 +284,12 @@ fn px_07_stopped() {
     let dir = tempfile::tempdir().unwrap();
     let mut h = custom_with_block(dir.path());
     stopped_state(&mut h);
-    // Both rows: the expander and "Stopped" with Retry wrap to the second row at the cap.
-    let mut regions = bar("rows", 1164, 72);
-    regions.extend(block_regions(1164, 2, output_width(Some(SWATCHES))));
-    check_regions("px-07-stopped", &h.render().unwrap(), &regions);
+    // One row at 1280 px: "Stopped" with Retry makes the bar 17 px wider than at rest.
+    check_regions(
+        "px-07-stopped",
+        &h.render().unwrap(),
+        &bar("bar", 1215, OPEN_H),
+    );
 }
 
 #[test]
@@ -425,9 +311,11 @@ fn px_06_failed() {
     }
     h.remove_cursor();
     h.run_steps(3);
-    let mut regions = bar("rows", 1164, 72);
-    regions.extend(block_regions(1164, 2, output_width(Some(SWATCHES))));
-    check_regions("px-06-failed", &h.render().unwrap(), &regions);
+    check_regions(
+        "px-06-failed",
+        &h.render().unwrap(),
+        &bar("bar", 1219, OPEN_H),
+    );
 }
 
 #[test]
@@ -444,24 +332,26 @@ fn px_13_trace_button_focus() {
     h.run_steps(3);
     h.remove_cursor();
     h.run_steps(2);
-    let mut regions = bar("row", 1162, 36);
-    regions.extend(block_regions(1162, 1, output_width(Some(SWATCHES))));
-    check_regions("px-13-trace-button-focus", &h.render().unwrap(), &regions);
+    check_regions(
+        "px-13-trace-button-focus",
+        &h.render().unwrap(),
+        &bar("bar", 1198, OPEN_H),
+    );
 }
 
 #[test]
 fn px_09_method_menu() {
     let dir = tempfile::tempdir().unwrap();
-    let mut h = analysed(dir.path(), CAPPED);
+    let mut h = analysed(dir.path(), WINDOW);
     h.get_by_label("Method").click();
     h.run_steps(3);
     h.remove_cursor();
     h.run_steps(3);
-    // Both rows of the Remove background bar (capped at 1164 px) and the menu below them.
-    let regions = with_mask_group(vec![
-        Region::same("rows", (0, 0), (1164, 72)),
-        Region::same("menu", (184, 72), (232, 108)),
-    ]);
+    // Both rows of the Remove background bar (it takes the 1256 px cap) and the menu below them.
+    let regions = vec![
+        Region::same("rows", (0, 0), (1256, 72)),
+        Region::same("menu", (220, 72), (232, 108)),
+    ];
     check_regions("px-09-method-menu", &h.render().unwrap(), &regions);
 }
 
@@ -482,7 +372,7 @@ fn px_12_value_field_tooltip() {
     check_regions(
         "px-12-value-field-tooltip",
         &h.render().unwrap(),
-        &bar("bar", 1154, 36),
+        &bar("bar", 1190, 36),
     );
 }
 
@@ -498,9 +388,11 @@ fn px_14_preset_hover() {
     h.run_steps(3);
     h.set_render_cursor(false);
     h.run_steps(1);
-    let mut regions = bar("row", 1162, 36);
-    regions.extend(block_regions(1162, 1, output_width(Some(SWATCHES))));
-    check_regions("px-14-preset-hover", &h.render().unwrap(), &regions);
+    check_regions(
+        "px-14-preset-hover",
+        &h.render().unwrap(),
+        &bar("bar", 1198, OPEN_H),
+    );
 }
 
 #[test]
@@ -511,14 +403,12 @@ fn px_08_preset_menu() {
     h.run_steps(3);
     h.remove_cursor();
     h.run_steps(2);
-    // The menu: 44 px right of the bar's left edge, 4 px below it, 238 x 184.
-    check_at(
-        "px-08-preset-menu",
-        &h.render().unwrap(),
-        (44, 40),
-        238,
-        184,
-    );
+    // The menu: under Preset, 80 px right of the bar's left edge, 4 px below it, 238 x 184.
+    let regions = vec![
+        Region::same("row", (0, 0), (1190, 36)),
+        Region::same("menu", (80, 40), (238, 184)),
+    ];
+    check_regions("px-08-preset-menu", &h.render().unwrap(), &regions);
 }
 
 /// The longest vertical white run in column `x` of `image` that starts below row `from`: first
@@ -564,13 +454,12 @@ fn px_15_tooltip() {
     h.run_steps(1);
     let rendered = h.render().unwrap();
     let out = compare::out_dir();
-    let full = compare::rgb(&rendered);
-    let got = image::imageops::crop_imm(&full, 60, 0, full.width() - 60, full.height()).to_image();
+    let got = px::aligned(&compare::rgb(&rendered));
     got.save(out.join("render-px-15-tooltip.png")).unwrap();
     let want = reference("px-15-tooltip.png");
 
     // The hovered button.
-    let outcome = compare::compare_at(&want, &got, (8, 4), 28, 28);
+    let outcome = compare::compare_at(&want, &got, (44, 4), 28, 28);
     println!("px-15 button: {}", outcome.summary());
     assert!(outcome.passed(), "button: {}", outcome.summary());
 
@@ -588,16 +477,20 @@ fn px_15_tooltip() {
     assert_eq!((got_top, got_rows), (ref_top, ref_rows), "the box's rows");
 
     // The glyphs of "About T", aligned on the first one.
-    let ref_x = text_start(&want, 0, ref_top + 8, 8);
-    // The render's box starts left of the cut at x = 60, so its text is measured uncropped.
-    let got_x = text_start(&full, 53, got_top + 10, 8);
+    let box_left = |image: &image::RgbImage, top: u32| {
+        (0..image.width())
+            .find(|&x| image.get_pixel(x, top + 11).0 == [255, 255, 255])
+            .expect("the box's left edge")
+    };
+    let ref_x = text_start(&want, box_left(&want, ref_top), ref_top + 8, 8);
+    let got_x = text_start(&got, box_left(&got, got_top), got_top + 10, 8);
     println!("px-15 text starts at {ref_x} (reference) and {got_x} (render)");
     let width = 38;
     let crop = |image: &image::RgbImage, x: u32| {
         image::imageops::crop_imm(image, x.saturating_sub(2), ref_top - 1, width, ref_rows + 2)
             .to_image()
     };
-    let outcome = compare::compare_crops(&crop(&want, ref_x), &crop(&full, got_x));
+    let outcome = compare::compare_crops(&crop(&want, ref_x), &crop(&got, got_x));
     outcome
         .diff
         .save(out.join("diff-px-15-tooltip-text.png"))

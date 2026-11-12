@@ -1,6 +1,7 @@
 //! Pixel comparison of the Mask group and the regions with the references of
-//! `specs/0002-trace-parts` (ux-notes 12.2: P1 to P6, P14, P16 and C1 to C4; the Parts row cases
-//! P7 to P13 and P15 are in `parts.rs`).
+//! `specs/0002-trace-parts` (ux-notes 12.2: P1 to P6, P14, P16, P17 and C1 to C4; the Parts row
+//! cases P7 to P13, P15 and P18 are in `parts.rs`, the lasso looks C5 to C8 in `lasso.rs`). Every
+//! case runs in a 1280 x 800 window with Advanced open, where the Mask group stands.
 
 // Pixel geometry converts between integers and f32 everywhere; the values are screen coordinates.
 #![allow(
@@ -26,15 +27,18 @@ use tracyo_app::App;
 use tracyo_app::dialogs::Dialogs;
 
 const SPEC: &str = "0002-trace-parts";
-/// The window of ux-notes 12.2: the bar caps at 1164 px.
-const WINDOW: f32 = 1248.0;
+/// The window of ux-notes 12.2.
+const WINDOW: f32 = 1280.0;
+/// The bar with Advanced open: 1198 x 121 px.
+const BAR_W: u32 = 1198;
+const BAR_H: u32 = 121;
 
 fn check(name: &str, h: &mut Harness<'_, App>, regions: &[Region]) {
     px::check_regions(SPEC, name, &h.render().unwrap(), regions);
 }
 
-fn bar_rows(height: u32) -> Vec<Region> {
-    vec![Region::same("bar", (0, 0), (1164, height))]
+fn whole_bar() -> Vec<Region> {
+    vec![Region::same("bar", (0, 0), (BAR_W, BAR_H))]
 }
 
 fn fixed() -> Dialogs {
@@ -54,6 +58,8 @@ fn opened<'a>(dir: &std::path::Path) -> Harness<'a, App> {
     h.get_by_label("Brightness").click();
     h.run_steps(3);
     common::wait_for_result(&mut h, 60.0);
+    h.get_by_label("More trace options").click();
+    h.run_steps(3);
     h.remove_cursor();
     h.run_steps(3);
     h
@@ -133,7 +139,7 @@ fn near(a: [u8; 3], b: [u8; 3], tolerance: i32) -> bool {
 fn p1_the_mask_group_at_rest() {
     let dir = tempfile::tempdir().unwrap();
     let mut h = opened(dir.path());
-    check("px-00-mask-group", &mut h, &bar_rows(72));
+    check("px-00-mask-group", &mut h, &whole_bar());
 }
 
 #[test]
@@ -141,8 +147,7 @@ fn p2_rectangle_pressed() {
     let dir = tempfile::tempdir().unwrap();
     let mut h = opened(dir.path());
     click_label(&mut h, "Rectangle");
-    // The bar only: the top 60 px of both.
-    check("px-01-pick-armed", &mut h, &bar_rows(60));
+    check("px-01-pick-armed", &mut h, &whole_bar());
 }
 
 #[test]
@@ -154,7 +159,7 @@ fn p3_inside_with_regions() {
         "threshold {threshold} = {} %",
         tracyo_core::settings::percent_of_luma(threshold)
     );
-    check("px-03-mask-inside-bar", &mut h, &bar_rows(72));
+    check("px-03-mask-inside-bar", &mut h, &whole_bar());
 }
 
 #[test]
@@ -165,7 +170,7 @@ fn p4_outside_hovered() {
     h.run_steps(3);
     h.set_render_cursor(false);
     h.run_steps(1);
-    check("px-04-outside-hover", &mut h, &bar_rows(72));
+    check("px-04-outside-hover", &mut h, &whole_bar());
 }
 
 #[test]
@@ -177,7 +182,7 @@ fn p5_clear_mask_tooltip() {
     h.set_render_cursor(false);
     h.run_steps(1);
     // The bar; the tooltip box is looked at by eye.
-    check("px-06-clear-mask-tooltip", &mut h, &bar_rows(72));
+    check("px-06-clear-mask-tooltip", &mut h, &whole_bar());
 }
 
 #[test]
@@ -190,54 +195,50 @@ fn p6_keyboard_focus_on_subtract() {
     h.run_steps(3);
     h.remove_cursor();
     h.run_steps(2);
-    check("px-07-region-tool-focus", &mut h, &bar_rows(72));
+    check("px-07-region-tool-focus", &mut h, &whole_bar());
 }
 
 /// The bar of a render, cut at its top-left corner.
 fn bar_of(h: &mut Harness<'_, App>) -> RgbImage {
     let full = compare::rgb(&h.render().unwrap());
-    let cut = image::imageops::crop_imm(&full, 60, 0, full.width() - 60, full.height()).to_image();
-    let (x, y) = compare::bar_origin(&cut).unwrap();
-    image::imageops::crop_imm(&cut, x, y, 1164, 72).to_image()
+    let (x, y) = compare::bar_origin(&full).unwrap();
+    image::imageops::crop_imm(&full, x, y, BAR_W, BAR_H).to_image()
 }
 
-/// The 28 x 28 box of an icon button whose left edge is `x` from the bar's: row 1, 4 px down.
-fn button_box(bar: &RgbImage, x: u32) -> RgbImage {
-    image::imageops::crop_imm(bar, x, 4, 28, 28).to_image()
-}
-
-/// Whether (`x`, `y`) of a button box lies in the glyph's 20 x 20 centre.
-fn in_glyph(x: u32, y: u32) -> bool {
-    (4..24).contains(&x) && (4..24).contains(&y)
-}
-
+/// P16: Rectangle and Subtract pressed, against `px-19`, Curvyo's pressed class on a copy of its
+/// button (Curvyo has no Subtract).
 #[test]
-fn p16_subtract_pressed_is_drawn_as_the_pressed_rectangle() {
+fn p16_subtract_pressed() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut h = with_r1_r2(dir.path());
+    click_label(&mut h, "Rectangle");
+    click_label(&mut h, "Subtract");
+    check("px-19-subtract-pressed", &mut h, &whole_bar());
+}
+
+/// P17: Lasso pressed, against `px-18`, the same class on a copy of the button.
+#[test]
+fn p17_lasso_pressed() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut h = with_r1_r2(dir.path());
+    click_label(&mut h, "Lasso");
+    check("px-18-lasso-pressed", &mut h, &whole_bar());
+}
+
+/// The pressed Subtract button is the pressed Rectangle button with another glyph: the same
+/// ground in the accent colour, a white line of 1 px for the minus.
+#[test]
+fn the_pressed_subtract_box_has_the_ground_of_the_pressed_rectangle() {
     let dir = tempfile::tempdir().unwrap();
     let mut h = opened(dir.path());
-    let rest = bar_of(&mut h);
     click_label(&mut h, "Rectangle");
-    let rectangle_pressed = bar_of(&mut h);
     click_label(&mut h, "Subtract");
     let both = bar_of(&mut h);
     let accent = [0x2F, 0x6F, 0xEE];
-
-    // The bar outside the Subtract box equals P2's render (same tolerance as the references).
-    let blank = |bar: &RgbImage| {
-        let mut b = bar.clone();
-        for y in 3..33 {
-            for x in 215..245 {
-                b.put_pixel(x, y, image::Rgb([0, 0, 0]));
-            }
-        }
-        b
-    };
-    let outcome = compare::compare_crops(&blank(&rectangle_pressed), &blank(&both));
-    println!("outside Subtract: {}", outcome.summary());
-    assert!(outcome.passed(), "{}", outcome.summary());
-
-    // The ground of Subtract's box is the ground of the pressed Rectangle box, glyphs apart.
-    let (pressed_rect, pressed_minus) = (button_box(&both, 184), button_box(&both, 216));
+    // Rectangle 153..181 and Subtract 217..245 of the bar, in the Parts row (y 85..113).
+    let button_box = |x: u32| image::imageops::crop_imm(&both, 8 + 153 + x, 85, 28, 28).to_image();
+    let (pressed_rect, pressed_minus) = (button_box(0), button_box(64));
+    let in_glyph = |x: u32, y: u32| (4..24).contains(&x) && (4..24).contains(&y);
     for y in 0..28 {
         for x in 0..28 {
             if in_glyph(x, y) {
@@ -262,27 +263,6 @@ fn p16_subtract_pressed_is_drawn_as_the_pressed_rectangle() {
         "a ground of {}",
         ground(&pressed_minus)
     );
-    // The glyph: a white line of 1 px. At 16 px the minus lies on the boundary of two pixel rows,
-    // as Curvyo draws it, so each of its pixels is half white; the two rows together are one
-    // white pixel of coverage.
-    let whiteness =
-        |x: u32, y: u32| (f32::from(pressed_minus.get_pixel(x, y).0[0]) - 47.0) / (255.0 - 47.0);
-    for x in 11..17 {
-        let coverage: f32 = (11..17).map(|y| whiteness(x, y)).sum();
-        println!("minus column {x}: coverage {coverage:.2}");
-        assert!((coverage - 1.0).abs() < 0.2, "column {x}: {coverage}");
-    }
-
-    // At rest its box equals the rest look of Rectangle's, glyphs apart.
-    let (rest_rect, rest_minus) = (button_box(&rest, 184), button_box(&rest, 216));
-    for y in 0..28 {
-        for x in 0..28 {
-            if !in_glyph(x, y) {
-                let (a, b) = (rest_rect.get_pixel(x, y).0, rest_minus.get_pixel(x, y).0);
-                assert!(near(a, b, 24), "rest ({x}, {y}): {a:?} vs {b:?}");
-            }
-        }
-    }
 }
 
 /// The screen position of the picture pixel (`x`, `y`) centre.
@@ -339,7 +319,7 @@ fn c2_the_wash_outside_and_no_outline_inside_the_mask() {
     // Outside the mask the outline is there.
     let drawn = (0..image.height())
         .flat_map(|y| (60..image.width()).map(move |x| (x, y)))
-        .filter(|&(x, y)| y > 100 && near(image.get_pixel(x, y).0, [0x2F, 0x6F, 0xEE], 24))
+        .filter(|&(x, y)| y > 200 && near(image.get_pixel(x, y).0, [0x2F, 0x6F, 0xEE], 24))
         .count();
     assert!(drawn > 100, "the traced outline outside the mask: {drawn}");
 }
@@ -504,7 +484,6 @@ fn p14_a_mask_outside_the_image_dims_save_as() {
     h.run_steps(2);
     h.key_press(Key::Enter);
     common::wait_for_result(&mut h, 60.0);
-    click_label(&mut h, "More trace options");
     click_label(&mut h, "Rectangle");
     draw(&mut h, R3);
     click_label(&mut h, "Rectangle");
@@ -516,11 +495,12 @@ fn p14_a_mask_outside_the_image_dims_save_as() {
     h.run_steps(30);
     h.set_render_cursor(false);
     h.run_steps(1);
-    // The two rows of the bar and the Parts row below them left of the tooltip, which the window
-    // of this test clamps where Curvyo's does not.
+    // The bar without the tooltip of Save as…, which the window of this test clamps where
+    // Curvyo's does not: the first row, the Output line left of the tooltip and the Parts row.
     let regions = [
-        Region::same("rows", (0, 0), (1164, 72)),
-        Region::same("parts", (0, 72), (900, 49)),
+        Region::same("row", (0, 0), (BAR_W, 40)),
+        Region::same("output", (0, 40), (850, 32)),
+        Region::same("parts", (0, 72), (BAR_W, 49)),
     ];
     check("px-16-mask-outside-image", &mut h, &regions);
 }

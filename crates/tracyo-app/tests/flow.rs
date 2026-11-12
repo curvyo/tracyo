@@ -8,7 +8,7 @@ use std::path::{Path, PathBuf};
 
 use eframe::egui::{self, Event, Key, Modifiers, pos2, vec2};
 use egui_kittest::Harness;
-use egui_kittest::kittest::Queryable;
+use egui_kittest::kittest::{NodeT, Queryable};
 use tracyo_app::App;
 use tracyo_app::dialogs::Dialogs;
 use tracyo_core::progress::Button;
@@ -82,15 +82,47 @@ fn ctrl_o_opens_the_picture_the_dialog_returns() {
     assert_eq!(h.state().picture_name(), Some("input-logo.png"));
 }
 
-/// Criterion 1: the Open card does the same.
+/// Criterion 1: the Open control of the empty bar does the same.
 #[test]
-fn the_open_card_button_opens_the_picture() {
+fn the_open_image_button_of_the_empty_bar_opens_the_picture() {
     let dir = tempfile::tempdir().unwrap();
     let mut h = common::harness(dir.path(), None, fixed(Some(common::logo()), None));
     h.run_steps(2);
-    h.get_by_label("Open image").click();
+    h.get_by_label("Open image\u{2026}").click();
     common::wait_for_result(&mut h, 60.0);
     assert!(h.state().picture_name().is_some());
+}
+
+/// Criterion 1: Open is the first control of the bar once a picture is shown, and opens the
+/// picture the dialog returns.
+#[test]
+fn the_bars_open_button_is_its_first_control_and_opens_the_picture() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut h = common::harness(
+        dir.path(),
+        Some(common::logo()),
+        fixed(Some(common::logo()), None),
+    );
+    common::wait_for_result(&mut h, 60.0);
+    let open = h.get_by_label("Open image").rect();
+    let about = h.get_by_label("About Tracyo").rect();
+    assert!(open.right() < about.left(), "Open stands left of About");
+    assert!(
+        (open.top() - 16.0).abs() < 1.0,
+        "in the first row of the bar"
+    );
+    h.get_by_label("Open image").focus();
+    h.run_steps(2);
+    h.key_press(Key::Tab);
+    h.run_steps(2);
+    assert!(
+        h.get_by_label("About Tracyo").accesskit_node().is_focused(),
+        "Tab reaches About after Open"
+    );
+    let before = h.state().trace_jobs();
+    h.get_by_label("Open image").click();
+    common::wait_until(&mut h, 60.0, |a| a.trace_jobs() > before);
+    assert_eq!(h.state().picture_name(), Some("input-logo.png"));
 }
 
 /// Criterion 1: a dropped file opens.
