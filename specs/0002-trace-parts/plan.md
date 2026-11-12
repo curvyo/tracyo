@@ -20,7 +20,7 @@ the rectangle's edge. One part only (no Parts row yet).
 - [x] Golden `parts-13.svg` from P1 and R1; fixture generator for P1 and P2 — 13
 - [x] `protocol`: `Trace` carries an optional clip (grid units, Inside/Outside); `job` passes it as `Job::mask`; round-trip tests; no clip = bit-identical to 0001 (ADR 0008 §4) — 13, 22
 - [x] `region_edit` test-first: `drawn` (2 px rule, centre, square), `region_at` (topmost, 8 px slop), `handle_at` (radii, edge handles from 24 px), `resized` (centre, keep ratio, 1 px minimum), `moved` (ADR 0008 §5) — 7, 9
-- [x] `wash`: not-traced area as disjoint rectangles, Inside and Outside, regions off the picture — 11
+- [x] `wash`: not-traced area as disjoint rectangles, Inside and Outside, regions off the picture — 11 (triangles since 2026-11-13, see "Slice 2b")
 - [x] App: Mask group (Rectangle, Subtract, Inside/Outside segments, Clear mask; icons `square`, `square-minus` in `assets/` with hashes), Tab order, hidden without a picture (ux §1, §2, §8) — 1 (Mask group), 6, 10
 - [x] App `region_tool` and `region_paint`: drawing with live outline, size chip and Remove badge, selection box and 8 handles, hover box, drag ghost, Esc restores a drag, arrows and Delete, cursors, Esc order, black 0.25 mm outline, dashed subtracted outline, 12 % wash mesh, the preview outline only inside the mask (ux §5 to §7) — 7, 8, 9, 11
 - [x] Notices "the mask is outside the image" and "could not be combined" as the dimmed Save as… tooltip and hidden status text — 12
@@ -74,6 +74,33 @@ Done on `story/trace-parts-row` (implementer, 2026-11-12). Notes:
   8 tiled parts of 12 Mpx, 0.98 times for 8 covering parts (one is traced), release, thread CPU time.
 - Open in this slice: debts 25 to 30; the analysis per part clip (18), Multicolour (17) and text
   and shapes (19) are slice 3.
+
+## Slice 2b: Mask group in the Parts row, Open in the bar and the Lasso (`story/mask-in-parts-row`)
+
+Customer decisions of 2026-11-13 (ux-notes of 0001 and 0002, spec criteria 1, 7 to 9, 11, 12, 27 to 29).
+Demo: the bar is centred with Open first and no rail; the first row is one row again; Rectangle, Lasso,
+Subtract, Inside | Outside and Clear mask stand in the Parts row behind the chips; Lasso: click corners,
+close on the first corner, double click or Enter, Esc closes and releases; select, move, drag corners,
+nudge, delete; the cut follows slanted sides.
+
+- [x] `regions`: `Form` (Rect, Lasso), `Region::lasso` (three corners, not collinear), `bounds`, `moved`, `with_corner`; `clip` resolves a lasso on its own by the non-zero rule before it joins the mask — 28, 12
+- [x] Property tests of the cut and the join with lassos (slanted sides, crossing sides): area conservation, no overlap, determinism, permutation; idempotence as one grid unit times the length (ADR 0008 amendment 14); criterion 28 on P1 within 0.005 mm (0.00034 mm) — 13, 14, 22, 28
+- [x] `wash` as triangles on a 1/1024 px grid; `lasso` draft (click, close target, Backspace, finish); `region_edit` for lassos (winding, slop, corner hit); `Esc::FinishLasso` — 8, 11, 28, 29
+- [x] Worker protocol: no change, a round-trip test with a lasso clip — 28
+- [x] App: Open first in the bar, the bar centred (`bar_x`), no card, no rail; the first row without the Mask group; the Parts row on its own line with the divider and the Mask group (Rectangle, Lasso, Subtract, Mask, Clear mask), wrap of the group on a narrow block — 1, 7
+- [x] App: Lasso tool (clicks, close, double click, Enter, Esc, tool and part changes, Backspace, no modifiers), selected lasso (corner squares, move, corner drag, nudge, delete, Esc restores), drawn and selected looks, the black and dashed outlines — 7 to 9, 11, 28, 29
+- [x] Pixel cases rewritten for the single 1280 x 800 window against the re-captured references: P1 to P18 and the lasso looks C5 to C8 by samples — 1, 11, 28, 29
+- [x] ADR 0008 and ADR 0003 amended, debts 31 to 34, changelog
+
+Done on `story/mask-in-parts-row` (implementer, 2026-11-13). Notes:
+
+- `Region` is no longer `Copy`; its field is `form`. `tests/common/canvas.rs` holds the click, drag and
+  settle helpers of the new `tests/lasso.rs`; the older test files keep their own copies (debt 30).
+- The ring of 18 px round a lasso corner: egui strokes a circle half a pixel outside the radius it is
+  given, so it is drawn with radius 8 to land at 8 to 9 px from the corner's centre (measured: the ring
+  pixel is `#D8E4FD` against the reference's `#D5E2FC`).
+- A drag of a lasso corner moves the corner to the pointer's whole pixel; a press on a corner is held
+  in `MaskState::pressed_corner` for the drag or click that follows.
 
 ## Slice 3: Colours, text and shapes per part (`story/trace-parts-colour-text`)
 
