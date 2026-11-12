@@ -14,19 +14,25 @@ Subtract pressed draw holes; select, move, resize, nudge, delete; Inside and Out
 the outside is washed to 12 %, the outline ends exactly at the mask; Save as… writes an SVG cut at
 the rectangle's edge. One part only (no Parts row yet).
 
-- [ ] Dependency `i_overlay =9.0.1` in `tracyo-core`, `deny.toml` check, `THIRD-PARTY.md`, Renovate rule (alone, no automerge) (ADR 0008 Consequences) — 26
-- [ ] `grid`, `regions`, `clip` test-first: snap, canonical order, union minus subtracted, ring, permutation gives the same bytes, empty mask, mask off the picture, `Mask` impl (whole outlines keep curves, crossing ones cut, refusal keeps whole), `kept_pixels` (ADR 0008 §1, §2) — 6, 12, 13
-- [ ] Property tests of the cut on a 6 px lattice: Inside + Outside = whole, no overlap, idempotent (ADR 0008 §6) — 13, 14 (Inside/Outside of one trace)
-- [ ] Golden `parts-13.svg` from P1 and R1; fixture generator for P1 and P2 — 13
-- [ ] `protocol`: `Trace` carries an optional clip (grid units, Inside/Outside); `job` passes it as `Job::mask`; round-trip tests; no clip = bit-identical to 0001 (ADR 0008 §4) — 13, 22
-- [ ] `region_edit` test-first: `drawn` (2 px rule, centre, square), `region_at` (topmost, 8 px slop), `handle_at` (radii, edge handles from 24 px), `resized` (centre, keep ratio, 1 px minimum), `moved` (ADR 0008 §5) — 7, 9
-- [ ] `wash`: not-traced area as disjoint rectangles, Inside and Outside, regions off the picture — 11
-- [ ] App: Mask group (Rectangle, Subtract, Inside/Outside segments, Clear mask; icons `square`, `square-minus` in `assets/` with hashes), Tab order, hidden without a picture (ux §1, §2, §8) — 1 (Mask group), 6, 10
-- [ ] App `region_tool` and `region_paint`: drawing with live outline, size chip and Remove badge, selection box and 8 handles, hover box, drag ghost, Esc restores a drag, arrows and Delete, cursors, Esc order, black 0.25 mm outline, dashed subtracted outline, 12 % wash mesh, the preview outline only inside the mask (ux §5 to §7) — 7, 8, 9, 11
-- [ ] Notices "the mask is outside the image" and "could not be combined" as the dimmed Save as… tooltip and hidden status text — 12
-- [ ] Region-only analysis of the one part (automatic Threshold, background, Analyse read the kept pixels; `adrs.md` note) — 18 (one part)
-- [ ] ux-engineer: `capture.cjs` with Rectangle and Subtract, re-capture `px-00` .. `px-17` (ux §0)
-- [ ] Kittest flows: draw, select, resize, nudge, delete, Esc order, Inside/Outside, Clear mask, save; pixel cases P1 to P6, P16, C1 to C4 (ux §12.2) — 1, 7 to 13
+- [x] Dependency `i_overlay =9.0.1` in `tracyo-core`, `deny.toml` check, `THIRD-PARTY.md`, Renovate rule (alone, no automerge) (ADR 0008 Consequences) — 26
+- [x] `grid`, `regions`, `clip` test-first: snap, canonical order, union minus subtracted, ring, permutation gives the same bytes, empty mask, mask off the picture, `Mask` impl (whole outlines keep curves, crossing ones cut, refusal keeps whole), `kept_pixels` (ADR 0008 §1, §2) — 6, 12, 13
+- [x] Property tests of the cut on a 6 px lattice: Inside + Outside = whole, no overlap, idempotent (ADR 0008 §6) — 13, 14 (Inside/Outside of one trace)
+- [x] Golden `parts-13.svg` from P1 and R1; fixture generator for P1 and P2 — 13
+- [x] `protocol`: `Trace` carries an optional clip (grid units, Inside/Outside); `job` passes it as `Job::mask`; round-trip tests; no clip = bit-identical to 0001 (ADR 0008 §4) — 13, 22
+- [x] `region_edit` test-first: `drawn` (2 px rule, centre, square), `region_at` (topmost, 8 px slop), `handle_at` (radii, edge handles from 24 px), `resized` (centre, keep ratio, 1 px minimum), `moved` (ADR 0008 §5) — 7, 9
+- [x] `wash`: not-traced area as disjoint rectangles, Inside and Outside, regions off the picture — 11
+- [x] App: Mask group (Rectangle, Subtract, Inside/Outside segments, Clear mask; icons `square`, `square-minus` in `assets/` with hashes), Tab order, hidden without a picture (ux §1, §2, §8) — 1 (Mask group), 6, 10
+- [x] App `region_tool` and `region_paint`: drawing with live outline, size chip and Remove badge, selection box and 8 handles, hover box, drag ghost, Esc restores a drag, arrows and Delete, cursors, Esc order, black 0.25 mm outline, dashed subtracted outline, 12 % wash mesh, the preview outline only inside the mask (ux §5 to §7) — 7, 8, 9, 11
+- [x] Notices "the mask is outside the image" and "could not be combined" as the dimmed Save as… tooltip and hidden status text — 12
+- [x] Region-only analysis of the one part (automatic Threshold, background, Analyse read the kept pixels; `adrs.md` note) — 18 (one part)
+- [x] ux-engineer: `capture.cjs` with Rectangle and Subtract, re-capture `px-00` .. `px-17` (ux §0)
+- [x] Kittest flows: draw, select, resize, nudge, delete, Esc order, Inside/Outside, Clear mask, save; pixel cases P1 to P6, P16, C1 to C4 (ux §12.2) — 1, 7 to 13
+
+Done on `story/trace-parts` (implementer, 2026-11-12). Notes: the crossing test uses the exact
+bounding box, not the control box (ADR 0008 deviation 1); P14 (`px-16`) is compared without the
+Parts row, which comes with slice 2; the notices are the tooltip of the dimmed Save as… (the hidden
+status text is debt 24); the dashed look of the selection box and of subtracted outlines is checked
+by sampled pixels, not against a reference.
 
 ## Slice 2: Parts and the joined result (`story/trace-parts-join`)
 

@@ -8,6 +8,10 @@ First release, `0.1.0`. Polygons and stars are saved as `<polygon>` and Inkscape
 
 ### Added
 
+- Rectangle regions (specification 0002, slice 1): the Mask group of the bar (Rectangle, Subtract,
+  Inside | Outside, Clear mask); rectangles are drawn, selected, moved, resized, nudged and deleted
+  on the picture; the trace is cut exactly on their edge, the rest of the picture is washed to
+  12 %, and the automatic Threshold and background read only the pixels inside the mask.
 - Open (button, Ctrl+O, drop, command line), pan and zoom, a live outline preview while values
   are dragged, Stop and Retry, Save as an Inkscape SVG in millimetres.
 - The Trace bar of Curvyo: Preset, Method (Brightness, Remove background, Pick colours), Threshold,
