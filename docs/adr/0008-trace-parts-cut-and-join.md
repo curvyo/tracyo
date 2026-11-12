@@ -229,3 +229,25 @@ outline went into a union; text lines are concatenated; a part that did not trac
   polygons as the area. Precondition: Curvyo's 0094 acceptance tests pass unchanged; its goldens may
   change in vertex order (canonical forms differ), which is a Curvyo story.
 - Debt 6 (analysis on an app thread) now runs once per part clip (criterion 18).
+
+## Deviations found while building slice 1 (2026-11-12; the status stays Proposed)
+
+1. **The crossing test uses the exact bounding box** of an outline (`kurbo::Shape::bounding_box`),
+   not its control-point box (section 1). A cut outline comes back as a polyline whose vertices lie
+   on the curve, so with the control box a curve that only seemed to cross an edge was cut and
+   then, as a polyline, no longer crossed it: a second cut moved it in the list of outlines and the
+   idempotence property (section 6) failed in case 0 of the first run. With the exact box a curve
+   and the polyline made from it cross the same edges. A curve that touches an edge only
+   tangentially is the one case left where the order of the outlines can change on a second cut
+   (their geometry does not).
+2. **`clip::plan` and `MaskPlan`** (Whole, Clip, Nothing with the notice) are added to the
+   signatures of section 1: they hold the rules of section 2 (no region, an empty mask, the mask
+   off the picture, Outside of a mask off the picture is the whole picture) in one tested place.
+   `grid` is public so the property tests can compute areas with the same snapping.
+3. **"Whole" against the picture box grown by 1 mm** (section 2) is not needed yet: slice 1 has no
+   `PartArea::Whole`; it comes with `stack` in slice 2.
+4. **The wire** of a masked trace is the `Trace` frame with the clip appended (the mode byte, the
+   count of grid numbers, the numbers); without a clip the frame is the one of 0001, byte for byte.
+5. **Region-only values** are read on the analysis thread of debt 6 for the one part: the
+   Threshold unless the maker typed it, and the Auto background; Analyse takes all values.
+
