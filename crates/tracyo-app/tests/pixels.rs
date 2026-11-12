@@ -131,11 +131,25 @@ fn block_regions(bar_w: u32, rows: u32, output_w: u32) -> Vec<Region> {
         Region::same("settings", (settings_at, controls), (SETTINGS_W, 36)),
     ];
     let analyse = bar_w - 91;
-    regions.push(Region::same(
-        "gap",
-        (settings_at + SETTINGS_W, controls),
-        (analyse - (settings_at + SETTINGS_W), 36),
-    ));
+    // The block of a picture also holds the Parts row (128 px for one part) after Corners, which
+    // the 0001 references do not have: the gap of the reference is compared left of it (8 px),
+    // right of it (between its end and a stretch of the same width as the reference's before
+    // Analyse) and at Analyse; the row itself is compared in `parts.rs`.
+    let gap_at = settings_at + SETTINGS_W;
+    let gap = analyse - gap_at;
+    regions.push(Region::same("gap-left", (gap_at, controls), (8, 36)));
+    regions.push(Region {
+        name: "gap-middle",
+        reference_at: (gap_at, controls),
+        got_at: (gap_at + 8 + 128, controls),
+        size: (gap.min(96), 36),
+    });
+    regions.push(Region {
+        name: "gap-right",
+        reference_at: (gap_at, controls),
+        got_at: (gap_at + MASK_SHIFT, controls),
+        size: (gap, 36),
+    });
     // Analyse is flush right, so it moves with the right edge of the wider bar.
     regions.push(Region {
         name: "analyse",

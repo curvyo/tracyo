@@ -1,6 +1,6 @@
 //! Pixel comparison of the Mask group and the regions with the references of
-//! `specs/0002-trace-parts` (ux-notes 12.2: P1 to P6, P16 and C1 to C4; the Parts row and its
-//! cases belong to the next slice).
+//! `specs/0002-trace-parts` (ux-notes 12.2: P1 to P6, P14, P16 and C1 to C4; the Parts row cases
+//! P7 to P13 and P15 are in `parts.rs`).
 
 // Pixel geometry converts between integers and f32 everywhere; the values are screen coordinates.
 #![allow(
@@ -516,6 +516,11 @@ fn p14_a_mask_outside_the_image_dims_save_as() {
     h.run_steps(30);
     h.set_render_cursor(false);
     h.run_steps(1);
-    // The two rows of the bar; the Parts row of the block below them comes with the next slice.
-    check("px-16-mask-outside-image", &mut h, &bar_rows(72));
+    // The two rows of the bar and the Parts row below them left of the tooltip, which the window
+    // of this test clamps where Curvyo's does not.
+    let regions = [
+        Region::same("rows", (0, 0), (1164, 72)),
+        Region::same("parts", (0, 72), (900, 49)),
+    ];
+    check("px-16-mask-outside-image", &mut h, &regions);
 }
