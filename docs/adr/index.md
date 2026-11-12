@@ -15,3 +15,4 @@ supersedes it. A decision too small for an ADR is a dated note in the feature's
 | [0005](0005-inkscape-svg-output.md) | The Inkscape SVG Tracyo writes | tracyo-core | Accepted (slice 5, 2026-11-11) |
 | [0006](0006-bundled-assets.md) | Bundled assets: OCR model, fonts and icons | workspace | Accepted (slice 5, 2026-11-11) |
 | [0007](0007-tests-ci-dependencies-and-releases.md) | Tests, CI, dependency policy and release builds | workspace | Accepted (slice 5, 2026-11-11) |
+| [0008](0008-trace-parts-cut-and-join.md) | Trace parts: where the cut and the join live, and how parts are traced (extends 0002, 0004) | tracyo-core, tracyo-app | Proposed (architect, 2026-11-12) |
