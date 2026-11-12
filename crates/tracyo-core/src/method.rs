@@ -99,6 +99,16 @@ impl PictureValues {
         }
     }
 
+    /// A copy for a new part: everything but the picked colours and the palette edits.
+    #[must_use]
+    pub fn without_colours(&self) -> Self {
+        Self {
+            swatches: Vec::new(),
+            palette: Edits::default(),
+            ..self.clone()
+        }
+    }
+
     /// Whether Auto is pressed.
     #[must_use]
     pub fn background_auto(&self) -> bool {

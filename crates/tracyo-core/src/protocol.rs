@@ -23,6 +23,26 @@ pub enum ProtocolError {
     Malformed,
 }
 
+/// One part of a parts job.
+#[derive(Debug, Clone, PartialEq)]
+pub struct PartJob {
+    /// The part's number, 0 for part 1.
+    pub part: u8,
+    /// How to trace it, its clip inside.
+    pub request: TraceRequest,
+    /// Its result from an earlier job (vectrace's numbers): not traced again.
+    pub cached: Option<Vec<f64>>,
+}
+
+/// A job with all the parts that add something, in stacking order, bottom first.
+#[derive(Debug, Clone, PartialEq)]
+pub struct TraceParts {
+    /// The parts.
+    pub jobs: Vec<PartJob>,
+    /// The index in `jobs` of the part whose palette the joined result keeps.
+    pub palette_of: u8,
+}
+
 /// What the app asks the worker.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Request {
@@ -32,6 +52,8 @@ pub enum Request {
     Trace(TraceRequest),
     /// Read the text of the kept picture (the full picture, whatever is traced from it).
     ReadText,
+    /// Trace several parts and join them.
+    TraceParts(TraceParts),
 }
 
 /// What the worker answers.
@@ -47,6 +69,13 @@ pub enum Reply {
     Lines(Vec<OcrLine>),
     /// The text reader could not be used; the picture is traced without text.
     TextFailed,
+    /// One part of a parts job is finished (vectrace's numbers); the join follows as `Wire`.
+    PartWire {
+        /// The part's number.
+        part: u8,
+        /// Its result.
+        wire: Vec<f64>,
+    },
 }
 
 fn frame(tag: u8, payload: &[u8]) -> Vec<u8> {
@@ -322,36 +351,150 @@ fn decode_lines(r: &mut Reader<'_>) -> Result<Vec<OcrLine>, ProtocolError> {
     Ok(lines)
 }
 
+/// The payload of a trace frame: the values, the lines and, only when there is one, the clip, so
+/// a request without a clip is byte for byte the one of the first version.
+#[must_use]
+pub fn encode_trace(t: &TraceRequest) -> Vec<u8> {
+    let s = &t.settings;
+    let mut payload = vec![t.threshold, s.smooth];
+    payload.extend(s.tolerance.to_le_bytes());
+    payload.extend(s.ignore_below.to_le_bytes());
+    payload.extend([
+        s.corners,
+        u8::from(s.upscale_auto),
+        s.denoise,
+        u8::from(t.reduced),
+        u8::from(t.invert),
+        u8::from(t.drop_border),
+        u8::from(t.shapes),
+    ]);
+    encode_colours(t.colours.as_ref(), &mut payload);
+    encode_selection(&t.selection, &mut payload);
+    encode_lines(&t.lines, &mut payload);
+    if let Some(clip) = &t.clip {
+        encode_clip(clip, &mut payload);
+    }
+    payload
+}
+
+/// The trace request of the payload of [`encode_trace`].
+///
+/// # Errors
+/// [`ProtocolError::Malformed`] unless the payload is a trace request.
+pub fn decode_trace(payload: &[u8]) -> Result<TraceRequest, ProtocolError> {
+    let mut r = Reader(payload);
+    let threshold = r.u8()?;
+    let smooth = r.u8()?;
+    let tolerance = r.f64()?;
+    let ignore_below = r.f64()?;
+    let (corners, upscale, denoise, reduced) = (r.u8()?, r.u8()?, r.u8()?, r.u8()?);
+    let (invert, drop_border, shapes) = (r.u8()?, r.u8()?, r.u8()?);
+    let colours = decode_colours(&mut r)?;
+    let selection = decode_selection(&mut r)?;
+    let lines = decode_lines(&mut r)?;
+    let clip = if r.0.is_empty() {
+        None
+    } else {
+        Some(decode_clip(&mut r)?)
+    };
+    r.done()?;
+    let settings = Settings {
+        smooth,
+        tolerance,
+        ignore_below,
+        corners,
+        upscale_auto: upscale != 0,
+        denoise,
+        ..Settings::default()
+    };
+    Ok(TraceRequest {
+        threshold,
+        settings,
+        selection,
+        invert: invert != 0,
+        drop_border: drop_border != 0,
+        colours,
+        reduced: reduced != 0,
+        shapes: shapes != 0,
+        lines,
+        clip,
+    })
+}
+
+fn encode_floats(numbers: &[f64], out: &mut Vec<u8>) {
+    // invariant: a wire has far fewer than 4 billion numbers.
+    out.extend(
+        u32::try_from(numbers.len())
+            .unwrap_or(u32::MAX)
+            .to_le_bytes(),
+    );
+    for n in numbers {
+        out.extend(n.to_le_bytes());
+    }
+}
+
+/// The payload of a parts frame: the part whose palette the join keeps, the count of jobs, then
+/// per job its part, its cached wire (a flag, then the numbers) and its trace request.
+fn encode_parts(parts: &TraceParts) -> Vec<u8> {
+    let mut out = vec![parts.palette_of];
+    // invariant: at most 8 parts.
+    out.extend(
+        u32::try_from(parts.jobs.len())
+            .unwrap_or(u32::MAX)
+            .to_le_bytes(),
+    );
+    for job in &parts.jobs {
+        out.push(job.part);
+        match &job.cached {
+            Some(wire) => {
+                out.push(1);
+                encode_floats(wire, &mut out);
+            }
+            None => out.push(0),
+        }
+        let request = encode_trace(&job.request);
+        out.extend(
+            u32::try_from(request.len())
+                .unwrap_or(u32::MAX)
+                .to_le_bytes(),
+        );
+        out.extend(request);
+    }
+    out
+}
+
+fn decode_parts(payload: &[u8]) -> Result<TraceParts, ProtocolError> {
+    let mut r = Reader(payload);
+    let palette_of = r.u8()?;
+    let count = r.u32()? as usize;
+    let mut jobs = Vec::new();
+    for _ in 0..count {
+        let part = r.u8()?;
+        let cached = match r.u8()? {
+            0 => None,
+            1 => Some(decode_floats(&mut r)?),
+            _ => return Err(ProtocolError::Malformed),
+        };
+        let len = r.u32()? as usize;
+        let request = decode_trace(r.take(len)?)?;
+        jobs.push(PartJob {
+            part,
+            request,
+            cached,
+        });
+    }
+    r.done()?;
+    Ok(TraceParts { jobs, palette_of })
+}
+
 impl Request {
     /// The whole frame, header included.
     #[must_use]
     pub fn encode(&self) -> Vec<u8> {
         match self {
             Self::Picture(p) => encode_picture(p),
-            Self::Trace(t) => {
-                let s = &t.settings;
-                let mut payload = vec![t.threshold, s.smooth];
-                payload.extend(s.tolerance.to_le_bytes());
-                payload.extend(s.ignore_below.to_le_bytes());
-                payload.extend([
-                    s.corners,
-                    u8::from(s.upscale_auto),
-                    s.denoise,
-                    u8::from(t.reduced),
-                    u8::from(t.invert),
-                    u8::from(t.drop_border),
-                    u8::from(t.shapes),
-                ]);
-                encode_colours(t.colours.as_ref(), &mut payload);
-                encode_selection(&t.selection, &mut payload);
-                encode_lines(&t.lines, &mut payload);
-                // A clip follows the lines only when there is one, so a request without it is
-                // byte for byte the one of the first version.
-                if let Some(clip) = &t.clip {
-                    encode_clip(clip, &mut payload);
-                }
-                frame(2, &payload)
-            }
+            Self::Trace(t) => frame(2, &encode_trace(t)),
+            Self::TraceParts(parts) => frame(4, &encode_parts(parts)),
             Self::ReadText => frame(3, &[]),
         }
     }
@@ -376,44 +519,8 @@ impl Request {
                     rgba,
                 }))
             }
-            2 => {
-                let threshold = r.u8()?;
-                let smooth = r.u8()?;
-                let tolerance = r.f64()?;
-                let ignore_below = r.f64()?;
-                let (corners, upscale, denoise, reduced) = (r.u8()?, r.u8()?, r.u8()?, r.u8()?);
-                let (invert, drop_border, shapes) = (r.u8()?, r.u8()?, r.u8()?);
-                let colours = decode_colours(&mut r)?;
-                let selection = decode_selection(&mut r)?;
-                let lines = decode_lines(&mut r)?;
-                let clip = if r.0.is_empty() {
-                    None
-                } else {
-                    Some(decode_clip(&mut r)?)
-                };
-                r.done()?;
-                let settings = Settings {
-                    smooth,
-                    tolerance,
-                    ignore_below,
-                    corners,
-                    upscale_auto: upscale != 0,
-                    denoise,
-                    ..Settings::default()
-                };
-                Ok(Self::Trace(TraceRequest {
-                    threshold,
-                    settings,
-                    selection,
-                    invert: invert != 0,
-                    drop_border: drop_border != 0,
-                    colours,
-                    reduced: reduced != 0,
-                    shapes: shapes != 0,
-                    lines,
-                    clip,
-                }))
-            }
+            2 => Ok(Self::Trace(decode_trace(payload)?)),
+            4 => Ok(Self::TraceParts(decode_parts(payload)?)),
             3 => {
                 r.done()?;
                 Ok(Self::ReadText)
@@ -443,6 +550,11 @@ impl Reply {
                 frame(4, &payload)
             }
             Self::TextFailed => frame(5, &[]),
+            Self::PartWire { part, wire } => {
+                let mut payload = vec![*part];
+                payload.extend(wire.iter().flat_map(|n| n.to_le_bytes()));
+                frame(6, &payload)
+            }
         }
     }
 
@@ -477,6 +589,19 @@ impl Reply {
                 Ok(Self::Lines(lines))
             }
             5 if payload.is_empty() => Ok(Self::TextFailed),
+            6 => {
+                let (part, rest) = payload.split_first().ok_or(ProtocolError::Malformed)?;
+                if !rest.len().is_multiple_of(8) {
+                    return Err(ProtocolError::Malformed);
+                }
+                let wire = rest
+                    .as_chunks::<8>()
+                    .0
+                    .iter()
+                    .map(|b| f64::from_le_bytes(*b))
+                    .collect();
+                Ok(Self::PartWire { part: *part, wire })
+            }
             other => Err(ProtocolError::UnknownTag(other)),
         }
     }
@@ -540,6 +665,98 @@ mod tests {
             clip: None,
         });
         assert_eq!(round_request(&r), r);
+    }
+
+    fn plain(threshold: u8) -> TraceRequest {
+        TraceRequest {
+            threshold,
+            settings: Settings::default(),
+            selection: Selection::Brightness,
+            invert: false,
+            drop_border: false,
+            colours: None,
+            reduced: false,
+            shapes: false,
+            lines: Vec::new(),
+            clip: None,
+        }
+    }
+
+    #[test]
+    fn a_parts_request_with_clips_and_cached_wires_round_trips() {
+        let clip = Clip::of_regions(
+            &[crate::regions::Region {
+                rect: crate::regions::PxRect::new(0, 0, 50, 80),
+                subtract: false,
+            }],
+            crate::regions::MaskMode::Outside,
+            vectrace::PixelMap::scale(1.0, 1.0),
+        )
+        .unwrap();
+        let mut second = plain(70);
+        second.clip = clip;
+        let r = Request::TraceParts(TraceParts {
+            jobs: vec![
+                PartJob {
+                    part: 0,
+                    request: plain(40),
+                    cached: Some(vec![0.0, 1.5, -2.0]),
+                },
+                PartJob {
+                    part: 3,
+                    request: second,
+                    cached: None,
+                },
+            ],
+            palette_of: 1,
+        });
+        assert_eq!(round_request(&r), r);
+    }
+
+    #[test]
+    fn a_malformed_parts_request_is_refused() {
+        let r = Request::TraceParts(TraceParts {
+            jobs: vec![PartJob {
+                part: 0,
+                request: plain(40),
+                cached: None,
+            }],
+            palette_of: 0,
+        });
+        let bytes = r.encode();
+        let (tag, payload) = split(&bytes);
+        for cut in [1, 6, payload.len() - 1] {
+            assert_eq!(
+                Request::decode(tag, &payload[..cut]),
+                Err(ProtocolError::Malformed),
+                "cut at {cut}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_finished_part_round_trips() {
+        let r = Reply::PartWire {
+            part: 2,
+            wire: vec![0.0, 3.25, 1e-9],
+        };
+        assert_eq!(round_reply(&r), r);
+        assert_eq!(
+            Reply::decode(6, &[]),
+            Err(ProtocolError::Malformed),
+            "no part number"
+        );
+    }
+
+    #[test]
+    fn the_trace_frame_of_a_request_without_a_clip_is_the_one_of_the_first_version() {
+        let bytes = Request::Trace(plain(9)).encode();
+        let (tag, payload) = split(&bytes);
+        assert_eq!(tag, 2);
+        assert_eq!(payload, encode_trace(&plain(9)).as_slice());
+        // threshold, smooth, tolerance, ignore below, six switches and values, no colours,
+        // Brightness, no lines.
+        assert_eq!(payload.len(), 2 + 8 + 8 + 7 + 1 + 1 + 4);
     }
 
     fn line(text: &str) -> OcrLine {

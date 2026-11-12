@@ -140,7 +140,8 @@ impl Clip {
         )))
     }
 
-    fn from_polygons(polygons: Vec<Path64>, outside: bool) -> Self {
+    /// A clip of ready polygons (canonical order, outer outlines positive, holes negative).
+    pub(crate) fn from_polygons(polygons: Vec<Path64>, outside: bool) -> Self {
         let mut bounds = [i64::MAX, i64::MAX, i64::MIN, i64::MIN];
         for p in polygons.iter().flatten() {
             bounds = [
@@ -167,6 +168,13 @@ impl Clip {
     #[must_use]
     pub fn polygons(&self) -> &[Path64] {
         &self.polygons
+    }
+
+    /// The box of the mask's polygons in millimetres.
+    #[must_use]
+    pub fn bounds_mm(&self) -> kurbo::Rect {
+        let [x0, y0, x1, y1] = self.bounds.map(grid::to_mm);
+        kurbo::Rect::new(x0, y0, x1, y1)
     }
 
     /// Whether the mask covers any of `picture` (millimetres), whatever the mode.
@@ -409,7 +417,7 @@ impl Mask for Clip {
     }
 }
 
-fn mm_of(p: &Point64) -> kurbo::Point {
+pub(crate) fn mm_of(p: &Point64) -> kurbo::Point {
     kurbo::Point::new(grid::to_mm(p.x), grid::to_mm(p.y))
 }
 
@@ -473,7 +481,7 @@ fn first_point(path: &BezPath) -> Option<kurbo::Point> {
 
 /// The kurbo area sign of the trace's outer outlines: the sign of the largest outline, which no
 /// hole can be.
-fn outer_sign(outlines: &[BezPath]) -> f64 {
+pub(crate) fn outer_sign(outlines: &[BezPath]) -> f64 {
     let largest =
         outlines.iter().map(Shape::area).fold(
             0.0_f64,
@@ -484,7 +492,7 @@ fn outer_sign(outlines: &[BezPath]) -> f64 {
 
 /// The overlay's `polygons` as polyline paths whose outer outlines (positive area) have the kurbo
 /// area sign `sign` and whose holes have the other one, as the trace winds them.
-fn wound_polylines(polygons: &[Path64], sign: f64) -> Vec<BezPath> {
+pub(crate) fn wound_polylines(polygons: &[Path64], sign: f64) -> Vec<BezPath> {
     polygons
         .iter()
         .map(|polygon| {
