@@ -178,7 +178,15 @@ impl App {
             0.0,
             Color32::from_white_alpha(166),
         );
-        region_paint::wash_and_outlines(&painter, &doc.mask, origin, zoom, canvas);
+        let others: Vec<tracyo_core::regions::Region> = doc
+            .parts
+            .all()
+            .iter()
+            .enumerate()
+            .filter(|(i, _)| *i != doc.parts.active_index())
+            .flat_map(|(_, p)| p.regions.iter().copied())
+            .collect();
+        region_paint::wash_and_outlines(&painter, &doc.mask, &others, origin, zoom, canvas);
         if let Some(result) = &mut self.result {
             result.preview.paint(&painter, origin, zoom, canvas, alpha);
         }

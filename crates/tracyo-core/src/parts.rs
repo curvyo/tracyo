@@ -199,6 +199,28 @@ impl Parts {
         })
     }
 
+    /// The mask's part of the hidden status text: "Inside 2 paths", with two or more parts
+    /// "3 parts" instead, and last "Part 3 has no paths" for an active later part without regions.
+    #[must_use]
+    pub fn announcement(&self) -> String {
+        let active = &self.parts[self.active];
+        let mut segments = Vec::new();
+        if self.parts.len() >= 2 {
+            segments.push(format!("{} parts", self.parts.len()));
+        } else if !active.regions.is_empty() {
+            let n = active.regions.len();
+            segments.push(format!(
+                "{} {n} {}",
+                active.mode.label(),
+                if n == 1 { "path" } else { "paths" }
+            ));
+        }
+        if self.parts.len() >= 2 && self.active > 0 && active.regions.is_empty() {
+            segments.push(format!("Part {} has no paths", self.active + 1));
+        }
+        segments.join(". ")
+    }
+
     /// The chip's tooltip text of part `index`: "Part 1 of 3, inside, 2 paths".
     #[must_use]
     pub fn chip_name(&self, index: usize) -> String {
@@ -358,6 +380,25 @@ mod tests {
         parts.store(live);
         assert_eq!(parts.nothing_notice(100, 100), None);
         assert_eq!(Parts::new(part()).nothing_notice(100, 100), None);
+    }
+
+    #[test]
+    fn the_hidden_status_text_names_the_mask_the_parts_and_an_empty_part() {
+        let mut live = part();
+        let mut parts = Parts::new(live.clone());
+        assert_eq!(parts.announcement(), "");
+        live.regions = vec![region(0, 0, 5, 5), region(9, 9, 20, 20)];
+        parts.store(live);
+        assert_eq!(parts.announcement(), "Inside 2 paths");
+        let mut outside = part();
+        outside.mode = MaskMode::Outside;
+        outside.regions = vec![region(0, 0, 5, 5)];
+        let mut single = Parts::new(outside);
+        assert_eq!(single.announcement(), "Outside 1 path");
+        add(&mut single);
+        assert_eq!(single.announcement(), "2 parts. Part 2 has no paths");
+        single.select(single.all()[1].clone(), 0);
+        assert_eq!(single.announcement(), "2 parts");
     }
 
     #[test]

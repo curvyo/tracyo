@@ -199,8 +199,22 @@ impl PictureValues {
 /// preset's values, the defaults of vectrace's schema.
 #[must_use]
 pub fn changed_advanced(settings: &Settings, values: &PictureValues) -> Option<String> {
+    changed_advanced_with_parts(settings, values, 1)
+}
+
+/// As [`changed_advanced`] for a picture of `parts` parts: with two or more "3 parts" comes first.
+#[must_use]
+pub fn changed_advanced_with_parts(
+    settings: &Settings,
+    values: &PictureValues,
+    parts: usize,
+) -> Option<String> {
     let default = Settings::default();
     let mut changed = Vec::new();
+    let count = format!("{parts} parts");
+    if parts >= 2 {
+        changed.push(count.as_str());
+    }
     if values.invert {
         changed.push("Invert");
     }
