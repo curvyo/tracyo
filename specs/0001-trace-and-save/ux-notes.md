@@ -6,6 +6,12 @@ rendered in Chromium at 1x. Rule: **what Curvyo draws, Tracyo draws**; where Cur
 Own choices are marked **(Proposal)**. No hint or tip text; labels that name a control or a state
 stay. All sizes are logical px at scale 1.
 
+Revised 2026-11-13 (ux-engineer, customer decisions of 2026-11-13): **Open is the first control of
+the bar**, **the bar is centred** in the window, and **there is no tool rail, now or later** (the Open
+card, its 12 px inset and the 72 px left column are gone). Changed: sections 1, 2.2, 3.1 to 3.4, 4,
+5, 6, 7, 11, 12.2, 13. The Mask group and the Parts row of `0002` live in Advanced (`0002` ux-notes
+§2, §3).
+
 Sources: `~/curvyo/frontend/src/index.css`, `components/TraceBar.tsx`, `TraceAdvanced.tsx`,
 `TraceField.tsx`, `TracePresetMenu.tsx`, `TracePalette.tsx`, `TraceColourGroup.tsx`,
 `ColourPickChip.tsx`, `ImportCard.tsx`, `CanvasNotice.tsx`, `StatusBar.tsx`, `panel/ValueField.tsx`,
@@ -31,18 +37,15 @@ Sans; Chromium takes "Arial" from Curvyo's font stack and fontconfig maps it to 
 | Title | "Tracyo" without a picture; "logo.png — Tracyo" with one (file name, space, U+2014, space; Curvyo's "<file> — Curvyo"). No dirty mark |
 | Size | 1280 x 800 at first start, then the remembered size; minimum 800 x 600 (Curvyo's check size). Native decorations |
 | Theme | Light only. Curvyo has one theme (its `.dark` block is shadcn's and redefines none of the tokens below) |
-| Regions at W x H | **Canvas** (0, 0) to (W, H - 24), ground `#E8E8EB`. **Open card** (12, 12), 48 x 48, floating. **Trace bar** (72, 12), floating, width min(content, W - 84). **Status bar** (0, H - 24), W x 24. **About panel** (W - 280, 0), 280 x (H - 24), docked, only while open; the canvas then ends at W - 280 and the view keeps its origin |
-| Stacking | canvas < picture < wash < preview outline < drop cue < notice slot < Open card, bar < menus < tooltips |
+| Regions at W x H | **Canvas** (0, 0) to (W, H - 24), ground `#E8E8EB`. **Trace bar** floating, top 12, width w = min(content, W - 24), centred (section 3.1). **Status bar** (0, H - 24), W x 24. **About panel** (W - 280, 0), 280 x (H - 24), docked, only while open; the canvas then ends at W - 280, the bar centres over the canvas that is left, and the view keeps its origin. No tool rail and no card left of the bar |
+| Stacking | canvas < picture < wash < preview outline < drop cue < notice slot < bar < menus < tooltips |
 
-**Where Open and Save live, and why.** Tracyo has no Properties panel; a 312 px panel for two
-actions would take a quarter of the canvas. **Save** is the blue finish button at the far right of
-the bar (spec criterion 22): Curvyo's place for "finish this tool's job", so the end of the flow is
-where the eye already is. **Open** is Curvyo's own **Import card**: the rail toolbox card that
-holds Curvyo's button for bringing a raster image in, unchanged in look, at the rail's place
-(12, 12). It costs 60 px of width instead of 126 px inside the bar, it never moves between the
-empty and the loaded state, and the bar stays one row at 1280 px (section 3.3). The File tab's
-own look (outline text buttons) would need a panel to sit in; its vocabulary stays: labels end
-in "…" (U+2026) as "Open…" and "Save as…" do there, and tooltips name the chord. **(Proposal)**
+**Where Open and Save live, and why.** Tracyo has no Properties panel and no tool rail (customer,
+2026-11-13: the left toolbox is gone for good). **Open** is the **first control of the bar**, an icon
+button in the bar's own look with Curvyo's Import glyph, so the bar holds the whole flow from left to
+right: open, adjust, save. **Save** is the blue finish button at the far right of the bar (spec
+criterion 22), Curvyo's place for "finish this tool's job". The File tab's vocabulary stays: labels
+end in "…" (U+2026) as "Open…" and "Save as…" do there, and tooltips name the chord.
 
 ## 2. Tokens
 
@@ -51,7 +54,7 @@ in "…" (U+2026) as "Open…" and "Save as…" do there, and tooltips name the 
 | Token | Hex | Use |
 |---|---|---|
 | `--canvas-bg` | `#E8E8EB` | canvas ground (also the ground under transparent pixels) |
-| `--toolbar-bg` = `--panel-bg` = `--statusbar-bg` | `#DCDCE0` | bar, Open card, menus, chip, notice, About panel, status bar |
+| `--toolbar-bg` = `--panel-bg` = `--statusbar-bg` | `#DCDCE0` | bar, menus, chip, notice, About panel, status bar |
 | `--toolbar-icon` | `#3A3A3F` | text and glyphs of the chrome, swatch border |
 | `--toolbar-icon-active-bg` = `--editor-accent` = `--preview-new` | `#2F6FEE` | pressed ground, blue buttons, focus ring, value edge, preview line |
 | `--toolbar-icon-active-fg` | `#FFFFFF` | text and glyph on pressed or blue ground |
@@ -76,8 +79,8 @@ in "…" (U+2026) as "Open…" and "Save as…" do there, and tooltips name the 
 
 | Item | Value |
 |---|---|
-| Radii | bar, menus, Open card: **10 px** (`rounded-lg`; the design doc says 8, the code renders 10); buttons, segmented outline, tooltips, notice, chip, menu rows: **8 px**; value field, outline button, Swatch: **5 px**; swatch in a cell: **4 px** |
-| Shadow | `0 2px 8px rgba(0,0,0,0.24)` on bar, Open card, menus, notice; none on tooltips, chip, status bar |
+| Radii | bar, menus: **10 px** (`rounded-lg`; the design doc says 8, the code renders 10); buttons, segmented outline, tooltips, notice, chip, menu rows: **8 px**; value field, outline button, Swatch: **5 px**; swatch in a cell: **4 px** |
+| Shadow | `0 2px 8px rgba(0,0,0,0.24)` on bar, menus, notice; none on tooltips, chip, status bar |
 | Bar | padding 0 8 px; rows 36 px; controls 28 px with 4 px above and below; 8 px between items, 0 between rows |
 | Focus ring (most) | 2 px `#2F6FEE` outside a 1 px `#DCDCE0` gap (`ring-2 ring-offset-1`): icon buttons, value fields, blue buttons |
 | Focus ring (Preset, Method, outline and text buttons) | 2 px `#2F6FEE`, no gap |
@@ -107,14 +110,30 @@ face's semibold or bold, weight 500 its regular (what Chromium does) **(Proposal
 
 Pill `#DCDCE0`, radius 10, shadow, padding 0 8. One flow of whole items, wrapping by whole items
 when the width runs out, top-aligned; the expander and the blue button are one item pushed to the
-far right of their row (`margin-left: auto`). The bar is as wide as its items, at most W - 84. No
-Mask group, no Parts, no state label while a picture is shown, no status or notice text in the
-bar; one hidden status region (AccessKit live region) carries what Curvyo announces.
+far right of their row (`margin-left: auto`). The bar is as wide as its items, at most **W - 24**
+(12 px from each window edge; W is the canvas width, so the About panel narrows it). The Mask group
+and the Parts row are in the Advanced block (`0002`); no state label while a picture is shown, no
+status or notice text in the bar; one hidden status region (AccessKit live region) carries what
+Curvyo announces.
+
+**Centring (customer, 2026-11-13).** The bar's left edge is x = floor((W - w₀) / 2), where w₀ is the
+width of the same bar at rest (blue button "Save as…", 89 px) with Advanced closed; the bar's right
+end follows its own width, and x is pulled left if that end would pass W - 12. So a trace starting
+(Running is 14 px narrower), Stopped or Failed (17 or 21 px wider) and opening Advanced (8 px) change
+the right end only: nothing under the pointer moves sideways **(Proposal)**. A change of the items
+(another method, a picked colour, another window width) re-centres at once, without animation. When
+w₀ is W - 24 or more the bar takes the whole cap, x = 12, and wraps (section 3.3). At **1280 x 800**
+(Brightness, Advanced closed) w = w₀ = 1190: x = **45**, right margin **45**; with Advanced open the bar
+is 1198 (right margin 37), while running 1176 (59). A wider window keeps the bar at its width and
+widens both margins equally; a narrower one shrinks the margins to 12 px each from W = 1214, and below
+that the bar wraps. It never leaves the window. The empty bar (section 6) is centred the same way
+(165 px: x = 557 at 1280).
 
 ### 3.2 Items, left to right (with a picture)
 
 | # | Item | Size | Shown |
 |---|---|---|---|
+| 0 | **Open** (`Import`) | 28 x 28 | always (with a picture; the empty bar has its own "Open image…", section 6) |
 | 1 | About ("i") | 28 x 28 | always |
 | 2 | Preset | 132 x 28 | always |
 | 3 | Method | 176 x 28 | always |
@@ -124,13 +143,16 @@ bar; one hidden status region (AccessKit live region) carries what Curvyo announ
 | 7 | Tolerance | 150 x 28 | always |
 | 8 | Ignore below | 171 x 28 | always |
 | 9 | expander 28, 8, **Save as…** (blue) | 28 + 8 + 89 | always, far right |
-| 10 | Advanced block | full width under the rows | while open |
+| 10 | Advanced block | full width under the rows; its last line is the Parts row with the Mask group (`0002` §3) | while open |
 
 ### 3.3 Rows (Brightness, Advanced closed)
 
-Content width: 8 + 28 + 132 + 176 + 150 + 150 + 150 + 171 + 28 + 89 + 8 x 8 + 8 = **1154 px**.
-At 1280 x 800 (bar width up to 1196): **one row, 36 px**. Remove background adds 176: two rows.
-At 800 x 600 (up to 716): two rows (i to Smooth 684 px; Tolerance, Ignore below, expander and button). `px-00-bar-closed.png` shows the one-row bar.
+Content width: 8 + 28 (Open) + 28 + 132 + 176 + 150 + 150 + 150 + 171 + 28 + 89 + 9 x 8 + 8 =
+**1190 px** (measured on Curvyo's patched bar: Open 8..36, About 44..72, Preset 80..212, Method
+220..396, Save as… 1093..1182). At 1280 x 800 (bar width up to 1256): **one row, 36 px**, centred
+(section 3.1). Remove background adds 176 (1366): two rows, the bar takes the cap. Pick colours: one
+picked colour still fits (1250), the second wraps. At 800 x 600 (up to 776): two rows (Open to Smooth
+720 px; Tolerance, Ignore below, expander and button). `px-00-bar-closed.png` shows the one-row bar.
 
 **Blue button width (lead, 2026-11-11; the reference wins over the earlier Proposal):** at rest
 "Save as…" is 89 px (Liberation Sans 14 px, 12 px side padding); while running it is 75 px, as in
@@ -139,21 +161,19 @@ shows its percentage. Stopped is 8 + "Stopped" (12 px) + 4 + Retry (8 + text + 8
 8 + 12 + 4 + "Failed" + 4 + Retry = 110 px (measured in `px-07`, `px-06`).
 
 **Bar width, as the reference measures it.** The bar is as wide as all its items on one line (the
-open Advanced block counts as one more zero-width item, so one more 8 px gap: 1162 px at rest, 1148
-while running), at most the cap. When the items do not fit on one line the bar takes the whole cap,
-the items wrap by whole items and the expander with the blue button goes to the far right of its
-row. The reference pictures were captured with a cap of 1164 px (`px-06`, `px-07`, `px-09`), not
-the 1196 px of a 1280 px window; the pixel tests for those three use a 1248 px wide window (cap =
-width - 84). With the cap of 1196 a Stopped bar with the Advanced block open (1179 px) stays on one
-row.
+open Advanced block counts as one more zero-width item, so one more 8 px gap: 1198 px at rest, 1184
+while running, 1215 Stopped and 1219 Failed), at most the cap. When the items do not fit on one line
+the bar takes the whole cap, the items wrap by whole items and the expander with the blue button goes
+to the far right of its row. All references are captured with the cap of a 1280 px window (1256), so
+every state of `0001` is one row there; there is no second test window any more.
 
 ### 3.4 Tab order
 
-Open (card), About, Preset, Method, main field, method group (Auto, pipette; or pipette, then the
+Open, About, Preset, Method, main field, method group (Auto, pipette; or pipette, then the
 picked swatches as one stop), Smooth, Tolerance, Ignore below, expander, blue button (or its x, or
 Retry), then the Advanced block (Output one stop, Colours, palette pipette, palette one stop,
 Invert, Drop border shapes, Recognise text, Recognise shapes, Denoise one stop, Upscale one stop,
-Corners, Analyse), then the About panel when it scrolls. A mouse press on any bar button hands
+Corners, Analyse, then the Parts row of `0002` §2), then the About panel when it scrolls. A mouse press on any bar button hands
 the keyboard back to the canvas; a key press keeps focus on the control.
 
 ## 4. Controls
@@ -164,7 +184,7 @@ double-click to type" (70 %), opening to the **left** of the field.
 
 | Control | Label (drawn) | Accessible name | Default | Range, unit, steps | Tooltip |
 |---|---|---|---|---|---|
-| Open card button | glyph `Import` 20 px | "Open image" | | | "Open image (Ctrl+O)" (Cmd on macOS), to the right, 10 px past the card |
+| Open | glyph `Import` 16 px, 28 x 28 icon button, the bar's first control | "Open image" | | | "Open image (Ctrl+O)" (Cmd on macOS), below, as every bar tooltip |
 | About | glyph `Info` | "About Tracyo" | | | "About Tracyo" |
 | Preset | preset name or "Custom", 10 px chevron | "Preset" | Logo / Line art | Logo / Line art, Photo, Silhouette for cutting/carving, Engraving | none |
 | Method | method name, chevron | "Method" | Brightness (analysis may change it) | Brightness, Remove background, Pick colours | none |
@@ -207,7 +227,7 @@ Method second lines: "Dark and light pixels by a cut-off.", "Everything unlike t
 
 | Kind | Rest | Hover | Pressed / on | Focus (keyboard) |
 |---|---|---|---|---|
-| Icon button 28 x 28 (About, pipettes, toggles, expander) | no ground, glyph 16 px `#3A3A3F` | ground `#B9C6E3`, radius 8 | ground `#2F6FEE`, glyph white | ring 2 + gap 1 |
+| Icon button 28 x 28 (Open, About, pipettes, toggles, expander) | no ground, glyph 16 px `#3A3A3F` | ground `#B9C6E3`, radius 8 | ground `#2F6FEE`, glyph white | ring 2 + gap 1 |
 | Preset, Method | 1 px `#9B9BA0` border, radius 8, text 14 px left at 8 px, chevron 10 px right at 8 px, text truncated with "…" | ground `#B9C6E3` | menu open: same as hover | ring 2, no gap |
 | Text button (Auto, empty-state "Open image…") | no border, 8 px side padding, 14 px | ground `#B9C6E3` | Auto on: `#2F6FEE` / white | ring 2, no gap |
 | Segmented (Output, Denoise, Upscale) | 1 px outline inside in `#3A3A3F` at 40 % drawn over the segments too (`#9B9BA0` on the bar, darker blue over the selected segment), radius 8, segments min 28 px, 8 px padding (Output 6 px), no gaps | segment ground `#B9C6E3` | segment `#2F6FEE` / white (corner segments clipped to the radius) | ring 2 inside the segment; one Tab stop, arrows move and select, no wrap |
@@ -225,7 +245,7 @@ colours (50 %, showing the number of picked colours) and nothing else.
 
 | State | Bar | Canvas |
 |---|---|---|
-| No picture | one row: "Trace" (12 px `#3A3A3F`, 8 px vertical padding), 12 px, text button "Open image…"; nothing else (`px-01-empty.png`) **(Proposal)** | `#E8E8EB` only; status bar zoom "100%" |
+| No picture | one row: "Trace" (12 px `#3A3A3F`, 8 px vertical padding), 12 px, text button "Open image…" (the Open control of the empty bar: same name, same command, Ctrl+O); nothing else; centred, 165 px (`px-01-empty.png`) **(Proposal)** | `#E8E8EB` only; status bar zoom "100%" |
 | Opening | unchanged | cursor wait; files of 5 MB or more: status notice "Opening photo.jpg..." until shown |
 | Preview | as section 3 (`px-00`, `px-02`) | picture with a white veil at 65 % (shows 35 %), outline 1.5 px `#2F6FEE` over a 4.5 px white casing, holes outlined, no fill, constant on screen |
 | Running (from 400 ms, held at least 300 ms once shown; at once for a full trace before saving) | blue button: fill `#6393F2` from the left to the percent, "42 %" 12 px at 8 px left ("..." before the first percent, no fill), `X` 28 x 28 at the right (`px-05`) | outline and casing at 50 % alpha |
@@ -250,7 +270,7 @@ centre zoom "100%", right "640 × 420 px" **(Proposal: Curvyo's bar with picture
 | Surface | Look |
 |---|---|
 | Tooltip | `#FFFFFF`, text `#0A0A0A` 12/16, radius 8, padding 4 x 8, 1 px ring outside the box in `#0A0A0A` at 10 % (`px-10`), max 256 px wide, no shadow, 400 ms, below the control 8 px (value fields: left); flips when it would leave the window. A second line of 10 px text sits in a 13 px line, 1 px above its middle |
-| Notice slot | centred in the canvas right of x = 60, 12 px above the canvas bottom; `#DCDCE0`, radius 8, padding 8, 12 px, shadow; status: `#3A3A3F`, 3 s (5 s above 70 characters); alert: text `#B3261E`, plus 1 px `#B3261E` ring, 8 s; the next notice replaces it; no controls, no focus |
+| Notice slot | centred in the canvas, 12 px above the canvas bottom; `#DCDCE0`, radius 8, padding 8, 12 px, shadow; status: `#3A3A3F`, 3 s (5 s above 70 characters); alert: text `#B3261E`, plus 1 px `#B3261E` ring, 8 s; the next notice replaces it; no controls, no focus |
 | About panel | 280 px, `#DCDCE0`, 1 px `#B4B4B8` line on its canvas side; header 12 px from the top: "About Tracyo" 14 px `#3A3A3F` weight 400; 8 px; body 12 px side padding, 244 px text: intro 14 px `#3A3A3F`, 12 px, entries 12 px apart, term 14 px weight 600 `#3A3A3F`, text 14 px `#5A5A5F`, 4 px between; scrolls with a thin bar when long. Content per spec criterion 26. Opened and closed only by "i" (pressed while open); Esc in the panel returns focus to the canvas and leaves it open (Curvyo) **(Proposal: a docked panel, not a separate window)** |
 
 ## 8. Empty, error and reason texts
@@ -315,7 +335,7 @@ the same version (`lucide-static@1.50.0`). Stroke widths are in the 24-unit view
 
 | Icon | Size | Stroke (rendered) | Where |
 |---|---|---|---|
-| `Import` | 20 | 2 (1.67 px) | Open card |
+| `Import` | 16 | 1.5 (1.0 px) | Open, first in the bar |
 | `Info` | 16 | 1.5 (1.0 px) | About |
 | `ChevronsDown`, `ChevronsUp` | 16 | 1.5 (1.0 px) | expander |
 | `X` | 16 | 1.5 (1.0 px) | Stop in the blue button |
@@ -361,12 +381,16 @@ ring. **Drop cue colour:** Curvyo's code uses `var(--accent)`, which is shadcn's
    photographed, with the same UI font; re-run `reference/capture.cjs` there (instructions at its
    top) after checking which font Chromium uses (DevTools: Rendered Fonts of the bar; on this
    machine Liberation Sans).
-2. Tracyo: 1280 x 800 window, `pixels_per_point = 1`, the same picture (`input-logo.png`), the
-   same states, steps and values as the script (Method Brightness; Advanced; Multicolour; Ctrl+click
-   the second swatch; Smooth +1 for running). Capture the bar with 12 px around it, by
-   `egui_kittest` snapshot rendering or a window screenshot at 1x.
+2. Tracyo: **1280 x 800** window for every case, `pixels_per_point = 1`, the same picture
+   (`input-logo.png`), the same states, steps and values as the script (Method Brightness; Advanced;
+   Multicolour; Ctrl+click the second swatch; Smooth +1 for running). Render the whole window by
+   `egui_kittest` snapshot rendering or a window screenshot at 1x; nothing is cut off first (the
+   x = 60 cut of the Open card is gone with the card).
 3. Run `python3 reference/compare.py px-00-bar-closed.png tracyo-00-bar-closed.png diff.png` for
-   each state. It aligns both on the bar's top and left edge, compares with a 1 px neighbourhood
+   each state. It aligns both on the bar's top and left edge, wherever the bar stands: the top edge is
+   the first row holding a 200 px run of `#DCDCE0`, the left edge the first column that is `#DCDCE0`
+   for 8 rows from 18 px below it. A centred bar is found the same way, because nothing left of it
+   in those rows is `#DCDCE0` any more (the Open card was; the status bar is below). Then it compares with a 1 px neighbourhood
    and a tolerance of 24 per channel, and passes when at most 2 % of the pixels differ and no row
    or column holds a run of 12 or more differing pixels. Self-test: identical 0 %; a 0.5 px blur
    (stands for another rasteriser) passes; a 30 x 20 px block or a field 2 px narrower fails.
@@ -379,14 +403,16 @@ ring. **Drop cue colour:** Curvyo's code uses `var(--accent)`, which is shadcn's
    border shapes (px-03 only), Denoise to Corners (shifted by the missing controls: 241 px in
    px-03, 469 px with the Multicolour row), the gap, Analyse. Slices 3 and 4 added the Output pill,
    Colours, the palette and the four toggles, so the whole block row is compared: the left padding, the Output row up to
-   Recognise shapes, the 8 px gap, Denoise to Corners, the gap and Analyse. The tests that need the
-   reference's 1164 px cap run in a 1248 px window (section 3.3).
+   Recognise shapes, the 8 px gap, Denoise to Corners, the gap and Analyse. Since 2026-11-13 the
+   references with the block open also show the Parts row of `0002` with one part (the last 36 px
+   line); it is compared by `0002`'s cases, not here. No region is shifted any more: the 232 px
+   offset of the old Mask group and the 1248 px window are gone.
 
 ## 13. Differences from Curvyo and from the spec draft (for the lead)
 
 | # | Item | Here | Note |
 |---|---|---|---|
-| 1 | Mask group, Parts, Part label | absent | spec criterion 10 |
+| 1 | Mask group, Parts | in the Advanced block's last line (`0002` §2, §3) | spec criterion 10 (replaced by `0002`/1) |
 | 2 | Finish button | "Save as…", 89 px at rest, 75 px while running (as the reference) | spec criterion 22; section 3.3 |
 | 3 | Empty state | Curvyo's one-row bar without the sentence; no dimmed controls | spec criterion 3 asks for dimmed controls; Curvyo never shows them without an image |
 | 4 | Open error | notice slot with Curvyo's import texts | spec criterion 2 asks for "Cannot read this image." in the bar |
@@ -397,6 +423,8 @@ ring. **Drop cue colour:** Curvyo's code uses `var(--accent)`, which is shadcn's
 | 9 | Blue button tooltip at rest | "Save as… (Ctrl+Shift+S)" | Curvyo's Trace button has none at rest (the design doc says "Create paths (Enter)"); File tab tooltips name the chord |
 | 10 | Drop cue colour | `#2F6FEE` | Curvyo renders `#F5F5F5` (bug) |
 | 11 | Ctrl+S | also Save as… | spec names Ctrl+Shift+S only |
+| 12 | Open | first control of the bar, 28 px icon button; no rail, no card (customer, 2026-11-13) | Curvyo: the Import card of its tool rail |
+| 13 | Bar position | centred, 12 px margins at least (customer, 2026-11-13) | Curvyo: left-aligned after the rail (x 72) |
 
 **Frage 5 (UI-FONT): Which UI font?** Curvyo shows the system UI font (Segoe UI on Windows, San
 Francisco on macOS, Roboto, Noto Sans or Liberation Sans on Linux), so it looks different per
