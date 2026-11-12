@@ -734,3 +734,68 @@ fn stop_keeps_the_parts_that_are_finished_and_the_next_job_traces_only_the_rest(
     common::wait_until(&mut h, 120.0, |_| out.exists());
     assert_eq!(h.state().part_traces() - traced, 1, "part 2 only");
 }
+
+fn p2() -> std::path::PathBuf {
+    std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../tracyo-core/tests/fixtures/pictures/p2.png")
+}
+
+#[test]
+fn three_parts_with_their_own_methods_save_one_joined_path_across_the_seam() {
+    let dir = tempfile::tempdir().unwrap();
+    let out = compare::out_dir().join("parts-three.svg");
+    let _ = std::fs::remove_file(&out);
+    let dialogs = Dialogs::Fixed {
+        open: None,
+        save: Some(out.clone()),
+    };
+    let mut h = common::harness_sized(dir.path(), Some(p2()), dialogs, WINDOW);
+    common::wait_for_result(&mut h, 60.0);
+    h.run_steps(3);
+    click_label(&mut h, "More trace options");
+    // Part 2: Brightness on the left rectangle, its own Threshold and Smooth.
+    click_label(&mut h, "Add part");
+    click_label(&mut h, "Rectangle");
+    draw(&mut h, (0.0, 0.0, 532.0, 700.0));
+    click_label(&mut h, "Rectangle");
+    common::wait_until(&mut h, 30.0, |a| !a.is_analysing());
+    type_value(&mut h, "Threshold", "40");
+    type_value(&mut h, "Smooth", "20");
+    // Part 3: Remove background on the right rectangle, which cuts part 2 at x = 500 px.
+    click_label(&mut h, "Add part");
+    click_label(&mut h, "Rectangle");
+    draw(&mut h, (500.0, 0.0, 1000.0, 700.0));
+    click_label(&mut h, "Rectangle");
+    common::wait_until(&mut h, 30.0, |a| !a.is_analysing());
+    click_label(&mut h, "Method");
+    click_label(&mut h, "Remove background");
+    common::wait_until(&mut h, 30.0, |a| !a.is_analysing());
+    common::wait_for_result(&mut h, 60.0);
+    h.run_steps(3);
+    assert_eq!(h.state().part_count(), 3);
+    assert_eq!(h.state().part_settings(1).unwrap().method, 0);
+    assert_eq!(h.state().part_settings(2).unwrap().method, 1);
+
+    h.get_by_label("Save as\u{2026}").click();
+    common::wait_until(&mut h, 60.0, |_| out.exists());
+    let svg = std::fs::read_to_string(&out).unwrap();
+    let doc = roxmltree::Document::parse(&svg).unwrap();
+    let layers = doc
+        .descendants()
+        .filter(|n| {
+            n.attribute(("http://www.inkscape.org/namespaces/inkscape", "groupmode"))
+                == Some("layer")
+        })
+        .count();
+    assert_eq!(layers, 1, "no layer per part");
+    let paths: Vec<_> = doc
+        .descendants()
+        .filter(|n| n.has_tag_name("path"))
+        .collect();
+    assert_eq!(paths.len(), 1);
+    let d = paths[0].attribute("d").unwrap();
+    // The small disc, the disc with the bar and the square as one outline across the seam, and the
+    // grey square that only part 3 traces.
+    println!("M {} Z {}", d.matches('M').count(), d.matches('Z').count());
+    assert_eq!((d.matches('M').count(), d.matches('Z').count()), (3, 3));
+}
