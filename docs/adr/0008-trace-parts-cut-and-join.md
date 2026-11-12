@@ -251,3 +251,28 @@ outline went into a union; text lines are concatenated; a part that did not trac
 5. **Region-only values** are read on the analysis thread of debt 6 for the one part: the
    Threshold unless the maker typed it, and the Auto background; Analyse takes all values.
 
+## Deviations found while building slice 2 (2026-11-12; the status stays Proposed)
+
+6. **The crop is the worker's** (section 4): `PartJob` is `{ part, request, cached }` with the clip
+   inside the request, and `TraceParts` carries `palette_of`. The worker computes the box from the
+   clip and the raster it traces (full or reduced), with the map moved by `PixelMap::compose` and
+   `translation`, so the app needs no size of the reduced copy and a part's cache key is its
+   request bytes. `Session::run` crops as well: a single part with a mask is traced from its
+   crop (the golden `parts-13.svg` is unchanged).
+7. **`Parts` stores snapshots** (section 1): the app keeps the active part live in the bar and the
+   mask (`self.settings`, `doc.values`, `doc.mask`) and passes it to `add`, `select` and
+   `remove_active`, which return the part to load. `Part::analysis` is not an `Option`, and
+   `threshold_set` is part of it. `parts_job` (module `stack`) builds the job; `Parts::areas`,
+   `nothing_notice`, `chip_name` and `announcement` hold the rules of criteria 4, 11 and 12.
+8. **`output_wire`** is a new core module: the worker joins, the app reads vectrace's numbers, and
+   vectrace has no writer for an `Output`. It writes the documented layout (outlines, unclipped,
+   text with fills and excluded lines, shapes, colour tail) and is checked by reading the numbers
+   back.
+9. **The seam union** (section 1): `i_overlay` has two operand kinds, so each part's pieces are
+   first made a clean set (one Subject overlay, outer outlines positive, holes negative) and the
+   sets are then added in one Subject overlay with the nonzero rule. A lone part's pieces are kept
+   as they are.
+10. **A lone part's result is cached** under its request bytes after a `Trace` job, so adding the
+    second part does not trace part 1 again.
+11. **The chip mark** is the mask mode on every chip but a muted one (px-08 shows it on part 1).
+

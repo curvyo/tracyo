@@ -8,6 +8,11 @@ First release, `0.1.0`. Polygons and stars are saved as `<polygon>` and Inkscape
 
 ### Added
 
+- Parts (specification 0002, slice 2): the Parts row in Advanced (up to 8 parts, Add part, the
+  armed trash, arrows, Home, End and Delete on the chips); every part has its own settings and
+  rectangles, a later part cuts the earlier ones exactly at its edge, the preview and Save as…
+  show one joined result in which shapes across a seam are one path, and a change retraces only
+  the part it changes. Stop keeps the parts that were finished.
 - Rectangle regions (specification 0002, slice 1): the Mask group of the bar (Rectangle, Subtract,
   Inside | Outside, Clear mask); rectangles are drawn, selected, moved, resized, nudged and deleted
   on the picture; the trace is cut exactly on their edge, the rest of the picture is washed to
