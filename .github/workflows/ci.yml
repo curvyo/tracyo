@@ -69,6 +69,7 @@ jobs:
           cd crates/tracyo-app
           TRACYO_SESSION_OUT="$RUNNER_TEMP/with-network.svg" "$exe" --exact open_trace_and_save_the_logo
           TRACYO_SESSION_OUT="$RUNNER_TEMP/without-network.svg" sudo -E unshare -n "$exe" --exact open_trace_and_save_the_logo
+          sudo chown "$(id -u):$(id -g)" "$RUNNER_TEMP/without-network.svg"
           cmp "$RUNNER_TEMP/with-network.svg" "$RUNNER_TEMP/without-network.svg"
       - name: Start smoke test
         run: |
