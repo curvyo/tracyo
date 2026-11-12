@@ -21,6 +21,10 @@ pub enum Icon {
     Contrast,
     /// Drop border shapes.
     ImageMinus,
+    /// Recognise text.
+    ScanText,
+    /// Recognise shapes.
+    Shapes,
     /// An excluded palette colour.
     Ban,
     /// The expander while the Advanced block is closed.
@@ -36,6 +40,8 @@ impl Icon {
             Self::Info => include_str!("../../../assets/icons/lucide/info.svg"),
             Self::X => include_str!("../../../assets/icons/lucide/x.svg"),
             Self::CircleAlert => include_str!("../../../assets/icons/lucide/circle-alert.svg"),
+            Self::ScanText => include_str!("../../../assets/icons/lucide/scan-text.svg"),
+            Self::Shapes => include_str!("../../../assets/icons/lucide/shapes.svg"),
             Self::Ban => include_str!("../../../assets/icons/lucide/ban.svg"),
             Self::Pipette => include_str!("../../../assets/icons/lucide/pipette.svg"),
             Self::Contrast => include_str!("../../../assets/icons/lucide/contrast.svg"),

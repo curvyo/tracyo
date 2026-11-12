@@ -12,6 +12,7 @@ use tracyo_core::picture::Picture;
 use tracyo_core::progress::failure_reason;
 use tracyo_core::protocol::{HEADER_LEN, Reply, encode_picture, parse_header};
 use tracyo_core::request::TraceRequest;
+use vectrace::ocr::OcrLine;
 
 /// What the runner tells the app.
 #[derive(Debug, Clone, PartialEq)]
@@ -29,6 +30,18 @@ pub enum Event {
         job: u64,
         /// The result.
         numbers: Vec<f64>,
+    },
+    /// The text of the picture was read: the lines, in the full picture's pixels.
+    Lines {
+        /// The job.
+        job: u64,
+        /// The lines.
+        lines: Vec<OcrLine>,
+    },
+    /// The text reader could not be used.
+    TextFailed {
+        /// The job.
+        job: u64,
     },
     /// The job failed.
     Failed {
@@ -220,6 +233,40 @@ impl Runner {
         picture: &Arc<Picture>,
         request: TraceRequest,
     ) -> Result<(), String> {
+        self.send(
+            job,
+            picture_id,
+            picture,
+            &tracyo_core::protocol::Request::Trace(request),
+        )
+    }
+
+    /// Starts job number `job` as the reading of the picture's text, as [`Runner::start`] starts a
+    /// trace.
+    ///
+    /// # Errors
+    /// The system's message when the worker process cannot be started.
+    pub fn start_read(
+        &mut self,
+        job: u64,
+        picture_id: u64,
+        picture: &Arc<Picture>,
+    ) -> Result<(), String> {
+        self.send(
+            job,
+            picture_id,
+            picture,
+            &tracyo_core::protocol::Request::ReadText,
+        )
+    }
+
+    fn send(
+        &mut self,
+        job: u64,
+        picture_id: u64,
+        picture: &Arc<Picture>,
+        request: &tracyo_core::protocol::Request,
+    ) -> Result<(), String> {
         if self.job.is_some() {
             self.kill_worker();
             self.job = None;
@@ -232,9 +279,7 @@ impl Runner {
             let _ = worker.outbox.send(Out::Picture(Arc::clone(picture)));
             worker.picture_id = Some(picture_id);
         }
-        let _ = worker.outbox.send(Out::Frame(
-            tracyo_core::protocol::Request::Trace(request).encode(),
-        ));
+        let _ = worker.outbox.send(Out::Frame(request.encode()));
         self.job = Some((job, worker.generation));
         self.pixels = picture.pixels();
         Ok(())
@@ -262,6 +307,14 @@ impl Runner {
                 Raw::Reply(_, Reply::Wire(numbers)) => {
                     self.job = None;
                     events.push(Event::Wire { job, numbers });
+                }
+                Raw::Reply(_, Reply::Lines(lines)) => {
+                    self.job = None;
+                    events.push(Event::Lines { job, lines });
+                }
+                Raw::Reply(_, Reply::TextFailed) => {
+                    self.job = None;
+                    events.push(Event::TextFailed { job });
                 }
                 Raw::Reply(_, Reply::Error(_)) => {
                     self.job = None;

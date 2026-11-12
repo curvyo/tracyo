@@ -12,4 +12,7 @@ pub mod progress;
 pub mod protocol;
 pub mod request;
 pub mod settings;
+pub mod shapes;
+pub mod stages;
 pub mod svg;
+pub mod text;

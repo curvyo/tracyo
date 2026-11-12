@@ -2,7 +2,7 @@
 
 Everything under `assets/` is embedded into the executable. Each file is named below with its
 source, licence and SHA-256; `crates/tracyo-app/tests/assets.rs` checks the list against the
-files. The OCR model arrives with the story that reads text (slice 4).
+files and the model against the hashes `vectrace::ocr` expects.
 
 ## Fonts: Liberation Sans 2.x, SIL Open Font License 1.1
 
@@ -30,5 +30,30 @@ licence text is `icons/lucide/LICENSE`.
 | `icons/lucide/contrast.svg` | `35d940bd31e082481cad07838b8271185529d50bbd424fe86e3214cb90736d3a` |
 | `icons/lucide/image-minus.svg` | `3f31b92b73b8ff7963263f280684dcea7617e4fae5c39edd320638678242b67b` |
 | `icons/lucide/chevrons-down.svg` | `2bdcfe344b1a24a5937388a4619f533caaa5faae30828e442ebf0175b575c0ce` |
+| `icons/lucide/scan-text.svg` | `07bc3db82d4f9d0ca5e79fdfff7dde32cba2f03db3a54482bef69176f563df72` |
+| `icons/lucide/shapes.svg` | `c194534da0733adc59e3a3cc52c4055f65cdbedd50bff181643104b24987acd7` |
 | `icons/lucide/chevrons-up.svg` | `6df1d2dc6e8141e81c0e45ff9a57c17dfbc3c49df2b0ceabe9a8ec3f60f1b3c0` |
 | `icons/lucide/LICENSE` | `b495047bd93a9b06913511076f504daba17d5bbeb3e0650f3bb53a4220329c57` |
+
+## OCR model: PaddleOCR Latin (mobile), Apache-2.0
+
+The ONNX files of `vectrace` v0.1.0 (`assets/models/paddleocr-latin/`), copied unmodified; they are
+embedded for Recognise text (ADR 0006), nothing is downloaded. `model.toml` is vectrace's licence
+record (source URL and SHA-256 per file), `LICENSE` the Apache-2.0 text. Copy the files again from
+the new tag when a vectrace bump changes `vectrace::ocr::DETECTOR_SHA256`, `RECOGNISER_SHA256` or
+`ALPHABET_SHA256`; the test fails until then.
+
+| File | SHA-256 |
+|---|---|
+| `models/paddleocr-latin/det.onnx` | `ee40e80071ba3a320d4efda75f3e22047a7d049e9bf7bcaaf9daea23fc21b935` |
+| `models/paddleocr-latin/rec.onnx` | `614ffc2d6d3902d360fad7f1b0dd455ee45e877069d14c4e51a99dc4ef144409` |
+| `models/paddleocr-latin/dict.txt` | `3c0a8a79b612653c25f765271714f71281e4e955962c153e272b7b8c1d2b13ff` |
+| `models/paddleocr-latin/model.toml` | `a33fe51c751c9dbf88e8a492fe8cfb6385b0fa1a3d7d76fbcc0a8902c0ececdf` |
+| `models/paddleocr-latin/LICENSE` | `cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30` |
+
+## Test pictures (not embedded)
+
+`crates/tracyo-core/tests/fixtures/pictures/precision.png` is `assets/trace-references/precision.png`
+of vectrace v0.1.0 (CC0 1.0, a customer logo with the text "PRÄZISION", "MIT SYSTEM" and a line of
+three words; SHA-256 `c2584eb4f30c7adda1d6bf0b5da8a8329f6c798815b2816f074d515e242186e2`). It is the
+picture of the OCR tests. The other files there are small pictures made for these tests.

@@ -241,6 +241,10 @@ pub fn nothing_to_save(output: &Output, case: &SaveCase) -> Option<String> {
     match output.status {
         Status::TooDetailed => Some("Too much detail: raise Ignore below.".into()),
         Status::Invalid => Some("This image can't be traced.".into()),
+        // A picture of text only traces to no path and is still something to save.
+        Status::Traced if output.paths == 0 && output.texts.lines.iter().any(|t| !t.excluded) => {
+            None
+        }
         Status::Traced if output.paths == 0 && case.multicolour => Some("No colours found.".into()),
         Status::Traced if output.paths == 0 => Some(match case.method {
             Method::Brightness => {
@@ -441,6 +445,25 @@ mod tests {
                 palette_deleted,
             },
         )
+    }
+
+    #[test]
+    fn a_picture_of_text_only_is_something_to_save() {
+        let mut only_text = output(Status::Traced, 0, 10);
+        only_text.texts.lines.push(vectrace::wire::Text {
+            text: "HI".into(),
+            direction: kurbo::Vec2::new(1.0, 0.0),
+            masked: 4,
+            plausible: true,
+            pixel: vectrace::Mm::from_mm(0.26),
+            positions: Vec::new(),
+            fill: None,
+            excluded: false,
+            outlines: Vec::new(),
+        });
+        assert_eq!(single(&only_text, Method::Brightness, 0), None);
+        only_text.texts.lines[0].excluded = true;
+        assert!(single(&only_text, Method::Brightness, 0).is_some());
     }
 
     #[test]

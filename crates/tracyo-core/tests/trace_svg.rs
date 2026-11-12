@@ -33,6 +33,8 @@ fn trace() -> (Picture, vectrace::wire::Output) {
         drop_border: false,
         colours: None,
         reduced: false,
+        shapes: false,
+        lines: Vec::new(),
     };
     let output = vectrace::wire::read(&session.run(&request, &mut |_| {})).unwrap();
     (picture, output)
@@ -146,6 +148,8 @@ fn trace_colours(excluded: Vec<vectrace::Rgb8>) -> (Picture, vectrace::wire::Out
             excluded,
         }),
         reduced: false,
+        shapes: false,
+        lines: Vec::new(),
     };
     let output = vectrace::wire::read(&session.run(&request, &mut |_| {})).unwrap();
     (picture, output)

@@ -3,19 +3,43 @@
 use std::fmt::Write;
 
 use kurbo::{BezPath, PathEl, Point};
-use vectrace::Rgb8;
+use vectrace::shapes::{Join, Primitive};
 use vectrace::wire::Output;
+use vectrace::{Angle, Rgb8};
 
 use crate::method::hex;
 use crate::request::size_mm;
+use crate::shapes::{self, Element, Style};
+use crate::text::{self, TextPlace};
 
-/// The outlines of one colour: one layer of the file.
-#[derive(Debug, Clone, Copy)]
-pub struct Layer<'a> {
+/// Everything of one colour: one layer of the file.
+#[derive(Debug, Clone)]
+pub struct Layer {
     /// The layer's colour; its label and the fill of its path.
     pub colour: Rgb8,
-    /// The outlines in millimetres, holes included.
-    pub outlines: &'a [BezPath],
+    /// The outlines of the layer's one compound path in millimetres, holes included.
+    pub outlines: Vec<BezPath>,
+    /// The recognised shapes written as elements after the path.
+    pub shapes: Vec<Element>,
+    /// The recognised text lines after the shapes.
+    pub texts: Vec<TextPlace>,
+}
+
+impl Layer {
+    /// A layer of `colour` that holds only a compound path.
+    #[must_use]
+    pub fn new(colour: Rgb8, outlines: Vec<BezPath>) -> Self {
+        Self {
+            colour,
+            outlines,
+            shapes: Vec::new(),
+            texts: Vec::new(),
+        }
+    }
+
+    fn is_empty(&self) -> bool {
+        self.outlines.is_empty() && self.shapes.is_empty() && self.texts.is_empty()
+    }
 }
 
 /// What the SVG is made from.
@@ -26,32 +50,52 @@ pub struct Document<'a> {
     /// The picture's height in pixels.
     pub height_px: u32,
     /// The layers, the first at the bottom.
-    pub layers: &'a [Layer<'a>],
+    pub layers: &'a [Layer],
 }
 
 /// The layers of a trace result: one `#000000` layer for Single colour, else one per colour in
-/// the result's order (largest area first, so the largest ends at the bottom).
+/// the result's order (largest area first, so the largest ends at the bottom). Recognised shapes
+/// that are primitives leave their layer's path and become elements of it; a text line goes to
+/// the layer of its fill, a layer of its own on top when the result has none of that colour.
 #[must_use]
-pub fn layers_of(output: &Output) -> Vec<Layer<'_>> {
-    if output.layers.is_empty() {
-        return vec![Layer {
-            colour: Rgb8::new(0, 0, 0),
-            outlines: &output.outlines,
-        }];
+pub fn layers_of(output: &Output) -> Vec<Layer> {
+    let plan = shapes::plan(output);
+    let mut layers: Vec<Layer> = if output.layers.is_empty() {
+        vec![Layer::new(Rgb8::new(0, 0, 0), Vec::new())]
+    } else {
+        output
+            .layers
+            .iter()
+            .map(|l| Layer::new(l.colour, Vec::new()))
+            .collect()
+    };
+    for (index, traced) in output.outlines.iter().enumerate() {
+        if plan.elsewhere[index] {
+            continue;
+        }
+        let path = plan.drawn[index].as_ref().unwrap_or(traced);
+        layers[shapes::layer_of(output, index)]
+            .outlines
+            .push(path.clone());
     }
-    let mut rest = output.outlines.as_slice();
-    output
-        .layers
-        .iter()
-        .map(|layer| {
-            let (own, tail) = rest.split_at(layer.outlines.min(rest.len()));
-            rest = tail;
-            Layer {
-                colour: layer.colour,
-                outlines: own,
-            }
-        })
-        .collect()
+    for (outer, element) in &plan.elements {
+        layers[shapes::layer_of(output, *outer)]
+            .shapes
+            .push(*element);
+    }
+    for line in output.texts.lines.iter().filter(|t| !t.excluded) {
+        let Some(place) = text::place(line) else {
+            continue;
+        };
+        let colour = line.fill.unwrap_or(Rgb8::new(0, 0, 0));
+        let at = layers.iter().position(|l| l.colour == colour);
+        let at = at.unwrap_or_else(|| {
+            layers.push(Layer::new(colour, Vec::new()));
+            layers.len() - 1
+        });
+        layers[at].texts.push(place);
+    }
+    layers
 }
 
 /// A number with at most three decimals, no trailing zeros, no "-0".
@@ -103,8 +147,155 @@ fn path_data(outlines: &[BezPath]) -> String {
     d
 }
 
-/// The SVG text of `document`: one layer with one path per colour; a layer without outlines is
-/// left out.
+/// The numbers of the ids: layers, then each element kind, in document order.
+#[derive(Default)]
+struct Ids {
+    path: usize,
+    rect: usize,
+    circle: usize,
+    ellipse: usize,
+    text: usize,
+}
+
+/// `value` with the characters of the SVG text escaped and those XML 1.0 forbids dropped.
+fn escape(value: &str) -> String {
+    let mut out = String::with_capacity(value.len());
+    for c in value.chars() {
+        match c {
+            '&' => out.push_str("&amp;"),
+            '<' => out.push_str("&lt;"),
+            '>' => out.push_str("&gt;"),
+            '"' => out.push_str("&quot;"),
+            '\t'
+            | '\n'
+            | '\r'
+            | '\u{20}'..='\u{D7FF}'
+            | '\u{E000}'..='\u{FFFD}'
+            | '\u{10000}'..='\u{10FFFF}' => {
+                out.push(c);
+            }
+            _ => {}
+        }
+    }
+    out
+}
+
+/// The paint attributes of an element of colour `colour`; `rule` adds the even-odd fill rule of a
+/// path.
+fn paint(style: Style, colour: &str, rule: bool) -> String {
+    match style {
+        Style::Fill if rule => format!("fill=\"{colour}\" fill-rule=\"evenodd\" stroke=\"none\""),
+        Style::Fill => format!("fill=\"{colour}\" stroke=\"none\""),
+        Style::Stroke { width, join } => {
+            let join = match join {
+                Join::Miter => "miter",
+                Join::Round => "round",
+                Join::Bevel => "bevel",
+            };
+            format!(
+                "fill=\"none\" stroke=\"{colour}\" stroke-width=\"{}\" stroke-linejoin=\"{join}\"",
+                number(width.as_mm())
+            )
+        }
+    }
+}
+
+/// `transform="rotate(deg cx cy)"` with a leading space, empty when the turn is below the
+/// precision of the file.
+fn turn(rotation: Angle, centre: Point) -> String {
+    let degrees = number(rotation.as_radians().to_degrees());
+    if degrees == "0" {
+        String::new()
+    } else {
+        format!(" transform=\"rotate({degrees} {})\"", pair(centre))
+    }
+}
+
+/// One element for a recognised shape: `<rect>`, `<circle>`, `<ellipse>`, or a `<path>` of
+/// straight sides for a polygon or a star.
+fn element(element: &Element, colour: &str, ids: &mut Ids) -> String {
+    let is_path = matches!(
+        element.primitive,
+        Primitive::Polygon { .. } | Primitive::Star { .. }
+    );
+    let paint = paint(element.style, colour, is_path);
+    match element.primitive {
+        Primitive::Rect {
+            origin,
+            width,
+            height,
+            corner_radius,
+        } => {
+            ids.rect += 1;
+            let (w, h) = (width.as_mm(), height.as_mm());
+            let centre = Point::new(origin.x + w / 2.0, origin.y + h / 2.0);
+            let r = number(corner_radius.as_mm().clamp(0.0, w.min(h) / 2.0));
+            format!(
+                "<rect id=\"rect{}\" x=\"{}\" y=\"{}\" width=\"{}\" height=\"{}\" rx=\"{r}\" ry=\"{r}\"{} {paint}/>",
+                ids.rect,
+                number(origin.x),
+                number(origin.y),
+                number(w),
+                number(h),
+                turn(element.rotation, centre)
+            )
+        }
+        Primitive::Ellipse { centre, rx, ry } => {
+            let transform = turn(element.rotation, centre);
+            if (rx.as_mm() - ry.as_mm()).abs() < 1e-9 {
+                ids.circle += 1;
+                format!(
+                    "<circle id=\"circle{}\" cx=\"{}\" cy=\"{}\" r=\"{}\"{transform} {paint}/>",
+                    ids.circle,
+                    number(centre.x),
+                    number(centre.y),
+                    number(rx.as_mm())
+                )
+            } else {
+                ids.ellipse += 1;
+                format!(
+                    "<ellipse id=\"ellipse{}\" cx=\"{}\" cy=\"{}\" rx=\"{}\" ry=\"{}\"{transform} {paint}/>",
+                    ids.ellipse,
+                    number(centre.x),
+                    number(centre.y),
+                    number(rx.as_mm()),
+                    number(ry.as_mm())
+                )
+            }
+        }
+        Primitive::Polygon { .. } | Primitive::Star { .. } => {
+            ids.path += 1;
+            let outline = shapes::primitive_path(&element.primitive, element.rotation);
+            format!(
+                "<path id=\"path{}\" {paint} d=\"{}\"/>",
+                ids.path,
+                path_data(&[outline])
+            )
+        }
+    }
+}
+
+/// One `<text>` for a recognised line of colour `colour`.
+fn text_element(place: &TextPlace, colour: &str, ids: &mut Ids) -> String {
+    ids.text += 1;
+    let turn = if number(place.degrees) == "0" {
+        String::new()
+    } else {
+        format!(" rotate({})", number(place.degrees))
+    };
+    format!(
+        "<text id=\"text{}\" xml:space=\"preserve\" transform=\"translate({} {}){turn}\" font-family=\"sans-serif\" font-size=\"{}\" fill=\"{colour}\" textLength=\"{}\" lengthAdjust=\"spacingAndGlyphs\"><tspan>{}</tspan></text>",
+        ids.text,
+        number(place.x),
+        number(place.y),
+        number(place.font_size),
+        number(place.length),
+        escape(&place.text)
+    )
+}
+
+/// The SVG text of `document`: one layer per colour with its compound path, then its shapes and
+/// text lines; a layer with none of them is left out.
 #[must_use]
 pub fn write(document: &Document<'_>) -> String {
     let width = number(size_mm(document.width_px));
@@ -116,23 +307,29 @@ pub fn write(document: &Document<'_>) -> String {
         "<svg xmlns=\"http://www.w3.org/2000/svg\" xmlns:inkscape=\"http://www.inkscape.org/namespaces/inkscape\" xmlns:sodipodi=\"http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd\" version=\"1.1\" width=\"{width}mm\" height=\"{height}mm\" viewBox=\"0 0 {width} {height}\">"
     );
     out.push_str("  <sodipodi:namedview inkscape:document-units=\"mm\"/>\n");
-    for (index, layer) in document
-        .layers
-        .iter()
-        .filter(|l| !l.outlines.is_empty())
-        .enumerate()
-    {
+    let mut ids = Ids::default();
+    for (index, layer) in document.layers.iter().filter(|l| !l.is_empty()).enumerate() {
         let n = index + 1;
         let colour = hex(layer.colour);
         let _ = writeln!(
             out,
             "  <g inkscape:groupmode=\"layer\" inkscape:label=\"{colour}\" id=\"layer{n}\">"
         );
-        let _ = writeln!(
-            out,
-            "    <path id=\"path{n}\" fill=\"{colour}\" fill-rule=\"evenodd\" stroke=\"none\" d=\"{}\"/>",
-            path_data(layer.outlines)
-        );
+        if !layer.outlines.is_empty() {
+            ids.path += 1;
+            let _ = writeln!(
+                out,
+                "    <path id=\"path{}\" fill=\"{colour}\" fill-rule=\"evenodd\" stroke=\"none\" d=\"{}\"/>",
+                ids.path,
+                path_data(&layer.outlines)
+            );
+        }
+        for shape in &layer.shapes {
+            let _ = writeln!(out, "    {}", element(shape, &colour, &mut ids));
+        }
+        for place in &layer.texts {
+            let _ = writeln!(out, "    {}", text_element(place, &colour, &mut ids));
+        }
         out.push_str("  </g>\n");
     }
     out.push_str("</svg>\n");
@@ -161,11 +358,8 @@ mod tests {
         vec![outer, hole]
     }
 
-    fn black(outlines: &[BezPath]) -> Layer<'_> {
-        Layer {
-            colour: Rgb8::new(0, 0, 0),
-            outlines,
-        }
+    fn black(outlines: &[BezPath]) -> Layer {
+        Layer::new(Rgb8::new(0, 0, 0), outlines.to_vec())
     }
 
     fn square(x: f64, y: f64, side: f64) -> BezPath {
@@ -363,28 +557,12 @@ mod tests {
         (red, blue, green)
     }
 
-    fn three_layers<'a>(
-        red: &'a [BezPath],
-        blue: &'a [BezPath],
-        green: &'a [BezPath],
-    ) -> [Layer<'a>; 4] {
+    fn three_layers(red: &[BezPath], blue: &[BezPath], green: &[BezPath]) -> [Layer; 4] {
         [
-            Layer {
-                colour: RED,
-                outlines: red,
-            },
-            Layer {
-                colour: Rgb8::new(1, 2, 3),
-                outlines: &[],
-            },
-            Layer {
-                colour: BLUE,
-                outlines: blue,
-            },
-            Layer {
-                colour: GREEN,
-                outlines: green,
-            },
+            Layer::new(RED, red.to_vec()),
+            Layer::new(Rgb8::new(1, 2, 3), Vec::new()),
+            Layer::new(BLUE, blue.to_vec()),
+            Layer::new(GREEN, green.to_vec()),
         ]
     }
 
@@ -560,5 +738,39 @@ mod tests {
             ((covered - expected) / expected).abs() < 0.005,
             "covered {covered}, expected {expected}"
         );
+    }
+
+    #[test]
+    fn characters_xml_forbids_are_dropped_and_the_rest_is_escaped() {
+        assert_eq!(escape("A\u{0}\u{1}B\u{b}\u{fffe}C"), "ABC");
+        assert_eq!(
+            escape("a<b>&\"c\" \u{c4}\u{1f600}\tz"),
+            "a&lt;b&gt;&amp;&quot;c&quot; \u{c4}\u{1f600}\tz"
+        );
+    }
+
+    #[test]
+    fn a_layer_with_only_text_is_written_and_an_empty_one_is_not() {
+        let place = TextPlace {
+            text: "Hi".to_owned(),
+            x: 1.0,
+            y: 2.0,
+            degrees: 90.0,
+            font_size: 3.0,
+            length: 4.0,
+        };
+        let mut only_text = Layer::new(RED, Vec::new());
+        only_text.texts.push(place);
+        let svg = write(&Document {
+            width_px: 64,
+            height_px: 64,
+            layers: &[only_text, Layer::new(BLUE, Vec::new())],
+        });
+        assert_eq!(svg.matches("<g ").count(), 1);
+        assert!(
+            svg.contains("transform=\"translate(1 2) rotate(90)\""),
+            "{svg}"
+        );
+        assert!(!svg.contains("<path"));
     }
 }

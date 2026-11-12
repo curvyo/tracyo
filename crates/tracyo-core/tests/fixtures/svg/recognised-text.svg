@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape" xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd" version="1.1" width="31.75mm" height="18.521mm" viewBox="0 0 31.75 18.521">
+  <sodipodi:namedview inkscape:document-units="mm"/>
+  <g inkscape:groupmode="layer" inkscape:label="#000000" id="layer1">
+    <text id="text1" xml:space="preserve" transform="translate(2.646 7.938)" font-family="sans-serif" font-size="5.292" fill="#000000" textLength="21.167" lengthAdjust="spacingAndGlyphs"><tspan>HELLO</tspan></text>
+    <text id="text2" xml:space="preserve" transform="translate(2.646 14.817)" font-family="sans-serif" font-size="4.233" fill="#000000" textLength="15.875" lengthAdjust="spacingAndGlyphs"><tspan>A&amp;B &lt;&quot;x&quot;&gt;</tspan></text>
+  </g>
+</svg>
