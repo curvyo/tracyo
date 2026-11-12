@@ -25,14 +25,51 @@ impl Analysis {
     #[must_use]
     pub fn of(picture: &Picture) -> Self {
         let raster = picture.raster();
-        let suggested_background = vectrace::suggest_background(raster);
+        Self::from_report(
+            vectrace::suggest_background(raster),
+            vectrace::auto_threshold(raster),
+            vectrace::analyse(raster).ok(),
+        )
+    }
+
+    /// The analysis of the pixels of `picture` that `kept` marks (one flag per pixel): the
+    /// automatic Threshold of those pixels, the background of those that touch the edge of the
+    /// kept area or of the picture, and the proposal of the kept area's box with the other pixels
+    /// transparent. The whole picture's analysis when no pixel is kept or `kept` does not fit.
+    #[must_use]
+    pub fn of_kept(picture: &Picture, kept: &[bool]) -> Self {
+        let (w, h) = (picture.width as usize, picture.height as usize);
+        if kept.len() != w * h || !kept.iter().any(|k| *k) || picture.rgba.len() != w * h * 4 {
+            return Self::of(picture);
+        }
+        let pick = |keep: &dyn Fn(usize) -> bool| -> Vec<u8> {
+            (0..w * h)
+                .filter(|&i| keep(i))
+                .flat_map(|i| &picture.rgba[i * 4..i * 4 + 4])
+                .copied()
+                .collect()
+        };
+        let inside = pick(&|i| kept[i]);
+        let border = pick(&|i| kept[i] && on_border(kept, w, h, i));
+        Self::from_report(
+            vectrace::suggest_background(one_row(&border)),
+            vectrace::auto_threshold(one_row(&inside)),
+            box_analysis(picture, kept),
+        )
+    }
+
+    fn from_report(
+        suggested_background: Option<Rgb8>,
+        threshold: u8,
+        report: Option<vectrace::AnalysisReport>,
+    ) -> Self {
         let fallback = Self {
             suggested_background,
             method: Method::Brightness,
-            threshold: vectrace::auto_threshold(raster),
+            threshold,
             tolerance: vectrace::DEFAULT_BACKGROUND_TOLERANCE,
         };
-        let Ok(report) = vectrace::analyse(raster) else {
+        let Some(report) = report else {
             return fallback;
         };
         let proposal = report.proposal;
@@ -67,6 +104,57 @@ impl Analysis {
             settings.remove_tolerance = self.tolerance;
         }
     }
+}
+
+/// `rgba` as one row of pixels.
+fn one_row(rgba: &[u8]) -> vectrace::Raster<'_> {
+    vectrace::Raster {
+        width: u32::try_from(rgba.len() / 4).unwrap_or(u32::MAX),
+        height: 1,
+        rgba,
+    }
+}
+
+/// Whether kept pixel `at` of a `width` x `height` grid lies on the edge of the kept area: on the
+/// picture's edge or next to a pixel that is not kept.
+fn on_border(kept: &[bool], width: usize, height: usize, at: usize) -> bool {
+    let (column, row) = (at % width, at / width);
+    column == 0
+        || row == 0
+        || column + 1 == width
+        || row + 1 == height
+        || !kept[at - 1]
+        || !kept[at + 1]
+        || !kept[at - width]
+        || !kept[at + width]
+}
+
+/// The analysis of the box of the `kept` pixels, the others transparent.
+fn box_analysis(picture: &Picture, kept: &[bool]) -> Option<vectrace::AnalysisReport> {
+    let w = picture.width as usize;
+    let (mut x0, mut y0, mut x1, mut y1) = (usize::MAX, usize::MAX, 0, 0);
+    for (i, _) in kept.iter().enumerate().filter(|(_, k)| **k) {
+        let (x, y) = (i % w, i / w);
+        (x0, y0, x1, y1) = (x0.min(x), y0.min(y), x1.max(x + 1), y1.max(y + 1));
+    }
+    let (cw, ch) = (x1.checked_sub(x0)?, y1.checked_sub(y0)?);
+    let mut crop = Vec::with_capacity(cw * ch * 4);
+    for y in y0..y1 {
+        for x in x0..x1 {
+            let i = y * w + x;
+            if kept[i] {
+                crop.extend_from_slice(&picture.rgba[i * 4..i * 4 + 4]);
+            } else {
+                crop.extend_from_slice(&[255, 255, 255, 0]);
+            }
+        }
+    }
+    vectrace::analyse(vectrace::Raster {
+        width: u32::try_from(cw).ok()?,
+        height: u32::try_from(ch).ok()?,
+        rgba: &crop,
+    })
+    .ok()
 }
 
 #[cfg(test)]
@@ -196,5 +284,54 @@ mod tests {
         values.palette.kept = Some(vec![Rgb8::new(1, 2, 3)]);
         remove.apply(&mut settings, &mut values);
         assert!(values.palette.kept.is_some(), "the method did not change");
+    }
+
+    /// Left half white with a black bar, right half #D8D8D8 with a black bar.
+    fn two_halves() -> Picture {
+        picture(200, 100, |x, y| {
+            let bar = (30..70).contains(&y) && (x % 100 > 20 && x % 100 < 80);
+            match (bar, x >= 100) {
+                (true, _) => [0, 0, 0, 255],
+                (false, false) => [255, 255, 255, 255],
+                (false, true) => [0xD8, 0xD8, 0xD8, 255],
+            }
+        })
+    }
+
+    fn kept_right(p: &Picture) -> Vec<bool> {
+        (0..p.rgba.len() / 4)
+            .map(|i| i % p.width as usize >= 100)
+            .collect()
+    }
+
+    #[test]
+    fn the_analysis_of_a_half_reads_only_that_half() {
+        let p = two_halves();
+        let right = Analysis::of_kept(&p, &kept_right(&p));
+        assert_eq!(
+            right.suggested_background,
+            Some(Rgb8::new(0xD8, 0xD8, 0xD8))
+        );
+        let left: Vec<bool> = kept_right(&p).iter().map(|k| !k).collect();
+        let left = Analysis::of_kept(&p, &left);
+        assert_eq!(left.suggested_background, Some(Rgb8::new(255, 255, 255)));
+        assert_ne!(
+            left.threshold, right.threshold,
+            "each half has its own Threshold"
+        );
+    }
+
+    #[test]
+    fn nothing_kept_or_a_mask_of_the_wrong_size_falls_back_to_the_whole_picture() {
+        let p = two_halves();
+        assert_eq!(
+            Analysis::of_kept(&p, &vec![false; 200 * 100]),
+            Analysis::of(&p)
+        );
+        assert_eq!(Analysis::of_kept(&p, &[true; 3]), Analysis::of(&p));
+        assert_eq!(
+            Analysis::of_kept(&p, &vec![true; 200 * 100]).threshold,
+            Analysis::of(&p).threshold
+        );
     }
 }
