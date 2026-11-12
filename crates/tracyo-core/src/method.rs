@@ -379,6 +379,34 @@ mod tests {
     }
 
     #[test]
+    fn two_or_more_parts_come_first_in_the_changed_names() {
+        let s = Settings::default();
+        let mut v = PictureValues::new(128);
+        assert_eq!(changed_advanced_with_parts(&s, &v, 1), None);
+        assert_eq!(
+            changed_advanced_with_parts(&s, &v, 3).as_deref(),
+            Some("Changed: 3 parts")
+        );
+        v.invert = true;
+        assert_eq!(
+            changed_advanced_with_parts(&s, &v, 3).as_deref(),
+            Some("Changed: 3 parts, Invert")
+        );
+    }
+
+    #[test]
+    fn a_copy_for_a_new_part_has_no_picked_colours_or_palette_edits() {
+        let mut v = PictureValues::new(99);
+        v.invert = true;
+        v.pick(Rgb8::new(1, 2, 3), false);
+        v.palette.toggle_exclude(Rgb8::new(4, 5, 6));
+        let copy = v.without_colours();
+        assert_eq!((copy.threshold, copy.invert), (99, true));
+        assert_eq!(copy.swatches.len(), 0);
+        assert_eq!(copy.palette, crate::palette::Edits::default());
+    }
+
+    #[test]
     fn the_recognise_switches_are_named_between_drop_border_shapes_and_denoise() {
         let mut v = PictureValues::new(128);
         v.drop_border = true;
