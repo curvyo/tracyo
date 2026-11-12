@@ -42,7 +42,7 @@ do not edit it by hand.
 | bit-vec | 0.9.1 | Apache-2.0 OR MIT | [8173d5c29b4f](#text-8173d5c29b4f), [f51ac2c59a22](#text-f51ac2c59a22) |
 | bitflags | 1.3.2 | MIT/Apache-2.0 | [6485b8ed310d](#text-6485b8ed310d), [a60eea817514](#text-a60eea817514) |
 | bitflags | 2.13.2 | MIT OR Apache-2.0 | [6485b8ed310d](#text-6485b8ed310d), [a60eea817514](#text-a60eea817514) |
-| block-buffer | 0.10.4 | MIT OR Apache-2.0 | [a9040321c371](#text-a9040321c371), [d5c22aa3118d](#text-d5c22aa3118d) |
+| block-buffer | 0.12.1 | MIT OR Apache-2.0 | [98181e7249d0](#text-98181e7249d0), [a9040321c371](#text-a9040321c371) |
 | block2 | 0.5.1 | MIT | none in the package |
 | block2 | 0.6.2 | MIT | none in the package |
 | blocking | 1.7.0 | Apache-2.0 OR MIT | [23f18e03dc49](#text-23f18e03dc49), [a60eea817514](#text-a60eea817514) |
@@ -62,15 +62,15 @@ do not edit it by hand.
 | core-foundation-sys | 0.8.7 | MIT OR Apache-2.0 | [62065228e42c](#text-62065228e42c), [a60eea817514](#text-a60eea817514) |
 | core-graphics | 0.23.2 | MIT OR Apache-2.0 | [62065228e42c](#text-62065228e42c), [a60eea817514](#text-a60eea817514), [ec82b96487e9](#text-ec82b96487e9) |
 | core-graphics-types | 0.1.3 | MIT OR Apache-2.0 | [62065228e42c](#text-62065228e42c), [a60eea817514](#text-a60eea817514) |
-| cpufeatures | 0.2.17 | MIT OR Apache-2.0 | [a9040321c371](#text-a9040321c371), [ae9baa7beea9](#text-ae9baa7beea9) |
+| cpufeatures | 0.3.1 | MIT OR Apache-2.0 | [73b9dc2e79c7](#text-73b9dc2e79c7), [a9040321c371](#text-a9040321c371) |
 | crc32fast | 1.5.5 | MIT OR Apache-2.0 | [61d383b05b87](#text-61d383b05b87), [c6596eb7be85](#text-c6596eb7be85) |
 | crossbeam-deque | 0.8.8 | MIT OR Apache-2.0 | [5734ed989dfc](#text-5734ed989dfc), [a60eea817514](#text-a60eea817514) |
 | crossbeam-epoch | 0.9.21 | MIT OR Apache-2.0 | [5734ed989dfc](#text-5734ed989dfc), [a60eea817514](#text-a60eea817514) |
 | crossbeam-utils | 0.8.23 | MIT OR Apache-2.0 | [5734ed989dfc](#text-5734ed989dfc), [a60eea817514](#text-a60eea817514) |
-| crypto-common | 0.1.7 | MIT OR Apache-2.0 | [3521672491a3](#text-3521672491a3), [a9040321c371](#text-a9040321c371) |
+| crypto-common | 0.2.2 | MIT OR Apache-2.0 | [a9040321c371](#text-a9040321c371), [d2e7ec5355c9](#text-d2e7ec5355c9) |
 | cursor-icon | 1.2.0 | MIT OR Apache-2.0 OR Zlib | [01e533bd94e8](#text-01e533bd94e8), [b59affd015e5](#text-b59affd015e5), [c138726a726a](#text-c138726a726a) |
 | data-url | 0.3.2 | MIT OR Apache-2.0 | [a60eea817514](#text-a60eea817514), [b38f11f60967](#text-b38f11f60967) |
-| digest | 0.10.7 | MIT OR Apache-2.0 | [9e0dfd2dd417](#text-9e0dfd2dd417), [a9040321c371](#text-a9040321c371) |
+| digest | 0.11.3 | MIT OR Apache-2.0 | [a9040321c371](#text-a9040321c371), [af59cea35d7f](#text-af59cea35d7f) |
 | dirs | 7.0.0 | MIT OR Apache-2.0 | [6a2e0ade09a7](#text-6a2e0ade09a7), [d3174ad63e72](#text-d3174ad63e72) |
 | dirs-sys | 0.5.0 | MIT OR Apache-2.0 | [6a2e0ade09a7](#text-6a2e0ade09a7), [d3174ad63e72](#text-d3174ad63e72) |
 | dispatch | 0.2.0 | MIT | none in the package |
@@ -117,7 +117,6 @@ do not edit it by hand.
 | futures-macro | 0.3.34 | MIT OR Apache-2.0 | [275c491d6d11](#text-275c491d6d11), [6652c868f35d](#text-6652c868f35d) |
 | futures-task | 0.3.34 | MIT OR Apache-2.0 | [275c491d6d11](#text-275c491d6d11), [6652c868f35d](#text-6652c868f35d) |
 | futures-util | 0.3.34 | MIT OR Apache-2.0 | [275c491d6d11](#text-275c491d6d11), [6652c868f35d](#text-6652c868f35d) |
-| generic-array | 0.14.7 | MIT | [ad4fcfaf8d5b](#text-ad4fcfaf8d5b) |
 | gethostname | 1.1.0 | Apache-2.0 | [a60eea817514](#text-a60eea817514) |
 | getrandom | 0.3.4 | MIT OR Apache-2.0 | [29e9fe5074bd](#text-29e9fe5074bd), [aaff376532ea](#text-aaff376532ea) |
 | getrandom | 0.4.3 | MIT OR Apache-2.0 | [523a42c25d24](#text-523a42c25d24), [aaff376532ea](#text-aaff376532ea) |
@@ -131,6 +130,7 @@ do not edit it by hand.
 | hashbrown | 0.16.1 | MIT OR Apache-2.0 | [a60eea817514](#text-a60eea817514), [ff8f68cb076c](#text-ff8f68cb076c) |
 | hashbrown | 0.17.1 | MIT OR Apache-2.0 | [a60eea817514](#text-a60eea817514), [ff8f68cb076c](#text-ff8f68cb076c) |
 | hex | 0.4.3 | MIT OR Apache-2.0 | [c6596eb7be85](#text-c6596eb7be85), [f7bdb3426d04](#text-f7bdb3426d04) |
+| hybrid-array | 0.4.15 | MIT OR Apache-2.0 | [70c9d40f1f95](#text-70c9d40f1f95), [a9040321c371](#text-a9040321c371) |
 | image | 0.25.10 | MIT OR Apache-2.0 | [0d542e0c8804](#text-0d542e0c8804), [c77a4cf9da72](#text-c77a4cf9da72) |
 | image-webp | 0.2.4 | MIT OR Apache-2.0 | [0d542e0c8804](#text-0d542e0c8804), [c77a4cf9da72](#text-c77a4cf9da72) |
 | imagesize | 0.15.0 | MIT | [fa0d694967d5](#text-fa0d694967d5) |
@@ -234,7 +234,7 @@ do not edit it by hand.
 | serde_derive | 1.0.229 | MIT OR Apache-2.0 | [23f18e03dc49](#text-23f18e03dc49), [62c7a1e35f56](#text-62c7a1e35f56) |
 | serde_repr | 0.1.21 | MIT OR Apache-2.0 | [23f18e03dc49](#text-23f18e03dc49), [62c7a1e35f56](#text-62c7a1e35f56) |
 | serde_spanned | 1.1.3 | MIT OR Apache-2.0 | [249fdb669446](#text-249fdb669446), [6efb0476a1cc](#text-6efb0476a1cc) |
-| sha2 | 0.10.9 | MIT OR Apache-2.0 | [a9040321c371](#text-a9040321c371), [b4eb00df6e2a](#text-b4eb00df6e2a) |
+| sha2 | 0.11.1 | MIT OR Apache-2.0 | [831e0f43ad0b](#text-831e0f43ad0b), [a9040321c371](#text-a9040321c371) |
 | signal-hook-registry | 1.4.8 | MIT OR Apache-2.0 | [503558bfefe6](#text-503558bfefe6), [a60eea817514](#text-a60eea817514) |
 | simd-adler32 | 0.3.10 | MIT | [42a35170233e](#text-42a35170233e) |
 | simplecss | 0.2.2 | Apache-2.0 OR MIT | [0b5f24524360](#text-0b5f24524360), [a60eea817514](#text-a60eea817514) |
@@ -281,7 +281,7 @@ do not edit it by hand.
 | unicode-width | 0.2.3 | MIT OR Apache-2.0 | [23860c2a7b5d](#text-23860c2a7b5d), [7b63ecd5f190](#text-7b63ecd5f190), [a60eea817514](#text-a60eea817514) |
 | usvg | 0.50.0 | Apache-2.0 OR MIT | [a6cba85bc92e](#text-a6cba85bc92e), [f5d934dc281b](#text-f5d934dc281b) |
 | uuid | 1.29.2 | Apache-2.0 OR MIT | [436bc5a105d8](#text-436bc5a105d8), [a60eea817514](#text-a60eea817514) |
-| vectrace | 0.1.0 | MIT OR Apache-2.0 | [eefd063466b2](#text-eefd063466b2), [f40a6e651702](#text-f40a6e651702) |
+| vectrace | 0.1.1 | MIT OR Apache-2.0 | [eefd063466b2](#text-eefd063466b2), [f40a6e651702](#text-f40a6e651702) |
 | vello_common | 0.2.0 | Apache-2.0 OR MIT | [a6cba85bc92e](#text-a6cba85bc92e), [adf157330f72](#text-adf157330f72) |
 | vello_cpu | 0.2.0 | Apache-2.0 OR MIT | [a6cba85bc92e](#text-a6cba85bc92e), [adf157330f72](#text-adf157330f72) |
 | wayland-backend | 0.3.17 | MIT | [1cb6f4dee8c6](#text-1cb6f4dee8c6) |
@@ -3143,7 +3143,7 @@ DEALINGS IN THE SOFTWARE.
 <a id="text-a9040321c371"></a>
 ### Text a9040321c371
 
-Shipped by: block-buffer 0.10.4, cpufeatures 0.2.17, crypto-common 0.1.7, digest 0.10.7, sha2 0.10.9.
+Shipped by: block-buffer 0.12.1, cpufeatures 0.3.1, crypto-common 0.2.2, digest 0.11.3, hybrid-array 0.4.15, sha2 0.11.1.
 
 ```text
                               Apache License
@@ -3349,13 +3349,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ```
 
-<a id="text-d5c22aa3118d"></a>
-### Text d5c22aa3118d
+<a id="text-98181e7249d0"></a>
+### Text 98181e7249d0
 
-Shipped by: block-buffer 0.10.4.
+Shipped by: block-buffer 0.12.1.
 
 ```text
-Copyright (c) 2018-2019 The RustCrypto Project Developers
+Copyright (c) 2018-2025 The RustCrypto Project Developers
 
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
@@ -4101,13 +4101,13 @@ option. All files in the project carrying such notice may not be
 copied, modified, or distributed except according to those terms.
 ```
 
-<a id="text-ae9baa7beea9"></a>
-### Text ae9baa7beea9
+<a id="text-73b9dc2e79c7"></a>
+### Text 73b9dc2e79c7
 
-Shipped by: cpufeatures 0.2.17.
+Shipped by: cpufeatures 0.3.1.
 
 ```text
-Copyright (c) 2020-2025 The RustCrypto Project Developers
+Copyright (c) 2020-2026 The RustCrypto Project Developers
 
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
@@ -4407,13 +4407,13 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-<a id="text-3521672491a3"></a>
-### Text 3521672491a3
+<a id="text-d2e7ec5355c9"></a>
+### Text d2e7ec5355c9
 
-Shipped by: crypto-common 0.1.7.
+Shipped by: crypto-common 0.2.2.
 
 ```text
-Copyright (c) 2021 RustCrypto Developers
+Copyright (c) 2021-2026 RustCrypto Developers
 
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
@@ -4728,12 +4728,13 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-<a id="text-9e0dfd2dd417"></a>
-### Text 9e0dfd2dd417
+<a id="text-af59cea35d7f"></a>
+### Text af59cea35d7f
 
-Shipped by: digest 0.10.7.
+Shipped by: digest 0.11.3.
 
 ```text
+Copyright (c) 2017-2025 RustCrypto Developers
 Copyright (c) 2017 Artyom Pavlov
 
 Permission is hereby granted, free of charge, to any
@@ -6392,35 +6393,6 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-<a id="text-ad4fcfaf8d5b"></a>
-### Text ad4fcfaf8d5b
-
-Shipped by: generic-array 0.14.7.
-
-```text
-The MIT License (MIT)
-
-Copyright (c) 2015 Bartłomiej Kamiński
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-```
-
 <a id="text-aaff376532ea"></a>
 ### Text aaff376532ea
 
@@ -7292,6 +7264,39 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+```
+
+<a id="text-70c9d40f1f95"></a>
+### Text 70c9d40f1f95
+
+Shipped by: hybrid-array 0.4.15.
+
+```text
+Copyright (c) 2022-2026 The RustCrypto Project Developers
+
+Permission is hereby granted, free of charge, to any
+person obtaining a copy of this software and associated
+documentation files (the "Software"), to deal in the
+Software without restriction, including without
+limitation the rights to use, copy, modify, merge,
+publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software
+is furnished to do so, subject to the following
+conditions:
+
+The above copyright notice and this permission notice
+shall be included in all copies or substantial portions
+of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF
+ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED
+TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT
+SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
+IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+DEALINGS IN THE SOFTWARE.
 ```
 
 <a id="text-fa0d694967d5"></a>
@@ -10703,15 +10708,16 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-<a id="text-b4eb00df6e2a"></a>
-### Text b4eb00df6e2a
+<a id="text-831e0f43ad0b"></a>
+### Text 831e0f43ad0b
 
-Shipped by: sha2 0.10.9.
+Shipped by: sha2 0.11.1.
 
 ```text
-Copyright (c) 2006-2009 Graydon Hoare
-Copyright (c) 2009-2013 Mozilla Foundation
+Copyright (c) 2016-2026 The RustCrypto Project Developers
 Copyright (c) 2016 Artyom Pavlov
+Copyright (c) 2009-2013 Mozilla Foundation
+Copyright (c) 2006-2009 Graydon Hoare
 
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
@@ -12384,7 +12390,7 @@ DEALINGS IN THE SOFTWARE.
 <a id="text-f40a6e651702"></a>
 ### Text f40a6e651702
 
-Shipped by: vectrace 0.1.0.
+Shipped by: vectrace 0.1.1.
 
 ```text
                               Apache License
@@ -12593,7 +12599,7 @@ limitations under the License.
 <a id="text-eefd063466b2"></a>
 ### Text eefd063466b2
 
-Shipped by: vectrace 0.1.0.
+Shipped by: vectrace 0.1.1.
 
 ```text
 MIT License
