@@ -4,10 +4,12 @@
 //   PLAYWRIGHT_CORE=/path/to/node_modules/playwright-core CHROMIUM=/usr/bin/chromium \
 //   LUCIDE=~/curvyo/frontend/node_modules/lucide-react/dist/esm/icons node capture.cjs
 // Writes curvyo-*.png (Curvyo as it is, 1280 x 800, panel open) and px-*.png (the bar as Tracyo
-// draws it: panel hidden, 1360 x 800, so the bar has the 1196 px of a 1280 x 800 Tracyo window;
-// Pick mask paths replaced by Rectangle, Ellipse and Polygon in Curvyo's own icon-button look;
-// "Save as…" for Trace). Device scale factor 1. The picture is 0001's input-logo.png; the mask
-// paths are drawn with Curvyo's real Rectangle and Ellipse tools and picked with Pick mask paths.
+// draws it: panel hidden, 1360 x 800, so the bar has the 1164 px cap of a 1248 x 800 Tracyo window;
+// Pick mask paths replaced by Rectangle and Subtract (lucide square, square-minus) in Curvyo's own
+// icon-button look; "Save as…" for Trace). Device scale factor 1. The picture is 0001's
+// input-logo.png; the mask paths are drawn with Curvyo's real Rectangle tool (the curvyo-* set also
+// with its Ellipse tool for E1, which px-* draws as the rectangle R4) and picked with Pick mask paths.
+// SETS=px re-captures only the px-* pictures.
 const path = require('node:path');
 const { chromium } = require(process.env.PLAYWRIGHT_CORE || 'playwright-core');
 const HERE = __dirname;
@@ -82,7 +84,7 @@ async function run(browser, set, icons) {
     await page.waitForTimeout(100);
   };
   // The mask paths, in picture pixels: R1 round the LOGO block, R2 round the green bar, E1 round the
-  // disc, R3 below the picture (a mask outside the image).
+  // disc (px-*: the rectangle R4 on the same box), R3 below the picture (a mask outside the image).
   const R1 = [[24, 25], [324, 235]], R2 = [[344, 315], [619, 405]], E1 = [[330, 30], [610, 310]], R3 = [[100, 450], [300, 520]];
   const crop = (x0, y0, x1, y1) => { const [a, b] = at(x0, y0); const [c, d] = at(x1, y1); return { x: a, y: b, width: c - a, height: d - b }; };
   // The canvas look of a selected, hovered and drawn object in Curvyo's Select, Pen and Node tools.
@@ -90,7 +92,7 @@ async function run(browser, set, icons) {
   const selectedShot = (name, c) => tracyo ? null : async () => { await page.mouse.move(...at(700, 470)); await page.waitForTimeout(300); await canvasShot(name, c); };
   await drag('r', ...R1, false, selectedShot('20-select-rectangle', crop(-30, -35, 364, 275)));
   await drag('r', ...R2);
-  await drag('e', ...E1, false, selectedShot('22-select-ellipse', crop(290, -10, 650, 350)));
+  await drag(tracyo ? 'r' : 'e', ...E1, false, selectedShot('22-select-ellipse', crop(290, -10, 650, 350)));
   await drag('r', ...R3);
   if (!tracyo) {
     await page.mouse.move(...at(344, 360));
@@ -149,13 +151,12 @@ async function run(browser, set, icons) {
     if (!pick) return;
     if (!pick.dataset.tracyo) {
       pick.dataset.tracyo = 'rectangle';
-      for (const name of ['polygon', 'ellipse']) {
-        const b = pick.cloneNode(true);
-        b.removeAttribute('data-trace-mask-pick');
-        b.dataset.tracyo = name;
-        b.setAttribute('aria-label', name === 'ellipse' ? 'Ellipse' : 'Polygon');
-        pick.after(b);
-      }
+      pick.setAttribute('aria-label', 'Rectangle');
+      const b = pick.cloneNode(true);
+      b.removeAttribute('data-trace-mask-pick');
+      b.dataset.tracyo = 'subtract';
+      b.setAttribute('aria-label', 'Subtract');
+      pick.after(b);
     }
     const buttons = [...document.querySelectorAll('[data-tracyo]')];
     buttons.forEach((b, i) => {
@@ -274,7 +275,7 @@ async function run(browser, set, icons) {
 }
 
 (async () => {
-  const icons = await Promise.all(['square', 'circle', 'pentagon'].map(icon));
+  const icons = await Promise.all(['square', 'square-minus'].map(icon));
   const browser = await chromium.launch({ executablePath: process.env.CHROMIUM || '/usr/bin/chromium', headless: true });
   for (const set of (process.env.SETS || 'curvyo,px').split(',')) await run(browser, set, icons);
   await browser.close();
