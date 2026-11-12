@@ -70,7 +70,10 @@ impl App {
         if armed && resp.hovered() && !space {
             ui.ctx().set_cursor_icon(egui::CursorIcon::Crosshair);
         }
-        let on_mask = self.doc.as_ref().is_some_and(|d| d.mask.rectangle)
+        let on_mask = self
+            .doc
+            .as_ref()
+            .is_some_and(|d| d.mask.tool != crate::mask::Tool::None)
             || self.pointer_over_region(ui, canvas);
         if resp.double_clicked() && !space && !armed && !on_mask {
             let ctx = ui.ctx().clone();
@@ -184,7 +187,7 @@ impl App {
             .iter()
             .enumerate()
             .filter(|(i, _)| *i != doc.parts.active_index())
-            .flat_map(|(_, p)| p.regions.iter().copied())
+            .flat_map(|(_, p)| p.regions.iter().cloned())
             .collect();
         region_paint::wash_and_outlines(&painter, &doc.mask, &others, origin, zoom, canvas);
         if let Some(result) = &mut self.result {
@@ -271,7 +274,7 @@ impl App {
             .collect();
         let width = galleys.iter().map(|g| g.size().x).fold(0.0_f32, f32::max) + 16.0;
         let height = galleys.iter().map(|g| g.size().y).sum::<f32>() + 16.0;
-        let centre = 60.0 + (canvas.width() - 60.0) / 2.0;
+        let centre = canvas.width() / 2.0;
         let pos = pos2(centre - width / 2.0, canvas.bottom() - 12.0 - height);
         egui::Area::new(Id::unique("notice"))
             .order(egui::Order::Foreground)

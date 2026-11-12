@@ -42,6 +42,39 @@ pub(crate) fn width(parts: usize) -> f32 {
     LABEL_W + 4.0 + n * 28.0 + (n - 1.0) * 4.0 + 4.0 + 28.0 + 4.0 + 28.0
 }
 
+/// The gap between the trash and the Mask group; the divider stands 12 px into it.
+const GROUP_GAP: f32 = 25.0;
+/// Where the row's items sit for `parts` parts in `available` px.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub(crate) struct Layout {
+    /// Height of the row: 36 px, or 72 with the Mask group on a second line.
+    pub height: f32,
+    /// The Mask group's top-left corner from the row's own, in px.
+    pub mask: Pos2,
+    /// Whether the divider between the groups is drawn (not at the start of a line).
+    pub divider: bool,
+}
+
+/// The row for `parts` parts in `available` px (ux-notes 3 "Fit and wrap"): one line when the
+/// Parts group, the gap and the Mask group fit, else the Mask group, as a whole, on a second line.
+#[must_use]
+pub(crate) fn layout(parts: usize, available: f32) -> Layout {
+    let group = width(parts);
+    if group + GROUP_GAP + crate::mask_group::WIDTH <= available {
+        Layout {
+            height: 36.0,
+            mask: Pos2::new(group + GROUP_GAP, 0.0),
+            divider: true,
+        }
+    } else {
+        Layout {
+            height: 72.0,
+            mask: Pos2::new(0.0, 36.0),
+            divider: false,
+        }
+    }
+}
+
 /// What a chip shows.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Mark {
@@ -62,8 +95,15 @@ enum Action {
 }
 
 impl App {
-    /// Paints and drives the row with its top-left corner at `origin`.
-    pub(crate) fn parts_row(&mut self, ui: &mut Ui, ctx: &egui::Context, origin: Pos2) {
+    /// Paints and drives the row with its top-left corner at `origin`, `available` px wide: the
+    /// Parts group and the Mask group.
+    pub(crate) fn parts_row(
+        &mut self,
+        ui: &mut Ui,
+        ctx: &egui::Context,
+        origin: Pos2,
+        available: f32,
+    ) {
         let Some(live) = self.live_part() else { return };
         let Some(doc) = &mut self.doc else { return };
         doc.parts.store(live);
@@ -217,6 +257,18 @@ impl App {
             Some(Action::ArmOrRemove) => self.arm_or_remove(ctx, now),
             None => {}
         }
+
+        // The Mask group, after a divider (Curvyo's bar divider, 12 px into the gap).
+        let places = layout(count, available);
+        if places.divider {
+            let x = origin.x + width(count) + 12.0;
+            ui.painter().rect_filled(
+                Rect::from_min_size(pos2(x, origin.y + 4.0), vec2(1.0, 20.0)),
+                0,
+                theme::DIVIDER,
+            );
+        }
+        self.mask_group(ui, ctx, origin + places.mask.to_vec2());
     }
 
     /// The keys of the focused active chip `i`: arrows, Home and End pick a part, Delete and

@@ -1,11 +1,11 @@
-//! The Trace bar, the Open card and the menus: layout, painting and what each control does.
+//! The Trace bar and its menus: layout, centring, painting and what each control does.
 
 use eframe::egui::{self, Align2, Id, Key, Modifiers, Rect, Vec2, pos2, vec2};
 use tracyo_core::method::Method;
 use tracyo_core::progress::Button;
 use tracyo_core::settings::{self, Field};
 
-use crate::app::{App, BAR_POS, MenuKind};
+use crate::app::{App, BAR_MARGIN, MenuKind};
 use crate::controls;
 use crate::icons::Icon;
 use crate::theme;
@@ -90,18 +90,22 @@ pub struct BlockFlow {
     pub items: Vec<egui::Pos2>,
     /// Top-left of the last item (Analyse), at the far right of its row.
     pub tail: egui::Pos2,
-    /// Height of all the lines, in px.
+    /// Top-left of the Parts row, the block's last line, a line of its own.
+    pub parts: egui::Pos2,
+    /// Height of all the lines, the Parts row's included, in px.
     pub height: f32,
 }
 
 /// Flows the Advanced block's items of `widths` and `heights` in `inner` px; `tail` is Analyse.
+/// The Parts row of height `parts` (36 or 72 px) is the last line under all of them.
 #[must_use]
-pub fn block_flow(widths: &[f32], heights: &[f32], tail: f32, inner: f32) -> BlockFlow {
+pub fn block_flow(widths: &[f32], heights: &[f32], tail: f32, inner: f32, parts: f32) -> BlockFlow {
     let r = rows(widths, heights, tail, inner);
     BlockFlow {
         items: r.items.iter().map(|&(x, y)| pos2(x, y + 4.0)).collect(),
         tail: pos2(r.tail.0, r.tail.1 + 4.0),
-        height: r.height,
+        parts: pos2(0.0, r.height + 4.0),
+        height: r.height + parts,
     }
 }
 
@@ -109,6 +113,19 @@ pub fn block_flow(widths: &[f32], heights: &[f32], tail: f32, inner: f32) -> Blo
 #[must_use]
 pub fn block_height(lines: f32) -> f32 {
     4.0 + 1.0 + 4.0 + lines + 4.0
+}
+
+/// The bar's left edge in a canvas `canvas_w` wide (0001 ux-notes 3.1): the bar at rest, `rest_w`
+/// wide, is centred on whole pixels; the bar of now, `width` wide, keeps that left edge and is only
+/// pulled left when its right end would pass the margin. A rest bar that fills the cap starts at
+/// the margin.
+#[must_use]
+pub fn bar_x(canvas_w: f32, rest_w: f32, width: f32) -> f32 {
+    if rest_w >= canvas_w - 2.0 * BAR_MARGIN {
+        return BAR_MARGIN;
+    }
+    let centred = ((canvas_w - rest_w) / 2.0).floor();
+    centred.min(canvas_w - BAR_MARGIN - width).max(BAR_MARGIN)
 }
 
 /// The tooltip of a value field; `shown` is the text the field draws instead of the value's own.
@@ -163,68 +180,58 @@ pub(crate) fn field_widget(
 }
 
 impl App {
-    /// The Open card: the rail card with the Import button.
-    pub(crate) fn open_card(&mut self, ctx: &egui::Context) {
-        let rect = Rect::from_min_size(pos2(12.0, 12.0), vec2(48.0, 48.0));
-        let mut clicked = false;
-        egui::Area::new(Id::unique("open-card"))
-            .order(egui::Order::Foreground)
-            .fixed_pos(rect.min)
-            .show(ctx, |ui| {
-                let (card, _) = ui.allocate_exact_size(rect.size(), egui::Sense::hover());
-                ui.painter().add(theme::SHADOW.as_shape(card, 10));
-                ui.painter().rect_filled(card, 10, theme::TOOLBAR_BG);
-                let button = Rect::from_center_size(card.center(), vec2(40.0, 40.0));
-                let resp =
-                    ui.interact(button, Id::unique("open-card-button"), egui::Sense::click());
-                resp.widget_info(|| {
-                    egui::WidgetInfo::labeled(egui::Role::Button, true, "Open image")
-                });
-                if resp.hovered() {
-                    ui.painter().rect_filled(button, 8, theme::HOVER_ON_BAR);
-                }
-                self.icons
-                    .paint(ui, button, Icon::Import, 20.0, 2.0, theme::TOOLBAR_ICON);
-                if resp.has_focus() && widgets::focus_visible(ui.ctx()) {
-                    ui.painter().rect_stroke(
-                        button.expand(1.0),
-                        9,
-                        egui::Stroke::new(2.0, theme::ACCENT),
-                        egui::StrokeKind::Outside,
-                    );
-                }
-                widgets::tooltip(ui.ctx(), &resp, Side::Right, &plain("Open image (Ctrl+O)"));
-                widgets::reset_tooltip(ui.ctx(), &resp);
-                clicked = resp.clicked();
-            });
-        if clicked {
+    /// The Open button, the bar's first control.
+    fn open_button(&mut self, ui: &mut egui::Ui, ctx: &egui::Context, rect: Rect) {
+        let open = widgets::icon_button(
+            ui,
+            &mut self.icons,
+            rect,
+            bar_id("open"),
+            Icon::Import,
+            "Open image",
+            false,
+        );
+        widgets::tooltip(ctx, &open, Side::Below, &plain("Open image (Ctrl+O)"));
+        widgets::reset_tooltip(ctx, &open);
+        widgets::release_focus_after_mouse(ctx, &open);
+        if open.clicked() {
             self.ask_open(ctx);
         }
     }
 
-    /// The Trace bar: the rows of controls and, while open, the Advanced block.
-    pub(crate) fn bar(&mut self, ctx: &egui::Context, canvas: Rect) {
-        let max_inner = (canvas.width() - 84.0 - 2.0 * PAD).max(200.0);
+    /// The Trace bar: the rows of controls and, while open, the Advanced block. `root` measures
+    /// the text so that the bar's place is known before it is drawn.
+    pub(crate) fn bar(&mut self, root: &egui::Ui, ctx: &egui::Context, canvas: Rect) {
+        let canvas_w = canvas.width();
+        if self.doc.is_none() {
+            let size = empty_size(root);
+            let x = bar_x(canvas_w, size.x, size.x);
+            egui::Area::new(Id::unique("bar"))
+                .order(egui::Order::Foreground)
+                .fixed_pos(pos2(canvas.min.x + x, BAR_MARGIN))
+                .show(ctx, |ui| self.empty_bar(ui, size));
+            return;
+        }
+        let state = self.progress.button(self.now());
+        let blue_w = widgets::blue_width(root, &state);
+        let method = Method::from_index(self.settings.method);
+        let group_w = self.group_width(method);
+        let mut widths = vec![28.0, 28.0, 132.0, 176.0, 150.0];
+        widths.extend(group_w);
+        widths.extend([150.0, 150.0, 171.0]);
+        let open = self.settings.advanced_open;
+        let max_inner = (canvas_w - 2.0 * BAR_MARGIN - 2.0 * PAD).max(200.0);
+        let layout = flow(&widths, 28.0 + PAD + blue_w, max_inner, open);
+        // The bar at rest (Save as… 89 px, Advanced closed) decides where it stands.
+        let rest = flow(&widths, 28.0 + PAD + 89.0, max_inner, false);
+        let x = bar_x(canvas_w, rest.size.x, layout.size.x);
+        let inner = layout.size.x - 2.0 * PAD;
+        let block = open.then(|| self.block_layout(root, inner));
+        let height = layout.size.y + block.as_ref().map_or(0.0, |b| block_height(b.height));
         egui::Area::new(Id::unique("bar"))
             .order(egui::Order::Foreground)
-            .fixed_pos(BAR_POS)
+            .fixed_pos(pos2(canvas.min.x + x, BAR_MARGIN))
             .show(ctx, |ui| {
-                if self.doc.is_none() {
-                    self.empty_bar(ui);
-                    return;
-                }
-                let state = self.progress.button(self.now());
-                let blue_w = widgets::blue_width(ui, &state);
-                let method = Method::from_index(self.settings.method);
-                let group_w = self.group_width(method);
-                let mut widths = vec![28.0, 132.0, crate::mask_group::WIDTH, 176.0, 150.0];
-                widths.extend(group_w);
-                widths.extend([150.0, 150.0, 171.0]);
-                let open = self.settings.advanced_open;
-                let layout = flow(&widths, 28.0 + PAD + blue_w, max_inner, open);
-                let inner = layout.size.x - 2.0 * PAD;
-                let block = open.then(|| self.block_layout(ui, inner));
-                let height = layout.size.y + block.as_ref().map_or(0.0, |b| block_height(b.height));
                 let (bar, _) =
                     ui.allocate_exact_size(vec2(layout.size.x, height), egui::Sense::hover());
                 self.bar_bottom = bar.bottom();
@@ -235,10 +242,11 @@ impl App {
                 };
                 let mut changed: Option<bool> = None;
 
+                self.open_button(ui, ctx, at(layout.items[0], 28.0));
                 let about = widgets::icon_button(
                     ui,
                     &mut self.icons,
-                    at(layout.items[0], 28.0),
+                    at(layout.items[1], 28.0),
                     bar_id("about"),
                     Icon::Info,
                     crate::about::TITLE,
@@ -251,9 +259,7 @@ impl App {
                 widgets::reset_tooltip(ctx, &about);
                 widgets::release_focus_after_mouse(ctx, &about);
 
-                // Tab order: Preset, the Mask group, Method.
-                self.preset_button(ui, ctx, at(layout.items[1], 132.0));
-                self.mask_group(ui, ctx, bar.min + layout.items[2].to_vec2());
+                self.preset_button(ui, ctx, at(layout.items[2], 132.0));
                 self.method_button(ui, ctx, method, at(layout.items[3], 176.0));
 
                 let mut next = 4;
@@ -507,10 +513,9 @@ impl App {
         }
     }
 
-    fn empty_bar(&mut self, ui: &mut egui::Ui) {
+    fn empty_bar(&mut self, ui: &mut egui::Ui, size: Vec2) {
         let label_w = widgets::text_width(ui, "Trace", &theme::text12());
         let button_w = widgets::text_width(ui, "Open image\u{2026}", &theme::text14()) + 16.0;
-        let size = vec2(PAD + label_w + 12.0 + button_w + PAD, ROW);
         let (bar, _) = ui.allocate_exact_size(size, egui::Sense::hover());
         self.bar_bottom = bar.bottom();
         ui.painter().add(theme::SHADOW.as_shape(bar, 10));
@@ -589,6 +594,13 @@ impl App {
     }
 }
 
+/// The size of the bar without a picture: "Trace", 12 px, "Open image…".
+fn empty_size(ui: &egui::Ui) -> Vec2 {
+    let label_w = widgets::text_width(ui, "Trace", &theme::text12());
+    let button_w = widgets::text_width(ui, "Open image\u{2026}", &theme::text14()) + 16.0;
+    vec2(PAD + label_w + 12.0 + button_w + PAD, ROW)
+}
+
 pub(crate) fn bar_id(name: &str) -> Id {
     Id::unique("bar").with(name)
 }
@@ -597,109 +609,116 @@ pub(crate) fn bar_id(name: &str) -> Id {
 mod tests {
     use super::*;
 
-    const WIDTHS: [f32; 7] = [28.0, 132.0, 176.0, 150.0, 150.0, 150.0, 171.0];
+    /// Open, About, Preset, Method, Threshold, Smooth, Tolerance, Ignore below.
+    const WIDTHS: [f32; 8] = [28.0, 28.0, 132.0, 176.0, 150.0, 150.0, 150.0, 171.0];
 
     #[test]
-    fn at_rest_the_bar_is_one_row_of_1154_px() {
-        let f = flow(&WIDTHS, 28.0 + 8.0 + 89.0, 1196.0 - 16.0, false);
-        assert_eq!(f.size, vec2(1154.0, 36.0));
-        assert_eq!(f.items[0], pos2(8.0, 4.0));
-        assert_eq!(f.items[1], pos2(8.0 + 28.0 + 8.0, 4.0));
-        assert_eq!(
-            f.tail,
-            pos2(
-                8.0 + 28.0
-                    + 8.0
-                    + 132.0
-                    + 8.0
-                    + 176.0
-                    + 8.0
-                    + 150.0
-                    + 8.0
-                    + 150.0
-                    + 8.0
-                    + 150.0
-                    + 8.0
-                    + 171.0
-                    + 8.0,
-                4.0
-            )
-        );
-        assert_eq!(f.tail.x + 28.0 + 8.0 + 89.0 + 8.0, 1154.0);
+    fn at_rest_the_bar_is_one_row_of_1190_px() {
+        let f = flow(&WIDTHS, 28.0 + 8.0 + 89.0, 1256.0 - 16.0, false);
+        assert_eq!(f.size, vec2(1190.0, 36.0));
+        assert_eq!(f.items[0], pos2(8.0, 4.0), "Open is the first control");
+        assert_eq!(f.items[1], pos2(8.0 + 28.0 + 8.0, 4.0), "About 44..72");
+        assert_eq!(f.items[2].x, 80.0, "Preset 80..212");
+        assert_eq!(f.items[3].x, 220.0, "Method 220..396");
+        assert_eq!(f.tail.x + 28.0 + 8.0 + 89.0 + 8.0, 1190.0);
+        assert_eq!(f.tail.x + 28.0 + 8.0, 1093.0, "Save as… 1093..1182");
     }
 
     #[test]
     fn at_800_wide_the_bar_wraps_by_whole_items_into_two_rows() {
-        let f = flow(&WIDTHS, 125.0, 716.0 - 16.0, false);
+        let f = flow(&WIDTHS, 125.0, 776.0 - 16.0, false);
         assert_eq!(f.size.y, 72.0);
-        // i, Preset, Method, Threshold, Smooth fit the first row (684 px); Tolerance starts row two.
-        assert_eq!(f.items[4].y, 4.0);
-        assert_eq!(f.items[5], pos2(8.0, 40.0));
+        // Open to Smooth fit the first row (720 px); Tolerance starts row two.
+        assert_eq!(f.items[5].y, 4.0);
+        assert_eq!(f.items[6], pos2(8.0, 40.0));
         assert!(f.tail.y >= 40.0);
-        assert!(f.size.x <= 716.0);
+        assert!(f.size.x <= 776.0);
         // The last group sits at the far right of its row.
         assert!((f.tail.x + 125.0 + 8.0 - f.size.x).abs() < 1e-3);
     }
 
     #[test]
     fn an_open_block_adds_one_gap_to_the_bar() {
-        let rest = flow(&WIDTHS, 125.0, 1180.0, true);
-        assert_eq!(rest.size, vec2(1162.0, 36.0));
+        let rest = flow(&WIDTHS, 125.0, 1240.0, true);
+        assert_eq!(rest.size, vec2(1198.0, 36.0));
         // The blue group stays flush right: the extra gap sits before it.
-        assert_eq!(rest.tail.x + 125.0 + 8.0, 1162.0);
-        let running = flow(&WIDTHS, 28.0 + 8.0 + 75.0, 1180.0, true);
-        assert_eq!(running.size.x, 1148.0);
+        assert_eq!(rest.tail.x + 125.0 + 8.0, 1198.0);
+        let running = flow(&WIDTHS, 28.0 + 8.0 + 75.0, 1240.0, true);
+        assert_eq!(running.size.x, 1184.0);
     }
 
     #[test]
     fn a_wider_blue_button_wraps_the_group_when_the_cap_is_met() {
-        // Stopped is 106 px wide; the bar is capped at 1164 px.
-        let f = flow(&WIDTHS, 28.0 + 8.0 + 106.0, 1164.0 - 16.0, true);
-        assert_eq!(f.size, vec2(1164.0, 72.0));
-        assert_eq!(f.tail.y, 40.0);
-        assert_eq!(f.tail.x + 142.0 + 8.0, 1164.0);
-        assert_eq!(f.items[6].y, 4.0);
+        // Stopped is 106 px wide; the bar is capped at 1256 px.
+        let f = flow(&WIDTHS, 28.0 + 8.0 + 106.0, 1240.0, true);
+        assert_eq!(f.size.x, 1215.0, "Stopped fits on one row at 1280");
+        assert_eq!(f.size.y, 36.0);
+        let narrow = flow(&WIDTHS, 28.0 + 8.0 + 106.0, 1180.0, true);
+        assert_eq!(narrow.size, vec2(1196.0, 72.0));
+        assert_eq!(narrow.tail.y, 40.0);
+        assert_eq!(narrow.items[7].y, 4.0);
     }
 
     #[test]
-    fn remove_background_takes_the_whole_width_and_wraps_ignore_below() {
-        let widths = [28.0, 132.0, 176.0, 150.0, 168.0, 150.0, 150.0, 171.0];
-        let f = flow(&widths, 125.0, 1148.0, false);
-        assert_eq!(f.size, vec2(1164.0, 72.0));
-        assert_eq!(f.items[6].y, 4.0);
-        assert_eq!(f.items[7], pos2(8.0, 40.0));
+    fn remove_background_takes_the_whole_width_and_wraps_the_blue_group() {
+        let widths = [28.0, 28.0, 132.0, 176.0, 150.0, 168.0, 150.0, 150.0, 171.0];
+        let f = flow(&widths, 125.0, 1240.0, false);
+        assert_eq!(f.size, vec2(1256.0, 72.0));
+        // Ignore below still fits the first row (px-09 shows it there); only the expander and
+        // the blue button wrap.
+        assert_eq!(f.items[8].y, 4.0);
         assert_eq!(f.tail.y, 40.0);
+        assert!((f.tail.x + 125.0 + 8.0 - 1256.0).abs() < 1e-3);
+    }
+
+    #[test]
+    fn the_bar_is_centred_on_its_rest_width_and_keeps_its_left_edge() {
+        // 1280 wide: the rest bar of 1190 px stands at x = 45; opening Advanced (1198) and
+        // running (1176) move only the right end.
+        assert_eq!(bar_x(1280.0, 1190.0, 1190.0), 45.0);
+        assert_eq!(bar_x(1280.0, 1190.0, 1198.0), 45.0);
+        assert_eq!(bar_x(1280.0, 1190.0, 1176.0), 45.0);
+        // The empty bar of 165 px stands at x = 557.
+        assert_eq!(bar_x(1280.0, 165.0, 165.0), 557.0);
+        // A wider window widens both margins; a narrow one pulls the bar left and then to 12 px.
+        assert_eq!(bar_x(1600.0, 1190.0, 1190.0), 205.0);
+        assert_eq!(bar_x(1210.0, 1190.0, 1198.0), 12.0);
+        assert_eq!(bar_x(1230.0, 1190.0, 1198.0), 20.0, "pulled left by 8 px");
+        // A rest bar that fills the cap starts at the margin.
+        assert_eq!(bar_x(1280.0, 1256.0, 1256.0), 12.0);
     }
 
     #[test]
     fn the_block_puts_analyse_flush_right_and_wraps_whole_items() {
         let widths = [60.0, 185.0, 150.0, 150.0];
-        let b = block_flow(&widths, &[36.0; 4], 75.0, 1142.0);
-        assert_eq!(b.height, 36.0);
+        let b = block_flow(&widths, &[36.0; 4], 75.0, 1142.0, 36.0);
+        assert_eq!(b.height, 36.0 + 36.0, "the Parts row is a line of its own");
+        assert_eq!(b.parts, pos2(0.0, 36.0 + 4.0));
         assert_eq!(b.items[0], pos2(0.0, 4.0));
         assert_eq!(b.items[1].x, 68.0);
         assert_eq!(b.tail.x, 1142.0 - 75.0);
-        let narrow = block_flow(&widths, &[36.0; 4], 75.0, 500.0);
-        assert!(narrow.height > 36.0);
+        let narrow = block_flow(&widths, &[36.0; 4], 75.0, 500.0, 36.0);
+        assert!(narrow.height > 72.0);
         assert!(narrow.items.iter().all(|p| p.x + 150.0 <= 500.0 + 40.0));
     }
 
     #[test]
     fn a_tall_item_makes_its_line_as_tall_and_the_next_line_starts_below_it() {
         let widths = [700.0, 150.0, 150.0];
-        let b = block_flow(&widths, &[92.0, 36.0, 36.0], 75.0, 800.0);
+        let b = block_flow(&widths, &[92.0, 36.0, 36.0], 75.0, 800.0, 36.0);
         // Denoise and Upscale do not fit beside the 700 px item and its gap.
         assert_eq!(b.items[0], pos2(0.0, 4.0));
         assert_eq!(b.items[1], pos2(0.0, 96.0));
         assert_eq!(b.items[2], pos2(158.0, 96.0));
-        assert_eq!(b.height, 92.0 + 36.0);
-        let beside = block_flow(&[300.0, 150.0], &[92.0, 36.0], 75.0, 1000.0);
+        assert_eq!(b.height, 92.0 + 36.0 + 36.0);
+        assert_eq!(b.parts, pos2(0.0, 92.0 + 36.0 + 4.0));
+        let beside = block_flow(&[300.0, 150.0], &[92.0, 36.0], 75.0, 1000.0, 36.0);
         assert_eq!(
             beside.items[1],
             pos2(308.0, 4.0),
             "a short item sits at the line's top"
         );
-        assert_eq!(beside.height, 92.0);
+        assert_eq!(beside.height, 92.0 + 36.0);
     }
 
     #[test]

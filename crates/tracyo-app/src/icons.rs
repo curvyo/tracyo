@@ -7,7 +7,7 @@ use eframe::egui::{self, Color32, ColorImage, TextureHandle, TextureOptions, Vec
 /// An icon of the bundled set.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Icon {
-    /// The Open card.
+    /// Open, the bar's first control.
     Import,
     /// About.
     Info,
@@ -33,6 +33,8 @@ pub enum Icon {
     ChevronsUp,
     /// The Rectangle tool.
     Square,
+    /// The Lasso tool.
+    Lasso,
     /// The Subtract toggle.
     SquareMinus,
     /// Add part.
@@ -57,6 +59,7 @@ impl Icon {
             Self::ChevronsDown => include_str!("../../../assets/icons/lucide/chevrons-down.svg"),
             Self::ChevronsUp => include_str!("../../../assets/icons/lucide/chevrons-up.svg"),
             Self::Square => include_str!("../../../assets/icons/lucide/square.svg"),
+            Self::Lasso => include_str!("../../../assets/icons/lucide/lasso.svg"),
             Self::SquareMinus => include_str!("../../../assets/icons/lucide/square-minus.svg"),
             Self::Plus => include_str!("../../../assets/icons/lucide/plus.svg"),
             Self::Trash => include_str!("../../../assets/icons/lucide/trash-2.svg"),
