@@ -188,8 +188,15 @@ impl App {
         let cell = |labels: &[&str]| (LABEL_W + segmented_width(ui, labels, 8.0)).max(MIN_CELL);
         let pill = segmented_width(ui, &OUTPUT, OUTPUT_PAD);
         let output = self.row_shape().layout(pill, inner - 4.0);
-        let widths = [output.width, cell(&DENOISE), cell(&UPSCALE), MIN_CELL];
-        let heights = [output.height, LINE, LINE, LINE];
+        let parts = crate::parts_row::width(self.doc.as_ref().map_or(1, |d| d.parts.len()));
+        let widths = [
+            output.width,
+            cell(&DENOISE),
+            cell(&UPSCALE),
+            MIN_CELL,
+            parts,
+        ];
+        let heights = [output.height, LINE, LINE, LINE, LINE];
         block_flow(&widths, &heights, ANALYSE_W, inner - 4.0)
     }
 
@@ -237,6 +244,9 @@ impl App {
             }
             changed = Some(dragging);
         }
+
+        // Parts, after Corners.
+        self.parts_row(ui, ctx, at(block.items[4], 0.0).min);
 
         // Analyse.
         let analyse =
@@ -324,7 +334,7 @@ impl App {
             OUTPUT_PAD,
         ) {
             self.settings.multicolour = i == 1;
-            self.config.save(&self.settings);
+            self.save_settings();
             changed = Some(false);
         }
         if shape.multi {
@@ -535,7 +545,7 @@ impl App {
                     _ => self.settings.recognise_shapes = !self.settings.recognise_shapes,
                 }
                 if k >= 2 {
-                    self.config.save(&self.settings);
+                    self.save_settings();
                 }
                 changed = Some(false);
             }

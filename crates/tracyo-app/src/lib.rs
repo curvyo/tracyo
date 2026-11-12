@@ -28,6 +28,8 @@ mod icons;
 mod mask;
 mod mask_group;
 mod methods;
+mod parts_row;
+mod parts_state;
 mod preview;
 mod region_paint;
 mod region_tool;

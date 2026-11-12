@@ -7,7 +7,7 @@ use eframe::egui::{
     vec2,
 };
 use tracyo_core::region_edit::{self, Handle};
-use tracyo_core::regions::PxRect;
+use tracyo_core::regions::{PxRect, Region};
 
 use crate::mask::{Drag, MaskState};
 use crate::region_tool::SLOP;
@@ -67,10 +67,12 @@ fn snapped(rect: Rect, width: f32, ppp: f32) -> Rect {
     )
 }
 
-/// The extra wash and the black outline of every region, below the preview.
+/// The extra wash of the active part and the black outline of every region of every part, below
+/// the preview.
 pub(crate) fn wash_and_outlines(
     painter: &Painter,
     mask: &MaskState,
+    others: &[Region],
     origin: Pos2,
     zoom: f32,
     canvas: Rect,
@@ -86,7 +88,8 @@ pub(crate) fn wash_and_outlines(
     let ppp = painter.ctx().pixels_per_point();
     let width = line_width(ppp, zoom);
     let stroke = Stroke::new(width, Color32::BLACK);
-    for region in &mask.regions {
+    // The regions of the other parts are drawn as they are, not editable.
+    for region in others.iter().chain(&mask.regions) {
         let rect = snapped(screen(region.rect, origin, zoom), width, ppp);
         if region.subtract {
             painter.extend(Shape::dashed_line(&corners(rect), stroke, DASH, GAP));

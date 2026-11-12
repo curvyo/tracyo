@@ -92,6 +92,37 @@ pub fn serve_with(
                 }
                 send(&mut output, &Reply::Wire(wire))?;
             }
+            Ok(Request::TraceParts(parts)) => {
+                let Some(session) = session.as_mut() else {
+                    send(&mut output, &Reply::Error("no picture".into()))?;
+                    continue;
+                };
+                // Both callbacks write to the same stream; the first failure ends the worker.
+                let sink = std::cell::RefCell::new((&mut output, None::<std::io::Error>));
+                let say = |reply: &Reply| {
+                    let mut guard = sink.borrow_mut();
+                    let (out, broken) = &mut *guard;
+                    if broken.is_none()
+                        && let Err(e) = send(out, reply)
+                    {
+                        *broken = Some(e);
+                    }
+                };
+                let wire = session.run_parts(
+                    &parts,
+                    &mut |part, wire| {
+                        say(&Reply::PartWire {
+                            part,
+                            wire: wire.to_vec(),
+                        });
+                    },
+                    &mut |percent| say(&Reply::Percent(percent)),
+                );
+                if let Some(e) = sink.into_inner().1 {
+                    return Err(e);
+                }
+                send(&mut output, &Reply::Wire(wire))?;
+            }
             Err(e) => send(&mut output, &Reply::Error(e.to_string()))?,
         }
     }

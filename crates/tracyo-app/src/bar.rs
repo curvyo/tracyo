@@ -423,10 +423,13 @@ impl App {
         origin: egui::Pos2,
     ) {
         let open = self.settings.advanced_open;
-        let changed_text = self
-            .doc
-            .as_ref()
-            .and_then(|d| tracyo_core::method::changed_advanced(&self.settings, &d.values));
+        let changed_text = self.doc.as_ref().and_then(|d| {
+            tracyo_core::method::changed_advanced_with_parts(
+                &self.settings,
+                &d.values,
+                d.parts.len(),
+            )
+        });
         let expander = controls::expander(
             ui,
             &mut self.icons,
@@ -448,7 +451,7 @@ impl App {
         widgets::release_focus_after_mouse(ctx, &expander);
         if expander.clicked() {
             self.settings.advanced_open = !open;
-            self.config.save(&self.settings);
+            self.save_settings();
         }
 
         let blue_rect = Rect::from_min_size(origin + vec2(28.0 + PAD, 0.0), vec2(blue_w, 28.0));
@@ -470,7 +473,7 @@ impl App {
         );
         let tip: Vec<Line> = match state {
             Button::Rest if dimmed => plain(&reason.clone().unwrap_or_default()),
-            Button::Rest => plain("Save as\u{2026} (Ctrl+Shift+S)"),
+            Button::Rest => plain(&self.save_tooltip()),
             Button::Running(_) => Vec::new(),
             Button::Stopped => plain("Preview is out of date"),
             Button::Failed(text) => plain(text),

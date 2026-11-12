@@ -35,6 +35,10 @@ pub enum Icon {
     Square,
     /// The Subtract toggle.
     SquareMinus,
+    /// Add part.
+    Plus,
+    /// Remove part.
+    Trash,
 }
 
 impl Icon {
@@ -54,6 +58,8 @@ impl Icon {
             Self::ChevronsUp => include_str!("../../../assets/icons/lucide/chevrons-up.svg"),
             Self::Square => include_str!("../../../assets/icons/lucide/square.svg"),
             Self::SquareMinus => include_str!("../../../assets/icons/lucide/square-minus.svg"),
+            Self::Plus => include_str!("../../../assets/icons/lucide/plus.svg"),
+            Self::Trash => include_str!("../../../assets/icons/lucide/trash-2.svg"),
         }
     }
 }

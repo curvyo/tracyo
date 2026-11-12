@@ -43,6 +43,15 @@ pub enum Event {
         /// The job.
         job: u64,
     },
+    /// One part of a parts job finished: its numbers, before the job's own result.
+    PartWire {
+        /// The job.
+        job: u64,
+        /// The part's number, 0 for part 1.
+        part: u8,
+        /// The part's result.
+        wire: Vec<f64>,
+    },
     /// The job failed.
     Failed {
         /// The job.
@@ -241,6 +250,26 @@ impl Runner {
         )
     }
 
+    /// Starts job number `job` as a trace of several parts that are joined, as
+    /// [`Runner::start`] starts a trace.
+    ///
+    /// # Errors
+    /// The system's message when the worker process cannot be started.
+    pub fn start_parts(
+        &mut self,
+        job: u64,
+        picture_id: u64,
+        picture: &Arc<Picture>,
+        parts: tracyo_core::protocol::TraceParts,
+    ) -> Result<(), String> {
+        self.send(
+            job,
+            picture_id,
+            picture,
+            &tracyo_core::protocol::Request::TraceParts(parts),
+        )
+    }
+
     /// Starts job number `job` as the reading of the picture's text, as [`Runner::start`] starts a
     /// trace.
     ///
@@ -303,6 +332,9 @@ impl Runner {
                 Raw::Reply(g, _) | Raw::Eof(g) if g != generation => {}
                 Raw::Reply(_, Reply::Percent(percent)) => {
                     events.push(Event::Percent { job, percent });
+                }
+                Raw::Reply(_, Reply::PartWire { part, wire }) => {
+                    events.push(Event::PartWire { job, part, wire });
                 }
                 Raw::Reply(_, Reply::Wire(numbers)) => {
                     self.job = None;

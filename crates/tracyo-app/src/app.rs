@@ -9,9 +9,11 @@ use eframe::egui::{self, Key, Modifiers, Pos2, Rect, Shape, Stroke, Ui, pos2, ve
 use tracyo_core::analysis::Analysis;
 use tracyo_core::clip::MaskPlan;
 use tracyo_core::method::{Method, PictureValues};
+use tracyo_core::parts::{Part, Parts};
 use tracyo_core::picture::{Picture, ReadError};
 use tracyo_core::progress::{self, Esc, EscState, Progress, SaveCase};
-use tracyo_core::request::{self, TraceRequest};
+use tracyo_core::regions::MaskMode;
+use tracyo_core::request;
 use tracyo_core::settings::Settings;
 use tracyo_core::shapes;
 use tracyo_core::stages::{self, Stage};
@@ -25,6 +27,7 @@ use crate::config::{self, Config};
 use crate::dialogs::{Choice, Dialogs};
 use crate::icons::Icons;
 use crate::mask::MaskState;
+use crate::parts_state::{PartCache, PartKeys};
 use crate::preview::Preview;
 use crate::runner::{Event, Runner};
 use crate::widgets::{FieldState, set_focus_visible};
@@ -80,6 +83,9 @@ pub(crate) struct Doc {
     /// The maker set the Threshold by hand: a mask does not change it.
     pub threshold_set: bool,
     pub mask: MaskState,
+    /// The parts as of the last change of the list; the active part's live values are in
+    /// `values`, `mask`, `analysis` and the app's settings.
+    pub parts: Parts,
     pub view: View,
     /// Set while the view is still where the last fit put it: whether that fit may enlarge.
     pub auto_fit: Option<bool>,
@@ -166,6 +172,18 @@ pub struct App {
     pub(crate) about_scrolls: bool,
     pub(crate) title_sent: Option<String>,
     pub(crate) window_size: Option<[f32; 2]>,
+    /// The finished parts of the shown picture.
+    pub(crate) part_cache: PartCache,
+    /// The part jobs of the running job that no result has come back for.
+    pub(crate) part_keys: PartKeys,
+    /// The parts traced so far (see [`App::part_traces`]).
+    pub(crate) part_traces: u64,
+    /// When the trash was armed, in the app's time.
+    pub(crate) trash: Option<Duration>,
+    /// The running job is a trace of one part: its result is that part's.
+    pub(crate) single_job: bool,
+    /// A chip had the keyboard focus in the last frame.
+    pub(crate) trash_focus_was: bool,
 }
 
 impl App {
@@ -215,6 +233,12 @@ impl App {
             about_scrolls: false,
             title_sent: None,
             window_size: None,
+            part_cache: PartCache::default(),
+            part_keys: PartKeys::new(),
+            part_traces: 0,
+            trash: None,
+            trash_focus_was: false,
+            single_job: false,
         };
         if let Some(path) = options.open {
             app.open_path(ctx, path);
@@ -417,8 +441,21 @@ impl App {
         self.pipette = Pipette::Off;
         self.analysing = None;
         self.region_analysing = None;
+        // A new picture starts from part 1's settings, whichever part was active.
+        self.settings = self.remembered();
+        self.part_cache.clear();
+        self.part_keys.clear();
+        self.trash = None;
         let mut values = PictureValues::new(loaded.analysis.threshold);
         loaded.analysis.apply(&mut self.settings, &mut values);
+        let first = Part {
+            mode: MaskMode::Inside,
+            regions: Vec::new(),
+            settings: self.settings,
+            values: values.clone(),
+            analysis: loaded.analysis,
+            threshold_set: false,
+        };
         let picture = Arc::new(loaded.picture);
         let tiles = Tiles::new(picture.width, picture.height);
         self.doc = Some(Doc {
@@ -432,6 +469,7 @@ impl App {
             whole_analysis: loaded.analysis,
             threshold_set: false,
             mask: MaskState::new(),
+            parts: Parts::new(first),
             view: View {
                 zoom: 1.0,
                 offset: vec2(0.0, 0.0),
@@ -484,16 +522,19 @@ impl App {
     /// `for_saving` traces the full picture and shows the progress at once. With Recognise text on
     /// and the picture's text not read yet, the text is read first and the trace follows it.
     pub(crate) fn start_trace(&mut self, ctx: &egui::Context, dragging: bool, for_saving: bool) {
-        let Some(doc) = &self.doc else { return };
-        if let MaskPlan::Nothing(notice) = doc.mask.plan {
+        if self.doc.is_none() {
+            return;
+        }
+        if let Some(notice) = self.nothing_notice() {
             self.trace_nothing(ctx, Some(notice));
             return;
         }
-        if doc.values.palette_deleted(&self.settings) {
+        let Some(doc) = &self.doc else { return };
+        if doc.parts.len() == 1 && doc.values.palette_deleted(&self.settings) {
             self.trace_nothing(ctx, None);
             return;
         }
-        let needs_read = self.settings.recognise_text && matches!(doc.text, TextState::Unread);
+        let needs_read = self.any_part_reads_text() && matches!(doc.text, TextState::Unread);
         if self.reading && needs_read {
             // The read goes on; what is traced after it is what was asked last.
             let saved = self.after_read.is_some_and(|(_, saving)| saving);
@@ -546,29 +587,23 @@ impl App {
         for_saving: bool,
         continuing: bool,
     ) {
+        if self.doc.as_ref().is_some_and(|d| d.parts.len() > 1) {
+            self.dispatch_parts(ctx, dragging, for_saving, continuing);
+            return;
+        }
+        let Some(part) = self.live_part() else { return };
         let Some(doc) = &self.doc else { return };
         let reduced = request::use_reduced(&doc.picture, dragging, for_saving);
-        let lines = match &doc.text {
-            TextState::Read(lines) if self.settings.recognise_text => lines.clone(),
-            _ => Vec::new(),
+        let Some(mut req) = self.trace_request(&part, reduced) else {
+            return;
         };
-        let req = TraceRequest {
-            threshold: doc.values.threshold,
-            settings: self.settings,
-            selection: doc
-                .values
-                .selection(&self.settings, doc.analysis.suggested_background),
-            invert: doc.values.invert,
-            drop_border: doc.values.drop_border,
-            colours: doc.values.colour_spec(&self.settings),
-            reduced,
-            shapes: self.settings.recognise_shapes,
-            lines,
-            clip: match &doc.mask.plan {
-                MaskPlan::Clip(clip) => Some(clip.clone()),
-                _ => None,
-            },
+        req.clip = match &doc.mask.plan {
+            MaskPlan::Clip(clip) => Some(clip.clone()),
+            _ => None,
         };
+        self.part_traces += 1;
+        self.single_job = true;
+        self.part_keys = vec![(0, tracyo_core::protocol::encode_trace(&req))];
         self.last_request_reduced = reduced;
         self.job_counter += 1;
         self.trace_after_read = continuing;
@@ -576,6 +611,43 @@ impl App {
         match self
             .runner
             .start(self.job_counter, doc.id, &doc.picture, req)
+        {
+            Ok(()) if continuing => {}
+            Ok(()) => self.progress.start(now, for_saving),
+            Err(_) => self.progress.fail(failure_text("internal error")),
+        }
+        if let Some(result) = &mut self.result {
+            result.stale = true;
+        }
+        ctx.request_repaint();
+    }
+
+    /// Sends the job of all parts that add something; as [`Self::dispatch_trace`] otherwise.
+    fn dispatch_parts(
+        &mut self,
+        ctx: &egui::Context,
+        dragging: bool,
+        for_saving: bool,
+        continuing: bool,
+    ) {
+        let (job, keys, reduced) = match self.parts_job(dragging, for_saving) {
+            Ok(planned) => planned,
+            Err(notice) => {
+                self.trace_nothing(ctx, notice);
+                return;
+            }
+        };
+        let Some(doc) = &self.doc else { return };
+        self.last_request_reduced = reduced;
+        self.job_counter += 1;
+        self.trace_after_read = continuing;
+        self.part_traces += keys.len() as u64;
+        self.single_job = false;
+        self.part_keys = keys;
+        let now = self.now();
+        match self
+            .runner
+            .start_parts(self.job_counter, doc.id, &doc.picture, job)
         {
             Ok(()) if continuing => {}
             Ok(()) => self.progress.start(now, for_saving),
@@ -617,6 +689,7 @@ impl App {
     }
 
     pub(crate) fn stop_trace(&mut self) {
+        self.keep_finished_parts();
         self.runner.stop();
         self.reading = false;
         self.after_read = None;
@@ -647,7 +720,14 @@ impl App {
                 Event::TextFailed { job } if job == self.job_counter && self.reading => {
                     self.text_read(ctx, TextState::Failed);
                 }
+                Event::PartWire { job, part, wire } if job == self.job_counter => {
+                    self.keep_part(part, wire);
+                }
                 Event::Wire { job, numbers } if job == self.job_counter => {
+                    if self.single_job {
+                        // A lone part's result is that part's: the next job may take it.
+                        self.keep_part(0, numbers.clone());
+                    }
                     self.finish_trace(ctx, &numbers);
                 }
                 Event::Failed { job, reason } if job == self.job_counter => {
@@ -657,6 +737,25 @@ impl App {
                     self.progress.fail(failure_text(&reason));
                 }
                 _ => {}
+            }
+        }
+    }
+
+    /// Keeps a finished part of the running job under the key of the job that made it.
+    fn keep_part(&mut self, part: u8, wire: Vec<f64>) {
+        if let Some(at) = self.part_keys.iter().position(|(p, _)| *p == part) {
+            let (_, key) = self.part_keys.remove(at);
+            self.part_cache.insert(key, wire);
+        }
+    }
+
+    /// Takes in the parts the worker finished before it is stopped: Stop keeps them.
+    fn keep_finished_parts(&mut self) {
+        for event in self.runner.poll() {
+            if let Event::PartWire { job, part, wire } = event
+                && job == self.job_counter
+            {
+                self.keep_part(part, wire);
             }
         }
     }
@@ -790,7 +889,7 @@ impl App {
     pub(crate) fn values_changed(&mut self, ctx: &egui::Context, dragging: bool) {
         self.dragging_value = dragging;
         if !dragging {
-            self.config.save(&self.settings);
+            self.save_settings();
         }
         self.start_trace(ctx, dragging, false);
     }
@@ -846,6 +945,8 @@ impl App {
     fn keys(&mut self, ctx: &egui::Context) {
         let entry_open = self.fields.iter().any(FieldState::entry_open);
         let esc = ctx.input_mut(|i| i.consume_key(Modifiers::NONE, Key::Escape));
+        // An armed trash takes the first Escape: it only disarms.
+        let esc = esc && self.trash.take().is_none();
         if esc && !self.cancel_drag() {
             let (rectangle_pressed, region_selected) =
                 self.doc.as_ref().map_or((false, false), |d| {
@@ -963,7 +1064,7 @@ impl eframe::App for App {
     fn on_exit(&mut self) {
         if let Some(size) = self.window_size {
             self.settings.window = Some(size);
-            self.config.save(&self.settings);
+            self.save_settings();
         }
     }
 }
