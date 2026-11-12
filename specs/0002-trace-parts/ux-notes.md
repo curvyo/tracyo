@@ -26,7 +26,7 @@ R1 round the LOGO block, R2 round the green bar, E1 round the disc, R3 below the
 |---|---|
 | `curvyo-00` .. `curvyo-17` | Curvyo as it is (1280 x 800, panel open, so its bar has two rows): 00 Mask group at rest, 01 Pick armed with the hover box on R1 (view), 02 Inside with R1 and R2 (view), 03 the same bar, 04 Outside hovered, 05 Outside (view), 06 Clear mask tooltip, 07 Pick mask paths keyboard focus, 08 Advanced with one part, 09 three parts (1 inside, 2 active outside, 3 muted), 10 three parts (view), 11 chip hover with tooltip, 12 muted chip hover, 13 Add part tooltip, 14 trash armed, 15 chip keyboard focus, 16 one part whose mask is outside the image (dimmed Trace, tooltip), 17 that part plus an empty part 2 (dimmed Trace, tooltip) |
 | `curvyo-20` .. `curvyo-27` | Curvyo's canvas look: 20 selected rectangle (Select tool), 21 hover box on a rectangle, 22 selected ellipse, 23 rectangle being drawn (live outline and size chip), 24 Pen polygon being drawn (rubber band), 25 Pen over its close target, 26 Node tool on a closed polygon with one node selected, 27 the Remove badge (Ctrl held over empty canvas) |
-| `px-00` .. `px-17` | **To be re-captured** (section 12.2). The bar states 00 to 17 **as Tracyo draws them**: panel hidden, 1360 x 800 (bar cap 1164 px, see section 12), Pick mask paths replaced by **Rectangle, Subtract** in Curvyo's own icon-button look (Rectangle pressed in px-01, Subtract focused in px-07; the files committed before 2026-11-12 still show Rectangle, Ellipse, Polygon), finish button "Save as…". These are the pixel references of section 12 |
+| `px-00` .. `px-17` | **Re-captured 2026-11-12** (last paragraph). The bar states 00 to 17 **as Tracyo draws them**: panel hidden, 1360 x 800 (bar cap 1164 px, see section 12), Pick mask paths replaced by **Rectangle, Subtract** in Curvyo's own icon-button look (Rectangle pressed in px-01, Subtract focused in px-07; the files committed before 2026-11-12 still show Rectangle, Ellipse, Polygon), finish button "Save as…". These are the pixel references of section 12 |
 
 **Validity after the revision of 2026-11-12.** Still valid: `curvyo-00` .. `curvyo-17`, `curvyo-20`,
 `curvyo-21`, `curvyo-23`, `curvyo-27` (Curvyo as it is; 09 and 10 show E1, an ellipse, but are used for
@@ -302,3 +302,30 @@ cursors, shadow halos, tooltip x, the drag ghost.
 toggle after Rectangle (section 1). Alt+drag is taken by Linux window managers (`docs/design-system.md`
 of Curvyo, "Bend readout and badge"), and the customer uses Linux. The original options were A: Alt
 held at the press; B: Ctrl+Alt; C: a toggle; the original recommendation was A (most desktops use Super for window moves).
+
+## Reference pictures, re-captured 2026-11-12
+
+`px-00` .. `px-17` were re-captured with `reference/capture.cjs` (`SETS=px`, Curvyo `main` at `fc8edca8`,
+its Vite dev server, Chromium, Liberation Sans, scale 1, 1360 x 800, panel hidden). Sizes are those of
+the old files: 1188 x 96 (00, 03, 04, 07), 1220 x 620 (01, 02, 05, 10), 1188 x 136 (06), 1188 x 145 (08,
+09, 15), 1188 x 185 (11 to 14), 1220 x 185 (16, 17). `curvyo-*` are untouched (22, 24, 25, 26 stay, only
+unused). `capture.cjs` changes: the injected buttons are Rectangle (Pick mask paths itself, relabelled)
+and one cloned Subtract (`square`, `square-minus`); part 2's mask in the px set is the rectangle R4
+(`r` tool on E1's box) instead of the ellipse; header comment (cap 1164 px).
+
+Checked on the pixels: bar origin 12/12, Rectangle ground 184..212 (px-01), Subtract focus ring 2 px
+outside 216..244 (px-07), Inside 248..312, so the group is 224 px; the bar has two rows (row 2: Ignore
+below, expander, "Save as…"). `compare.py` of each of the 18 against itself: PASS; against `curvyo-00`
+(Curvyo's own 192 px group) and against the old three-tool `px-00`: FAIL for all 18 (28 to 31 %, runs of
+62 to 790 px).
+
+Subtract's pressed look is not in any px file (P16 has no reference). It is the same class string as
+the pressed Rectangle (`bg-[var(--toolbar-icon-active-bg)] text-[var(--toolbar-icon-active-fg)]`, the
+class of the pressed pipette) on the cloned button; a throwaway render with both pressed gave a box
+ground of `#2F6FEE` (584 of 784 px, the rest glyph and corner anti-aliasing) and the bar outside the
+Subtract box identical to px-01.
+
+Not reproduced: the Subtract button is an inert clone (no hover tooltip, no hover ground, no
+behaviour); the Threshold readings (62 % in 00 and 01, 66 % in 02 to 08, 65 % from 09) are Curvyo's auto
+threshold on this picture, not Tracyo's, so a Tracyo run may show other numbers (section 12.2 names
+66 % for P3 only).
