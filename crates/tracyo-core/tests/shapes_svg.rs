@@ -155,8 +155,8 @@ fn the_shapes_match_their_golden_file() {
     assert_eq!(text, std::fs::read_to_string(golden).unwrap());
 }
 
-/// Criterion 20f: rectangles, circles and ellipses are primitives, a polygon and a star are paths
-/// of straight sides, a band is a stroked primitive with no fill, and nothing is written twice.
+/// Criterion 20f: rectangles, circles and ellipses are primitives, a polygon is a `<polygon>`, a star
+/// is Inkscape's star object, a band is a stroked primitive with no fill, and nothing is written twice.
 #[test]
 fn recognised_shapes_are_primitives_with_the_elements_of_criterion_20f() {
     let (picture, output) = trace(true);
@@ -172,8 +172,15 @@ fn recognised_shapes_are_primitives_with_the_elements_of_criterion_20f() {
         "the circle and the ring's centre line"
     );
     assert!(count(&names, "ellipse") >= 1);
-    assert_eq!(count(&names, "polygon"), 0, "polygons are paths");
-    assert!(!text.contains("sodipodi:type"), "stars are paths too");
+    assert!(
+        count(&names, "polygon") >= 2,
+        "the hexagon and the triangle"
+    );
+    assert_eq!(
+        text.matches("sodipodi:type=\"star\"").count(),
+        1,
+        "the star is Inkscape's star object"
+    );
 
     let rect = doc.descendants().find(|n| n.has_tag_name("rect")).unwrap();
     for attribute in ["x", "y", "width", "height", "rx", "ry"] {
@@ -203,14 +210,6 @@ fn recognised_shapes_are_primitives_with_the_elements_of_criterion_20f() {
         "stroke-width {width}"
     );
     assert!(ring.attribute("stroke-linejoin").is_some());
-
-    // The star and the polygons are paths of straight segments only.
-    let straight = doc
-        .descendants()
-        .filter(|n| n.has_tag_name("path"))
-        .filter(|n| n.attribute("d").is_some_and(|d| !d.contains('C')))
-        .count();
-    assert!(straight >= 3, "star, hexagon and triangle: {straight}");
 
     // Ids are unique over the whole file.
     let ids: Vec<_> = doc

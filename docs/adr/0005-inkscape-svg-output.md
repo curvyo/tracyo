@@ -1,7 +1,8 @@
 # ADR 0005: The Inkscape SVG Tracyo writes
 
 **Status:** Proposed (architect, 2026-11-11). Follows spec criterion 20 with the defaults of its
-Fragen 1 (text as stretched `<text>`), 2 (96 dpi) and 3 (polygons and stars as `<path>`).
+Fragen 1 (text as stretched `<text>`) and 2 (96 dpi). Frage 3 (polygons and stars as `<path>`)
+was overruled by the customer on 2026-11-12, see §6.
 The only file format Tracyo writes, so it is the one thing here that is expensive to change.
 
 ## Context
@@ -35,8 +36,18 @@ Makers open the file in Inkscape, Ink/Stitch or a cutter program. Options for th
 6. **Shapes** (`Output.shapes`, indices into the outlines): a region becomes primitive elements
    only when the fill stays the same (Curvyo's `keeps_fill` rule, ported): a hole-free region
    whose outer outline has a primitive becomes `<rect x y width height rx ry>`, `<circle>` (rx =
-   ry within 1e-9 mm) or `<ellipse>`, with `transform="rotate(deg cx cy)"` when rotated; polygons
-   and stars become a `<path>` of straight segments. A band becomes its centre-line primitive with
+   ry within 1e-9 mm) or `<ellipse>`, with `transform="rotate(deg cx cy)"` when rotated. A
+   regular polygon becomes `<polygon points="x,y …">` with the rotation baked into the points (no
+   `transform`). A star becomes Inkscape's star object: `<path sodipodi:type="star" sodipodi:cx
+   sodipodi:cy sodipodi:r1 sodipodi:r2 sodipodi:arg1 sodipodi:arg2 sodipodi:sides
+   inkscape:flatsided="false" inkscape:rounded="0" inkscape:randomized="0" d>`. Meaning, checked
+   against the star objects in Inkscape's own example files: cx, cy = centre, r1 = outer radius,
+   r2 = inner radius (outer · inner_ratio), arg1 = angle of the first tip in radians (y down,
+   so clockwise on screen; polygon angle plus rotation), arg2 = angle of the first inner corner
+   (arg1 + π / sides), sides = number of tips, all in the file's millimetres. `d` is the straight
+   outline from the first tip, so readers that ignore `sodipodi:*` draw the same star, and Inkscape
+   redraws it identically. Ids are numbered per kind: `polygonN`, `starN`. **(Customer, 2026-11-12:
+   overrules the `<path>` default of spec Frage 3.)** A band becomes its centre-line primitive with
    `fill="none" stroke="<hex>" stroke-width="<mm>"` and `stroke-linejoin` from its `Join`. A
    recognised region **with holes that is not a band** stays in the layer's `<path>` with the
    primitives' geometry (SVG cannot cut a hole into a `<rect>` without a mask, and 20h forbids
