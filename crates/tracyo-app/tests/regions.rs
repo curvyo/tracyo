@@ -25,11 +25,20 @@ fn fixed(save: Option<PathBuf>) -> Dialogs {
     Dialogs::Fixed { open: None, save }
 }
 
+/// The logo open with the Advanced block open: the Mask group stands in its Parts row.
 fn opened<'a>(dir: &Path, save: Option<PathBuf>) -> Harness<'a, App> {
     let mut h = common::harness(dir, Some(common::logo()), fixed(save));
     settle(&mut h);
     h.run_steps(3);
+    open_advanced(&mut h);
     h
+}
+
+/// Opens the Advanced block unless a start with the remembered state has it open already.
+fn open_advanced(h: &mut Harness<'_, App>) {
+    if h.query_by_label("More trace options").is_some() {
+        button(h, "More trace options");
+    }
 }
 
 fn corner(h: &Harness<'_, App>, x: f32, y: f32) -> Pos2 {
@@ -332,28 +341,28 @@ fn inside_outside_and_clear_mask() {
     // Without a region both modes trace the whole picture and nothing is washed more.
     button(&mut h, "Mask: Outside");
     settle(&mut h);
-    assert_eq!(h.state().washed_rects(), []);
+    assert_eq!(h.state().washed_triangles().len(), 0);
     button(&mut h, "Mask: Inside");
     button(&mut h, "Rectangle");
     draw(&mut h, (24.0, 25.0, 324.0, 235.0));
     button(&mut h, "Rectangle");
-    let around = h.state().washed_rects();
-    let area = |rects: &[PxRect]| -> i64 {
-        rects
+    let area = |triangles: &[[kurbo::Point; 3]]| -> f64 {
+        triangles
             .iter()
-            .map(|r| i64::from(r.width()) * i64::from(r.height()))
+            .map(|[a, b, c]| ((b.x - a.x) * (c.y - a.y) - (c.x - a.x) * (b.y - a.y)).abs() / 2.0)
             .sum()
     };
-    assert_eq!(area(&around), 640 * 420 - 300 * 210);
+    let around = h.state().washed_triangles();
+    assert!((area(&around) - f64::from(640 * 420 - 300 * 210)).abs() < 1e-6);
     button(&mut h, "Mask: Outside");
     settle(&mut h);
-    assert_eq!(h.state().washed_rects(), [r(24, 25, 324, 235)]);
+    assert!((area(&h.state().washed_triangles()) - 300.0 * 210.0).abs() < 1e-6);
     assert_eq!(h.state().mask_mode(), Some(MaskMode::Outside));
     let _ = whole;
     button(&mut h, "Clear mask");
     settle(&mut h);
     assert_eq!(rects(&h), []);
-    assert_eq!(h.state().washed_rects(), []);
+    assert_eq!(h.state().washed_triangles().len(), 0);
     assert_eq!(
         h.state().mask_mode(),
         Some(MaskMode::Outside),
@@ -568,6 +577,7 @@ fn the_automatic_values_read_the_kept_pixels() {
     let mut h = common::harness(dir.path(), Some(p2()), fixed(None));
     common::wait_for_result(&mut h, 120.0);
     h.run_steps(3);
+    open_advanced(&mut h);
     let whole = (
         h.state().auto_background(),
         h.state().picture_values().unwrap().threshold,
@@ -612,6 +622,7 @@ fn a_typed_threshold_stays_when_a_mask_is_drawn() {
     let dir = tempfile::tempdir().unwrap();
     let mut h = common::harness(dir.path(), Some(p2()), fixed(None));
     common::wait_for_result(&mut h, 120.0);
+    open_advanced(&mut h);
     h.get_by_label("Method").click();
     h.run_steps(3);
     h.get_by_label("Brightness").click();
@@ -672,19 +683,32 @@ fn without_a_picture_there_is_no_mask_group() {
     }
 }
 
-/// Ux-notes 2: the Tab order is Preset, Rectangle, Subtract, Mask (one stop), Clear mask, Method.
+/// Ux-notes 2: the Tab order from the Advanced block on is Corners, Analyse, then the Parts row:
+/// Parts (one stop), Add part, Rectangle, Lasso, Subtract, Mask (one stop), Clear mask; the first
+/// row is Open, About, Preset, Method with nothing between Preset and Method.
 #[test]
-fn the_group_is_in_the_tab_order_between_preset_and_method() {
+fn the_mask_group_is_in_the_tab_order_after_the_parts_row() {
     let dir = tempfile::tempdir().unwrap();
     let mut h = opened(dir.path(), None);
-    h.get_by_label("Preset").focus();
+    h.get_by_label("Open image").focus();
+    h.run_steps(2);
+    for label in ["About Tracyo", "Preset", "Method"] {
+        press(&mut h, Key::Tab, Modifiers::NONE);
+        assert!(
+            h.get_by_label(label).accesskit_node().is_focused(),
+            "Tab should reach {label}"
+        );
+    }
+    h.get_by_label("Analyse").focus();
     h.run_steps(2);
     for label in [
+        "Part 1 of 1, whole image, active",
+        "Add part",
         "Rectangle",
+        "Lasso",
         "Subtract",
         "Mask: Inside",
         "Clear mask",
-        "Method",
     ] {
         press(&mut h, Key::Tab, Modifiers::NONE);
         assert!(

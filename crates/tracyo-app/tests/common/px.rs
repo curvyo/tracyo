@@ -35,13 +35,21 @@ impl Region {
     }
 }
 
+/// The render cut so that the bar's top-left corner lies at (12, 12), where the references have it:
+/// the bar of a 1280 x 800 window is centred, the references are crops with a 12 px margin. Both
+/// are found by the bar's ground, as `compare.py` does.
+pub fn aligned(full: &image::RgbImage) -> image::RgbImage {
+    let (x, y) = compare::bar_origin(full).expect("no Trace bar in the render");
+    let (left, top) = (x.saturating_sub(12), y.saturating_sub(12));
+    image::imageops::crop_imm(full, left, top, full.width() - left, full.height() - top).to_image()
+}
+
 /// Compares every region of the render with the reference `name` of `spec` and asserts that all
-/// pass; each has its own numbers and diff picture. The Open card (x 12 to 60) is Tracyo's own, so
-/// the render is cut at x = 60 and the bar is found by its ground.
+/// pass; each has its own numbers and diff picture. The render is the whole 1280 x 800 window; the
+/// bar is found by its ground.
 pub fn check_regions(spec: &str, name: &str, rendered: &image::RgbaImage, regions: &[Region]) {
     let out = compare::out_dir();
-    let full = compare::rgb(rendered);
-    let got = image::imageops::crop_imm(&full, 60, 0, full.width() - 60, full.height()).to_image();
+    let got = aligned(&compare::rgb(rendered));
     got.save(out.join(format!("render-{name}.png")))
         .expect("save render");
     let reference = reference(spec, &format!("{name}.png"));

@@ -1,4 +1,4 @@
-//! The Parts row and the parts of a picture with the real worker: the pixel cases P7 to P15 of
+//! The Parts row and the parts of a picture with the real worker: the pixel cases P7 to P15 and P18 of
 //! ux-notes 12.2 against the references of `specs/0002-trace-parts`, the flows (add, select, remove,
 //! change the active settings, Stop keeps finished parts) and the criteria of slice 2.
 
@@ -26,8 +26,8 @@ use tracyo_app::dialogs::Dialogs;
 use tracyo_core::progress::Button;
 
 const SPEC: &str = "0002-trace-parts";
-/// The window of ux-notes 12.2: the bar caps at 1164 px.
-const WINDOW: f32 = 1248.0;
+/// The window of ux-notes 12.2.
+const WINDOW: f32 = 1280.0;
 
 fn check(name: &str, h: &mut Harness<'_, App>, regions: &[Region]) {
     px::check_regions(SPEC, name, &h.render().unwrap(), regions);
@@ -122,8 +122,8 @@ fn advanced<'a>(dir: &std::path::Path) -> Harness<'a, App> {
 }
 
 fn bar_rows3() -> Vec<Region> {
-    // Two rows of the bar and the block row: 72 + 4 + 1 + 4 + 36 + 4, as the references are cut.
-    vec![Region::same("bar", (0, 0), (1164, 121))]
+    // The first row, the Output line and the Parts row: 36 + 4 + 1 + 4 + 72 + 4, 1198 px wide.
+    vec![Region::same("bar", (0, 0), (1198, 121))]
 }
 
 #[test]
@@ -252,12 +252,75 @@ fn p15_no_part_to_trace() {
     h.set_render_cursor(false);
     h.run_steps(1);
     // The tooltip of the window of this test lies where Curvyo's does not (it is clamped to the
-    // window), so the lower row is compared left of it.
+    // window): the first row above it, the Output line left of it and the Parts row below it.
     let regions = [
-        Region::same("rows", (0, 0), (1164, 72)),
-        Region::same("parts", (0, 72), (900, 49)),
+        Region::same("row", (0, 0), (1198, 40)),
+        Region::same("output", (0, 40), (850, 32)),
+        Region::same("parts", (0, 72), (1198, 49)),
     ];
     check("px-17-no-part-to-trace", &mut h, &regions);
+}
+
+/// P18: eight parts, the Parts row on one line (ux-notes 3): chips 44..296, Add part 300..328,
+/// trash 332..360, divider x 372, Rectangle 385..413, Lasso 417..445, Subtract 449..477, Mask
+/// 481..609 and Clear mask 613..641 from the bar's left edge, within 1 px.
+#[test]
+fn p18_eight_parts_keep_the_row_on_one_line() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut h = advanced(dir.path());
+    for _ in 1..8 {
+        click_label(&mut h, "Add part");
+    }
+    assert_eq!(h.state().part_count(), 8);
+    h.run_steps(3);
+    let bar_x = 45.0_f32;
+    let check_x = |name: &str, left: f32, right: f32, want: (f32, f32)| {
+        println!(
+            "{name}: {left}..{right}, want {}..{}",
+            want.0 + bar_x,
+            want.1 + bar_x
+        );
+        assert!((left - (want.0 + bar_x)).abs() <= 1.0, "{name} left {left}");
+        assert!(
+            (right - (want.1 + bar_x)).abs() <= 1.0,
+            "{name} right {right}"
+        );
+    };
+    let rect = |h: &Harness<'_, App>, label: &str| h.get_by_label(label).rect();
+    let first = rect(&h, &chip(&h, 0));
+    let last = rect(&h, &format!("{}, active", chip(&h, 7)));
+    check_x("chips", first.left(), last.right(), (44.0, 296.0));
+    for (label, want) in [
+        ("Add part", (300.0, 328.0)),
+        ("Remove part 8", (332.0, 360.0)),
+        ("Rectangle", (385.0, 413.0)),
+        ("Lasso", (417.0, 445.0)),
+        ("Subtract", (449.0, 477.0)),
+        ("Clear mask", (613.0, 641.0)),
+    ] {
+        let r = rect(&h, label);
+        check_x(label, r.left(), r.right(), want);
+        assert!(
+            (r.top() - (12.0 + 85.0)).abs() <= 1.0,
+            "{label} y {}",
+            r.top()
+        );
+    }
+    let (inside, outside) = (rect(&h, "Mask: Inside"), rect(&h, "Mask: Outside"));
+    check_x("Mask", inside.left(), outside.right(), (481.0, 609.0));
+    // The divider: 1 x 20 px of #B4B4B8 at x 372, y 89..109 of the bar.
+    let full = compare::rgb(&h.render().unwrap());
+    let (bx, by) = compare::bar_origin(&full).unwrap();
+    let at = |x: u32, y: u32| full.get_pixel(bx + x, by + y).0;
+    assert_eq!(at(372, 89), [0xB4, 0xB4, 0xB8]);
+    assert_eq!(at(372, 108), [0xB4, 0xB4, 0xB8]);
+    assert_eq!(at(372, 88), [0xDC, 0xDC, 0xE0]);
+    assert_eq!(at(372, 109), [0xDC, 0xDC, 0xE0]);
+    assert_eq!(at(371, 98), [0xDC, 0xDC, 0xE0]);
+    assert_eq!(at(373, 98), [0xDC, 0xDC, 0xE0]);
+    // Add part is dimmed at 8 parts: a click adds nothing.
+    click_label(&mut h, "Add part");
+    assert_eq!(h.state().part_count(), 8);
 }
 
 // ---- flows with the real worker ----
