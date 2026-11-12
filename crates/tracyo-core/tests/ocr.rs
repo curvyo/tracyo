@@ -38,6 +38,7 @@ fn request(lines: Vec<vectrace::ocr::OcrLine>, shapes: bool, reduced: bool) -> T
         reduced,
         shapes,
         lines,
+        clip: None,
     }
 }
 

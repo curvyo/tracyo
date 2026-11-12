@@ -94,7 +94,10 @@ impl Session {
                 .as_ref()
                 .map_or(Mode::Mono(&params), Mode::Colours),
             lines: &lines,
-            mask: None,
+            mask: request
+                .clip
+                .as_ref()
+                .map(|c| c as &dyn vectrace::mask::Mask),
             shapes: request.shapes,
         };
         vectrace::job::run(&job, on_percent)
@@ -135,6 +138,7 @@ mod tests {
             reduced,
             shapes: false,
             lines: Vec::new(),
+            clip: None,
         }
     }
 
@@ -339,6 +343,7 @@ mod tests {
         assert_eq!((plain.paths, plain.texts.lines.len()), (1, 0));
         let with = TraceRequest {
             lines: vec![line_around(8.0, 8.0, 32.0, 32.0)],
+            clip: None,
             ..request(128, false)
         };
         let out = wire::read(&session.run(&with, &mut |_| {})).unwrap();
@@ -366,6 +371,7 @@ mod tests {
         for reduced in [false, true] {
             let r = TraceRequest {
                 lines: lines.clone(),
+                clip: None,
                 ..request(128, reduced)
             };
             let out = wire::read(&session.run(&r, &mut |_| {})).unwrap();

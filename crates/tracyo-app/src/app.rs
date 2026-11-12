@@ -535,6 +535,7 @@ impl App {
             reduced,
             shapes: self.settings.recognise_shapes,
             lines,
+            clip: None,
         };
         self.last_request_reduced = reduced;
         self.job_counter += 1;

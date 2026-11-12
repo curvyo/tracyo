@@ -61,6 +61,7 @@ fn trace(
         reduced: false,
         shapes: false,
         lines,
+        clip: None,
     };
     let mut session = Session::new(picture.clone());
     vectrace::wire::read(&session.run(&request, &mut |_| {})).unwrap()

@@ -44,6 +44,7 @@ fn request() -> TraceRequest {
         reduced: false,
         shapes: false,
         lines: Vec::new(),
+        clip: None,
     }
 }
 
