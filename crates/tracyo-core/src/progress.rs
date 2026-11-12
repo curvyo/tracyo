@@ -167,11 +167,13 @@ impl Progress {
     }
 }
 
-/// What Esc does, in order: stop a trace, disarm the pipette, close a menu or entry, release the
-/// Rectangle tool, clear the region selection, then return the keyboard to the canvas. It never
-/// closes the window.
+/// What Esc does, in order: finish a lasso in progress and release Lasso, stop a trace, disarm the
+/// pipette, close a menu or entry, release the pressed region tool, clear the region selection,
+/// then return the keyboard to the canvas. It never closes the window.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Esc {
+    /// Finish the lasso in progress (closed by a straight side) and release Lasso.
+    FinishLasso,
     /// Stop the running trace.
     StopTrace,
     /// Disarm an armed pipette.
@@ -180,8 +182,8 @@ pub enum Esc {
     CloseMenu,
     /// Restore and close a number entry.
     CloseEntry,
-    /// Release the Rectangle tool.
-    ReleaseRectangle,
+    /// Release the pressed region tool (Rectangle or Lasso).
+    ReleaseRegionTool,
     /// Clear the region selection.
     ClearSelection,
     /// Give the keyboard back to the canvas.
@@ -192,6 +194,8 @@ pub enum Esc {
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 #[allow(clippy::struct_excessive_bools)] // independent facts of the window
 pub struct EscState {
+    /// A lasso has corners and is not finished.
+    pub lasso_drawing: bool,
     /// A trace is running.
     pub running: bool,
     /// A pipette is armed.
@@ -200,8 +204,8 @@ pub struct EscState {
     pub menu_open: bool,
     /// A number entry is open.
     pub entry_open: bool,
-    /// The Rectangle tool is pressed.
-    pub rectangle_pressed: bool,
+    /// Rectangle or Lasso is pressed.
+    pub region_tool_pressed: bool,
     /// A region is selected.
     pub region_selected: bool,
 }
@@ -209,7 +213,9 @@ pub struct EscState {
 /// The first thing Esc does for this state.
 #[must_use]
 pub fn esc(state: EscState) -> Esc {
-    if state.running {
+    if state.lasso_drawing {
+        Esc::FinishLasso
+    } else if state.running {
         Esc::StopTrace
     } else if state.pipette_armed {
         Esc::DisarmPipette
@@ -217,8 +223,8 @@ pub fn esc(state: EscState) -> Esc {
         Esc::CloseMenu
     } else if state.entry_open {
         Esc::CloseEntry
-    } else if state.rectangle_pressed {
-        Esc::ReleaseRectangle
+    } else if state.region_tool_pressed {
+        Esc::ReleaseRegionTool
     } else if state.region_selected {
         Esc::ClearSelection
     } else {
@@ -390,14 +396,20 @@ mod tests {
     }
 
     #[test]
-    fn esc_stops_then_disarms_then_closes_then_returns() {
+    fn esc_finishes_a_lasso_then_stops_then_disarms_then_closes_then_returns() {
         let all = EscState {
+            lasso_drawing: true,
             running: true,
             pipette_armed: true,
             menu_open: true,
             entry_open: true,
-            rectangle_pressed: true,
+            region_tool_pressed: true,
             region_selected: true,
+        };
+        assert_eq!(esc(all), Esc::FinishLasso);
+        let all = EscState {
+            lasso_drawing: false,
+            ..all
         };
         assert_eq!(esc(all), Esc::StopTrace);
         let all = EscState {
@@ -419,9 +431,9 @@ mod tests {
             entry_open: false,
             ..all
         };
-        assert_eq!(esc(all), Esc::ReleaseRectangle);
+        assert_eq!(esc(all), Esc::ReleaseRegionTool);
         let all = EscState {
-            rectangle_pressed: false,
+            region_tool_pressed: false,
             ..all
         };
         assert_eq!(esc(all), Esc::ClearSelection);
