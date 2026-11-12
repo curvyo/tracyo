@@ -75,8 +75,8 @@ cannot be driven there, plan.md slice 4):
 
 | Picture | Elements in the SVG |
 |---|---|
-| forms.png | 1 rect, 1 ellipse, 2 stars (Inkscape objects), 2 paths |
-| forms2.png | 2 rect, 1 circle, 2 polygon, 5 stars, 6 paths (compound path and the ring) |
+| forms.png | 1 rect, 1 ellipse, 2 stars (Inkscape star objects), no compound path |
+| forms2.png | 2 rect, 1 circle, 2 polygon, 5 stars, 1 compound path (the three misses and the ring) |
 | stars.png | 10 stars |
 
 `rsvg-convert` draws `forms2.png`'s SVG at the source's size and every shape is where the
