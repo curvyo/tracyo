@@ -251,13 +251,10 @@ impl App {
                 widgets::reset_tooltip(ctx, &about);
                 widgets::release_focus_after_mouse(ctx, &about);
 
-                self.drop_buttons(
-                    ui,
-                    ctx,
-                    method,
-                    [at(layout.items[1], 132.0), at(layout.items[3], 176.0)],
-                );
+                // Tab order: Preset, the Mask group, Method.
+                self.preset_button(ui, ctx, at(layout.items[1], 132.0));
                 self.mask_group(ui, ctx, bar.min + layout.items[2].to_vec2());
+                self.method_button(ui, ctx, method, at(layout.items[3], 176.0));
 
                 let mut next = 4;
                 changed = self
@@ -332,18 +329,11 @@ impl App {
         }
     }
 
-    /// The Preset and Method buttons.
-    fn drop_buttons(
-        &mut self,
-        ui: &mut egui::Ui,
-        ctx: &egui::Context,
-        method: Method,
-        rects: [Rect; 2],
-    ) {
-        let [preset_rect, method_rect] = rects;
+    /// The Preset button.
+    fn preset_button(&mut self, ui: &mut egui::Ui, ctx: &egui::Context, rect: Rect) {
         let preset = widgets::drop_button(
             ui,
-            preset_rect,
+            rect,
             bar_id("preset"),
             self.settings.preset_label(),
             "Preset",
@@ -355,13 +345,23 @@ impl App {
         {
             self.toggle_menu(
                 MenuKind::Preset,
-                preset_rect,
+                rect,
                 self.settings.preset_index().unwrap_or(0),
             );
         }
+    }
+
+    /// The Method button.
+    fn method_button(
+        &mut self,
+        ui: &mut egui::Ui,
+        ctx: &egui::Context,
+        method: Method,
+        rect: Rect,
+    ) {
         let button = widgets::drop_button(
             ui,
-            method_rect,
+            rect,
             bar_id("method"),
             method.label(),
             "Method",
@@ -371,7 +371,7 @@ impl App {
             || (button.has_focus()
                 && ctx.input_mut(|i| i.consume_key(Modifiers::NONE, Key::ArrowDown)))
         {
-            self.toggle_menu(MenuKind::Method, method_rect, usize::from(method.index()));
+            self.toggle_menu(MenuKind::Method, rect, usize::from(method.index()));
         }
     }
 

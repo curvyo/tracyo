@@ -243,6 +243,6 @@ mod tests {
         let rings = flatten_snap(&path).unwrap();
         assert_eq!(rings.len(), 1);
         let exact = kurbo::Shape::area(&path).abs();
-        assert!((area_mm2(&rings) - exact).abs() < 0.01 * exact);
+        assert!((area_mm2(&rings).abs() - exact).abs() < 0.01 * exact);
     }
 }
