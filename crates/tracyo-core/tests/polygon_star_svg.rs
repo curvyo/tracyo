@@ -1,9 +1,10 @@
 //! Polygons and stars as the elements of criterion 20f: `<polygon>` and Inkscape's star object.
 //! The golden file, the attributes, and a second reader drawing the same pixels as the path.
 
-#![allow(clippy::unwrap_used, clippy::cast_possible_truncation)]
+#![allow(clippy::unwrap_used, clippy::cast_precision_loss)]
 
 use std::f64::consts::{FRAC_PI_2, PI, TAU};
+use std::fmt::Write as _;
 
 use kurbo::Point;
 use tracyo_core::shapes::{Element, Style, primitive_path};
@@ -88,11 +89,12 @@ fn paths_svg() -> String {
         match e.style {
             Style::Fill => fills.outlines.push(path),
             Style::Stroke { width, .. } => {
-                bands.push_str(&format!(
+                let _ = write!(
+                    bands,
                     "<path fill=\"none\" stroke=\"#000000\" stroke-width=\"{}\" stroke-linejoin=\"round\" d=\"{}\"/>",
                     svg::number(width.as_mm()),
                     path.to_svg()
-                ));
+                );
             }
         }
     }
