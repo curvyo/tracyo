@@ -23,10 +23,7 @@ use common::{full_map, p1, request_at};
 const SEAM_MM: f64 = 132.292;
 
 fn r1() -> Region {
-    Region {
-        rect: PxRect::new(0, 0, 500, 1000),
-        subtract: false,
-    }
+    Region::rect(PxRect::new(0, 0, 500, 1000), false)
 }
 
 fn mask(regions: &[Region], mode: MaskMode) -> PartArea {

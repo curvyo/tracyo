@@ -24,7 +24,7 @@ pub const NO_PART: &str = "0 paths: no part has anything to trace.";
 pub struct Part {
     /// Which side of the mask it traces.
     pub mode: MaskMode,
-    /// The rectangles of its mask.
+    /// The regions (rectangles and lassos) of its mask.
     pub regions: Vec<Region>,
     /// Its settings (Method, Smooth, Output, ...).
     pub settings: Settings,
@@ -276,10 +276,7 @@ mod tests {
     }
 
     fn region(x0: i32, y0: i32, x1: i32, y1: i32) -> Region {
-        Region {
-            rect: PxRect::new(x0, y0, x1, y1),
-            subtract: false,
-        }
+        Region::rect(PxRect::new(x0, y0, x1, y1), false)
     }
 
     #[test]

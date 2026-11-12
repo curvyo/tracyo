@@ -40,10 +40,10 @@ fn a_plain_trace_is_written_back_as_it_was() {
 fn a_cut_trace_with_an_unclipped_count_round_trips() {
     let mut request = request_at(70.0);
     request.clip = tracyo_core::clip::Clip::of_regions(
-        &[tracyo_core::regions::Region {
-            rect: tracyo_core::regions::PxRect::new(0, 0, 500, 1000),
-            subtract: false,
-        }],
+        &[tracyo_core::regions::Region::rect(
+            tracyo_core::regions::PxRect::new(0, 0, 500, 1000),
+            false,
+        )],
         tracyo_core::regions::MaskMode::Inside,
         common::full_map(1000),
     )

@@ -9,6 +9,7 @@ pub mod crop;
 pub mod grid;
 pub mod job;
 pub mod join;
+pub mod lasso;
 pub mod method;
 pub mod output_wire;
 pub mod palette;

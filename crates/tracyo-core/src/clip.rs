@@ -1,7 +1,7 @@
-//! The area a part keeps, built from rectangles and applied to traced outlines as vectrace's
-//! [`Mask`].
+//! The area a part keeps, built from rectangles and lassos and applied to traced outlines as
+//! vectrace's [`Mask`].
 //!
-//! The mask is the union of the added rectangles minus the union of the subtracted ones, on the
+//! The mask is the union of the added regions minus the union of the subtracted ones, on the
 //! 0.001 mm grid. An outline whose control box meets no edge of the mask lies wholly inside or
 //! outside it and stays or goes with its curves; the outlines that meet an edge go through one
 //! overlay (Intersection for Inside, Difference for Outside) and come back as polylines.
@@ -12,7 +12,7 @@ use vectrace::PixelMap;
 use vectrace::mask::{Clipped, Mask};
 
 use crate::grid::{self, Path64, Point64};
-use crate::regions::{MaskMode, Region};
+use crate::regions::{Form, MaskMode, PxPoint, Region};
 
 /// The notice of a part whose mask covers none of the picture.
 pub const OUTSIDE_IMAGE: &str = "0 paths: the mask is outside the image.";
@@ -96,31 +96,32 @@ impl Clip {
         mode: MaskMode,
         map: PixelMap,
     ) -> Result<Option<Self>, ClipError> {
-        let corner = |x: i32, y: i32| -> Option<Point64> {
-            let p = map.apply_point(kurbo::Point::new(f64::from(x), f64::from(y)));
+        let corner = |c: PxPoint| -> Option<Point64> {
+            let p = map.apply_point(c.to_kurbo());
             grid::snap(p.x, p.y)
         };
         let mut added = Vec::new();
         let mut taken = Vec::new();
         for region in regions {
-            let r = region.rect;
-            let ring: Option<Path64> = [(r.x0, r.y0), (r.x1, r.y0), (r.x1, r.y1), (r.x0, r.y1)]
-                .into_iter()
-                .map(|(x, y)| corner(x, y))
-                .collect();
+            let ring: Option<Path64> = region.corners().into_iter().map(corner).collect();
             let Some(ring) = ring else {
                 return Err(ClipError::Kernel);
             };
-            // A mirrored map winds the corners the other way round; the overlay wants one winding.
-            let ring = if grid::double_area(&ring) < 0 {
-                ring.into_iter().rev().collect()
-            } else {
-                ring
+            let rings = match region.form {
+                // A mirrored map winds the corners the other way round; the overlay wants one
+                // winding.
+                Form::Rect(_) if grid::double_area(&ring) < 0 => {
+                    vec![ring.into_iter().rev().collect()]
+                }
+                Form::Rect(_) => vec![ring],
+                // A lasso may cross itself: its non-zero winding area, resolved on its own, is
+                // outer outlines and holes of one winding each, safe to add to the others.
+                Form::Lasso(_) => grid::run(OverlayRule::Subject, &[ring], &[]),
             };
             if region.subtract {
-                taken.push(ring);
+                taken.extend(rings);
             } else {
-                added.push(ring);
+                added.extend(rings);
             }
         }
         if added.is_empty() {
@@ -530,17 +531,11 @@ mod tests {
     }
 
     fn add(x0: i32, y0: i32, x1: i32, y1: i32) -> Region {
-        Region {
-            rect: PxRect::new(x0, y0, x1, y1),
-            subtract: false,
-        }
+        Region::rect(PxRect::new(x0, y0, x1, y1), false)
     }
 
     fn take(x0: i32, y0: i32, x1: i32, y1: i32) -> Region {
-        Region {
-            subtract: true,
-            ..add(x0, y0, x1, y1)
-        }
+        Region::rect(PxRect::new(x0, y0, x1, y1), true)
     }
 
     fn clip(regions: &[Region], mode: MaskMode) -> Clip {
@@ -577,12 +572,67 @@ mod tests {
         assert_eq!(c.polygons().len(), 2, "an outline and a hole");
     }
 
+    fn lasso(points: &[(i32, i32)], subtract: bool) -> Region {
+        let corners: Vec<PxPoint> = points.iter().map(|&(x, y)| PxPoint::new(x, y)).collect();
+        Region::lasso(&corners, subtract).unwrap()
+    }
+
+    #[test]
+    fn a_lasso_has_the_area_of_its_polygon_whichever_way_it_winds() {
+        let a = clip(
+            &[lasso(&[(0, 0), (10, 0), (0, 10)], false)],
+            MaskMode::Inside,
+        );
+        let b = clip(
+            &[lasso(&[(0, 0), (0, 10), (10, 0)], false)],
+            MaskMode::Inside,
+        );
+        assert!((area_of(&a) - 50.0).abs() < 1e-9);
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn a_figure_eight_is_filled_in_both_lobes_by_the_nonzero_rule() {
+        // The lobes wind against each other; each is a triangle of 6 x 3 / 2 = 9... scaled by 10.
+        let eight = lasso(&[(20, 10), (80, 70), (80, 10), (20, 70)], false);
+        let c = clip(&[eight], MaskMode::Inside);
+        assert!((area_of(&c) - 1800.0).abs() < 1e-6, "{}", area_of(&c));
+        assert!(c.keeps(kurbo::Point::new(70.0, 40.0)));
+        assert!(c.keeps(kurbo::Point::new(30.0, 40.0)));
+        assert!(!c.keeps(kurbo::Point::new(50.0, 20.0)));
+    }
+
+    #[test]
+    fn lassos_of_opposite_winding_and_rectangles_add_without_cancelling() {
+        let a = lasso(&[(0, 0), (60, 0), (0, 60)], false);
+        let b = lasso(&[(0, 0), (0, 60), (60, 0)], false);
+        let r = add(10, 10, 30, 30);
+        let both = clip(&[a.clone(), b, r.clone()], MaskMode::Inside);
+        let one = clip(&[a, r], MaskMode::Inside);
+        assert_eq!(both, one);
+        assert!((area_of(&one) - 1800.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn a_subtracted_lasso_takes_its_area_from_the_mask() {
+        let c = clip(
+            &[
+                add(0, 0, 100, 100),
+                lasso(&[(0, 0), (50, 0), (0, 50)], true),
+            ],
+            MaskMode::Inside,
+        );
+        assert!((area_of(&c) - (10_000.0 - 1250.0)).abs() < 1e-6);
+        assert!(!c.keeps(kurbo::Point::new(10.0, 10.0)));
+        assert!(c.keeps(kurbo::Point::new(60.0, 60.0)));
+    }
+
     #[test]
     fn the_order_of_the_regions_does_not_change_the_bytes() {
         let regions = [add(0, 0, 10, 10), take(2, 2, 4, 4), add(5, 5, 20, 20)];
         let reference = clip(&regions, MaskMode::Inside);
         for order in [[2, 1, 0], [1, 0, 2], [0, 2, 1], [2, 0, 1]] {
-            let shuffled: Vec<Region> = order.iter().map(|&i| regions[i]).collect();
+            let shuffled: Vec<Region> = order.iter().map(|&i| regions[i].clone()).collect();
             assert_eq!(clip(&shuffled, MaskMode::Inside), reference);
         }
     }
