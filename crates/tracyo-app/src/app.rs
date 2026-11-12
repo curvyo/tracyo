@@ -21,7 +21,7 @@ use vectrace::wire::Output;
 
 use crate::canvas::{Tiles, View};
 use crate::config::{self, Config};
-use crate::dialogs::Dialogs;
+use crate::dialogs::{Choice, Dialogs};
 use crate::icons::Icons;
 use crate::preview::Preview;
 use crate::runner::{Event, Runner};
@@ -74,6 +74,8 @@ pub(crate) struct Doc {
     pub values: PictureValues,
     pub analysis: Analysis,
     pub view: View,
+    /// Set while the view is still where the last fit put it: whether that fit may enlarge.
+    pub auto_fit: Option<bool>,
     pub text: TextState,
 }
 
@@ -149,6 +151,10 @@ pub struct App {
     /// The running trace follows a read of the same job.
     pub(crate) trace_after_read: bool,
     pub(crate) menu_anchor: Rect,
+    pub(crate) about_open: bool,
+    /// The About text's scroll offset, and whether it is longer than the panel.
+    pub(crate) about_scroll: f32,
+    pub(crate) about_scrolls: bool,
     pub(crate) title_sent: Option<String>,
     pub(crate) window_size: Option<[f32; 2]>,
 }
@@ -194,6 +200,9 @@ impl App {
             after_read: None,
             trace_after_read: false,
             menu_anchor: Rect::NOTHING,
+            about_open: false,
+            about_scroll: 0.0,
+            about_scrolls: false,
             title_sent: None,
             window_size: None,
         };
@@ -314,6 +323,12 @@ impl App {
         ))
     }
 
+    /// The bottom edge of the Trace bar as it was laid out in the last frame, in window points.
+    #[must_use]
+    pub fn bar_bottom(&self) -> f32 {
+        self.bar_bottom
+    }
+
     /// The elapsed time the progress rule is measured in.
     pub(crate) fn now(&self) -> Duration {
         self.start.elapsed()
@@ -396,6 +411,7 @@ impl App {
                 zoom: 1.0,
                 offset: vec2(0.0, 0.0),
             },
+            auto_fit: None,
             text: TextState::Unread,
         });
         self.fit_next_frame = true;
@@ -421,9 +437,20 @@ impl App {
 
     /// Opens the Open dialog.
     pub(crate) fn ask_open(&mut self, ctx: &egui::Context) {
-        if let Some(path) = self.dialogs.open(self.last_open_dir.as_deref()) {
-            self.open_path(ctx, path);
+        match self.dialogs.open(self.last_open_dir.as_deref()) {
+            Choice::Picked(path) => self.open_path(ctx, path),
+            Choice::Cancelled => {}
+            Choice::Unavailable => self.no_dialog(ctx),
         }
+    }
+
+    /// The notice for a system without a file dialog.
+    fn no_dialog(&mut self, ctx: &egui::Context) {
+        self.set_notice(
+            ctx,
+            NO_DIALOG.iter().map(|l| (*l).to_owned()).collect(),
+            true,
+        );
     }
 
     // ---- tracing ----
@@ -655,8 +682,13 @@ impl App {
                 .file_stem()
                 .map_or_else(|| doc.name.clone(), |s| s.to_string_lossy().into_owned())
         );
-        let Some(path) = self.dialogs.save(doc.path.parent(), &name) else {
-            return;
+        let path = match self.dialogs.save(doc.path.parent(), &name) {
+            Choice::Picked(path) => path,
+            Choice::Cancelled => return,
+            Choice::Unavailable => {
+                self.no_dialog(ctx);
+                return;
+            }
         };
         if result.reduced {
             self.pending_save = Some(path);
@@ -843,12 +875,27 @@ impl eframe::App for App {
         self.begin_frame(&ctx);
         let screen = ui.max_rect();
         ui.painter().rect_filled(screen, 0.0, theme::CANVAS_BG);
-        let canvas =
-            Rect::from_min_max(screen.min, pos2(screen.max.x, screen.max.y - STATUS_HEIGHT));
-        self.canvas(ui, canvas);
-        self.status_bar(ui, screen);
+        let docked = if self.about_open {
+            crate::about::PANEL_WIDTH
+        } else {
+            0.0
+        };
+        let canvas = Rect::from_min_max(
+            screen.min,
+            pos2(screen.max.x - docked, screen.max.y - STATUS_HEIGHT),
+        );
+        // The bar first: the picture is fitted below the bar's height of this very frame.
         self.open_card(&ctx);
         self.bar(&ctx, canvas);
+        self.canvas(ui, canvas);
+        self.status_bar(ui, screen);
+        if self.about_open {
+            let panel = Rect::from_min_max(
+                pos2(canvas.right(), screen.top()),
+                pos2(screen.max.x, canvas.bottom()),
+            );
+            self.about_panel(&ctx, panel);
+        }
         self.menus(&ctx);
         self.notice_slot(&ctx, canvas);
         if let Some(wake) = self.progress.wake_in(self.now()) {
@@ -863,6 +910,12 @@ impl eframe::App for App {
         }
     }
 }
+
+/// What the notice says when the system has no file dialog (Linux without a portal).
+const NO_DIALOG: [&str; 2] = [
+    "There is no file dialog on this system.",
+    "Install xdg-desktop-portal with a backend such as xdg-desktop-portal-gtk.",
+];
 
 /// The failure tooltip for a trace that did not finish.
 pub(crate) fn failure_text(reason: &str) -> String {

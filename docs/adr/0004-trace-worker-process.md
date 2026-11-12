@@ -1,6 +1,8 @@
 # ADR 0004: The trace runs in a worker process; cancel, progress and preview
 
-**Status:** Proposed (architect, 2026-11-11).
+**Status:** Accepted (lead, slice 5, 2026-11-11; proposed by the architect 2026-11-11).
+
+Deviation: the analysis runs on an app thread, not in the worker process, and cannot be stopped (technical debt 6); trace, preview and OCR follow this ADR.
 
 ## Context
 

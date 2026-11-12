@@ -182,9 +182,7 @@ fn swatch(h: &Harness<'_, App>, index: usize, excluded: bool) -> String {
 fn choose_multicolour(h: &mut Harness<'_, App>) {
     h.get_by_label("Output: Multicolour").click();
     h.run_steps(3);
-    common::wait_until(h, 60.0, |a| {
-        a.has_result() && a.palette_colours().len() == SWATCHES as usize
-    });
+    common::wait_for_result_where(h, 60.0, |a| a.palette_colours().len() == SWATCHES as usize);
     h.remove_cursor();
     h.run_steps(3);
 }
@@ -484,4 +482,89 @@ fn px_08_preset_menu() {
         238,
         184,
     );
+}
+
+/// The longest vertical white run in column `x` of `image` that starts below row `from`: first
+/// row and length. In the box's left padding it is the box's height.
+fn white_run(image: &image::RgbImage, x: u32, from: u32) -> (u32, u32) {
+    let white = |y: u32| image.get_pixel(x, y).0 == [255, 255, 255];
+    let first = (from..image.height())
+        .find(|&y| white(y))
+        .expect("a tooltip box");
+    let rows = (first..image.height()).take_while(|&y| white(y)).count();
+    (first, u32::try_from(rows).unwrap())
+}
+
+/// The last white column of the tooltip box on the row through its middle (row 64 of both).
+fn box_right(image: &image::RgbImage) -> u32 {
+    (0..image.width())
+        .rev()
+        .find(|&x| (62..66).all(|y| image.get_pixel(x, y).0 == [255, 255, 255]) && x < 120)
+        .expect("the box's right edge")
+}
+
+/// The first column from `from` on that holds a dark text pixel in the rows `top..top + rows`.
+fn text_start(image: &image::RgbImage, from: u32, top: u32, rows: u32) -> u32 {
+    (from..image.width())
+        .find(|&x| (top..top + rows).any(|y| image.get_pixel(x, y).0[0] < 200))
+        .expect("tooltip text")
+}
+
+/// The reference reads "About Trace", Tracyo's tooltip "About Tracyo": the box is centred under
+/// the button, so it is 5 px wider. Compared: the hovered button, the box's rows and the glyphs
+/// of "About T" (same text, aligned on the first glyph).
+#[test]
+fn px_15_tooltip() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut h = opened(dir.path());
+    open_advanced(&mut h);
+    multicolour_excluded(&mut h);
+    smooth_81(&mut h);
+    common::wait_for_result(&mut h, 60.0);
+    h.get_by_label("About Tracyo").hover();
+    h.run_steps(30);
+    h.set_render_cursor(false);
+    h.run_steps(1);
+    let rendered = h.render().unwrap();
+    let out = compare::out_dir();
+    let full = compare::rgb(&rendered);
+    let got = image::imageops::crop_imm(&full, 60, 0, full.width() - 60, full.height()).to_image();
+    got.save(out.join("render-px-15-tooltip.png")).unwrap();
+    let want = reference("px-15-tooltip.png");
+
+    // The hovered button.
+    let outcome = compare::compare_at(&want, &got, (8, 4), 28, 28);
+    println!("px-15 button: {}", outcome.summary());
+    assert!(outcome.passed(), "button: {}", outcome.summary());
+
+    // The box: same top row and height.
+    let rows = |image: &image::RgbImage| {
+        let right = box_right(image);
+        (right - 8..=right - 6)
+            .map(|x| white_run(image, x, 49))
+            .max_by_key(|&(_, rows)| rows)
+            .unwrap()
+    };
+    let (ref_top, ref_rows) = rows(&want);
+    let (got_top, got_rows) = rows(&got);
+    println!("px-15 box: reference rows {ref_top}+{ref_rows}, render {got_top}+{got_rows}");
+    assert_eq!((got_top, got_rows), (ref_top, ref_rows), "the box's rows");
+
+    // The glyphs of "About T", aligned on the first one.
+    let ref_x = text_start(&want, 0, ref_top + 8, 8);
+    // The render's box starts left of the cut at x = 60, so its text is measured uncropped.
+    let got_x = text_start(&full, 53, got_top + 10, 8);
+    println!("px-15 text starts at {ref_x} (reference) and {got_x} (render)");
+    let width = 38;
+    let crop = |image: &image::RgbImage, x: u32| {
+        image::imageops::crop_imm(image, x.saturating_sub(2), ref_top - 1, width, ref_rows + 2)
+            .to_image()
+    };
+    let outcome = compare::compare_crops(&crop(&want, ref_x), &crop(&full, got_x));
+    outcome
+        .diff
+        .save(out.join("diff-px-15-tooltip-text.png"))
+        .unwrap();
+    println!("px-15 text: {}", outcome.summary());
+    assert!(outcome.passed(), "text: {}", outcome.summary());
 }

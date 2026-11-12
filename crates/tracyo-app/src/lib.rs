@@ -14,6 +14,7 @@
     clippy::similar_names
 )]
 
+pub mod about;
 mod advanced;
 mod app;
 mod bar;

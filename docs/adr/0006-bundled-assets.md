@@ -1,6 +1,8 @@
 # ADR 0006: Bundled assets: OCR model, fonts and icons
 
-**Status:** Proposed (architect, 2026-11-11). The embedded model follows spec Frage 4 at its default.
+**Status:** Accepted (lead, slice 5, 2026-11-11; proposed by the architect 2026-11-11). The embedded model follows spec Frage 4 at its default.
+
+Followed as written: the model, fonts and icons are embedded and hash-checked; the About panel names the model's licence with the first 12 hex digits of its three SHA-256 values; the release archives carry the licence files of `assets/` and `THIRD-PARTY.md`.
 
 ## Context
 

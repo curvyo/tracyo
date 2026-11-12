@@ -1,6 +1,8 @@
 //! The canvas, the status bar and the notice slot.
 
-use eframe::egui::{self, Align2, Color32, Id, Key, PointerButton, Rect, Sense, Ui, pos2, vec2};
+use eframe::egui::{
+    self, Align2, Color32, Id, Key, PointerButton, Rect, Sense, Ui, Vec2, pos2, vec2,
+};
 use tracyo_core::progress::Button;
 
 use crate::app::{App, Pipette, STATUS_HEIGHT, dashed_frame};
@@ -17,18 +19,29 @@ impl App {
         let enlarge = std::mem::take(&mut self.fit_zoom_enlarge);
         self.pointer_picture = None;
         let Some(doc) = &mut self.doc else { return };
-        if fit {
-            let area = Rect::from_min_max(
+        let fit_area = |canvas: Rect, bar_bottom: f32| {
+            Rect::from_min_max(
                 pos2(12.0, bar_bottom + 12.0),
                 pos2(canvas.width() - 12.0, canvas.height() - 12.0),
-            );
-            doc.view = View::fit(area, (doc.picture.width, doc.picture.height), enlarge);
+            )
+        };
+        let size = (doc.picture.width, doc.picture.height);
+        if fit {
+            doc.view = View::fit(fit_area(canvas, bar_bottom), size, enlarge);
+            doc.auto_fit = Some(enlarge);
+        } else if let Some(enlarge) = doc.auto_fit
+            && doc.view.offset.y < bar_bottom + 12.0 - 0.5
+        {
+            // The bar grew over a picture that is still where the fit put it (its palette came
+            // after the first trace, or a row wrapped): fit again below the bar.
+            doc.view = View::fit(fit_area(canvas, bar_bottom), size, enlarge);
         }
         let space = ui.input(|i| i.key_down(Key::Space));
         if resp.dragged_by(PointerButton::Middle)
             || (space && resp.dragged_by(PointerButton::Primary))
         {
             doc.view.offset += resp.drag_delta();
+            doc.auto_fit = None;
             ui.ctx().set_cursor_icon(egui::CursorIcon::Grabbing);
         } else if space && resp.hovered() {
             ui.ctx().set_cursor_icon(egui::CursorIcon::Grab);
@@ -40,8 +53,10 @@ impl App {
                 && let Some(p) = hover
             {
                 doc.view.zoom_at(p - canvas.min, zoom);
-            } else {
+                doc.auto_fit = None;
+            } else if scroll != Vec2::ZERO {
                 doc.view.offset += scroll;
+                doc.auto_fit = None;
             }
         }
         let armed = self.pipette != Pipette::Off;

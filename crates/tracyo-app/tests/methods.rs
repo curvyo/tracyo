@@ -280,8 +280,8 @@ fn a_new_picture_resets_the_picture_values_and_keeps_the_settings() {
     press(&mut h, Key::ArrowRight, Modifiers::NONE);
     settle(&mut h);
     press(&mut h, Key::O, Modifiers::COMMAND);
-    common::wait_until(&mut h, 60.0, |app| {
-        app.has_result() && app.picture_values().is_some_and(|v| !v.invert)
+    common::wait_for_result_where(&mut h, 60.0, |app| {
+        app.picture_values().is_some_and(|v| !v.invert)
     });
     assert_eq!(h.state().settings().corners, 71);
 }

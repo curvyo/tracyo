@@ -169,7 +169,7 @@ fn pan_and_zoom_do_not_trace_again() {
 
 /// Criterion 8: Esc stops a running trace, the button says Stopped, Retry traces again.
 #[test]
-fn esc_stops_and_retry_traces_again() {
+fn unix_esc_stops_and_retry_traces_again() {
     let dir = tempfile::tempdir().unwrap();
     let mut h = opened(dir.path(), None);
     h.state_mut().wrap_worker(slow_worker());
@@ -188,7 +188,7 @@ fn esc_stops_and_retry_traces_again() {
 
 /// Criterion 8: the x inside the running button stops as well.
 #[test]
-fn the_x_of_the_running_button_stops() {
+fn unix_the_x_of_the_running_button_stops() {
     let dir = tempfile::tempdir().unwrap();
     let mut h = opened(dir.path(), None);
     h.state_mut().wrap_worker(slow_worker());
@@ -203,7 +203,7 @@ fn the_x_of_the_running_button_stops() {
 
 /// Criterion 24: a worker that dies without a reply is "Failed" with its reason, never a crash.
 #[test]
-fn a_dying_worker_is_failed_with_a_reason() {
+fn unix_a_dying_worker_is_failed_with_a_reason() {
     let dir = tempfile::tempdir().unwrap();
     let mut h = opened(dir.path(), None);
     h.state_mut()

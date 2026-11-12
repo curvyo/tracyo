@@ -1,6 +1,6 @@
 # Trace and save
 
-Status: Draft
+Status: Accepted. Built in five slices: slice 1 is on `main` (PR #1); slices 2 to 5 wait on stacked branches for the customer. Done (PR #n) when the last one is merged.
 Priority: Must
 Origin: Customer (product Tracyo: the Trace tool of Curvyo as its own desktop app; egui in its own repository, `vectrace` for tracing, OCR and shape recognition, AGPL-3.0-or-later). Everything marked **(Proposal)** is the product owner's and vetoable.
 

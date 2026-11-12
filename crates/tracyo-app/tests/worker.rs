@@ -87,8 +87,13 @@ fn the_worker_binary_traces_over_its_pipes() {
     assert_eq!(output.paths, 1);
 }
 
+/// Whether process `pid` exists (`kill -0`: the shell's way, the same on Linux and macOS).
 fn pid_alive(pid: u32) -> bool {
-    std::path::Path::new(&format!("/proc/{pid}")).exists()
+    std::process::Command::new("kill")
+        .args(["-0", &pid.to_string()])
+        .stderr(std::process::Stdio::null())
+        .status()
+        .is_ok_and(|s| s.success())
 }
 
 fn wait_for_pid(file: &std::path::Path) -> u32 {
@@ -120,7 +125,7 @@ fn staged(dir: &std::path::Path) -> (Runner, PathBuf) {
 
 /// Criterion 8: stopping kills the worker process at once.
 #[test]
-fn stop_kills_the_worker_process() {
+fn unix_stop_kills_the_worker_process() {
     let dir = tempfile::tempdir().unwrap();
     let (mut runner, pid_file) = staged(dir.path());
     runner
@@ -137,7 +142,7 @@ fn stop_kills_the_worker_process() {
 
 /// Criterion 24: closing the window (dropping the runner) ends the worker within 2 s.
 #[test]
-fn dropping_the_runner_kills_the_worker() {
+fn unix_dropping_the_runner_kills_the_worker() {
     let dir = tempfile::tempdir().unwrap();
     let (mut runner, pid_file) = staged(dir.path());
     runner
@@ -157,7 +162,7 @@ fn dropping_the_runner_kills_the_worker() {
 
 /// A job that interrupts another replaces the worker (latest wins) and the new result arrives.
 #[test]
-fn a_new_job_replaces_a_running_one() {
+fn unix_a_new_job_replaces_a_running_one() {
     let dir = tempfile::tempdir().unwrap();
     let (mut runner, pid_file) = staged(dir.path());
     let picture = Arc::new(square_picture());

@@ -180,7 +180,7 @@ fn with_recognise_text_off_nothing_is_read() {
 /// Criterion 16: the read shows as "Reading text" with the job's percent, and Esc stops it; Retry
 /// reads again.
 #[test]
-fn the_read_is_named_in_the_button_and_esc_stops_it() {
+fn unix_the_read_is_named_in_the_button_and_esc_stops_it() {
     let dir = tempfile::tempdir().unwrap();
     let mut h = opened(dir.path(), common::logo(), None);
     h.state_mut().wrap_worker(staged(PERCENT_30));
@@ -217,7 +217,7 @@ fn the_read_is_named_in_the_button_and_esc_stops_it() {
 
 /// Switching Recognise text off while the text is read ends the read and traces without text.
 #[test]
-fn switching_the_text_off_during_the_read_traces_without_it() {
+fn unix_switching_the_text_off_during_the_read_traces_without_it() {
     let dir = tempfile::tempdir().unwrap();
     let mut h = opened(dir.path(), common::logo(), None);
     h.state_mut().wrap_worker(staged(PERCENT_30));
@@ -233,7 +233,7 @@ fn switching_the_text_off_during_the_read_traces_without_it() {
 
 /// A reader that cannot be used: Curvyo's notice, and the trace runs without text.
 #[test]
-fn a_failed_reader_says_so_and_traces_without_text() {
+fn unix_a_failed_reader_says_so_and_traces_without_text() {
     let dir = tempfile::tempdir().unwrap();
     let mut h = opened(dir.path(), common::logo(), None);
     h.state_mut().wrap_worker(staged(TEXT_FAILED));

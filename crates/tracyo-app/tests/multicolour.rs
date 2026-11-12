@@ -38,9 +38,7 @@ fn multicolour<'a>(dir: &Path, save: Option<std::path::PathBuf>) -> Harness<'a, 
     h.run_steps(3);
     h.get_by_label("Output: Multicolour").click();
     h.run_steps(3);
-    common::wait_until(&mut h, 60.0, |a| {
-        a.has_result() && !a.palette_colours().is_empty()
-    });
+    common::wait_for_result_where(&mut h, 60.0, |a| !a.palette_colours().is_empty());
     h.run_steps(3);
     h
 }

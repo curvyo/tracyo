@@ -1,4 +1,11 @@
 # Windows and macOS: build, clippy and the tests that do not need Linux (ADR 0007 section 7).
+#
+# Left out, on both: the pixel tests (references made on Linux), the start test (Xvfb), the
+# session test (golden file, network namespace in ci.yml) and the 12 Mpx / out-of-memory tests
+# (`prlimit`). Left out on Windows only: the tests named `unix_...`, which stage a fake worker
+# with `/bin/sh`. The kittest tests render with wgpu on the runner's software adapter (WARP on
+# Windows, Metal on macOS); nothing here has been run on those systems yet, the first red
+# nightly is the proof of what is still Linux-only.
 name: Nightly
 
 on:
@@ -23,12 +30,13 @@ jobs:
       matrix:
         include:
           - os: windows-latest
-            # The fake workers of these tests are shell scripts; the pixel, start and heavy tests
-            # are Linux-only.
-            skip: "binary(pixels) | binary(heavy) | binary(start) | binary(session) | binary(flow) | binary(worker)"
+            skip: "binary(pixels) | binary(heavy) | binary(start) | binary(session) | test(/^unix_/)"
           - os: macos-latest
             skip: "binary(pixels) | binary(heavy) | binary(start) | binary(session)"
     runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: actions/checkout@v7
       - name: Rust toolchain (from rust-toolchain.toml)
