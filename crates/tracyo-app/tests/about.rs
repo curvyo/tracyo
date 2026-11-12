@@ -20,7 +20,7 @@ fn fixed() -> Dialogs {
 
 fn opened<'a>(dir: &std::path::Path) -> Harness<'a, App> {
     let mut h = common::harness(dir, Some(common::logo()), fixed());
-    common::wait_until(&mut h, 60.0, App::has_result);
+    common::wait_for_result(&mut h, 60.0);
     h.run_steps(3);
     h
 }
@@ -201,7 +201,7 @@ fn the_first_frame_fits_below_a_bar_of_three_rows() {
     )
     .unwrap();
     let mut h = common::harness_sized(dir.path(), Some(tall), fixed(), 800.0);
-    common::wait_until(&mut h, 60.0, App::has_result);
+    common::wait_for_result(&mut h, 60.0);
     h.run_steps(3);
     let app = h.state();
     let zoom = app.zoom().unwrap();
@@ -249,9 +249,7 @@ fn a_bar_that_grows_after_the_fit_does_not_cover_the_picture() {
     )
     .unwrap();
     let mut h = common::harness(dir.path(), Some(tall), fixed());
-    common::wait_until(&mut h, 20.0, |a| {
-        a.has_result() && !a.palette_colours().is_empty()
-    });
+    common::wait_for_result_where(&mut h, 20.0, |a| !a.palette_colours().is_empty());
     h.run_steps(5);
     let app = h.state();
     let zoom = app.zoom().unwrap();

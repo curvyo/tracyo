@@ -182,9 +182,7 @@ fn swatch(h: &Harness<'_, App>, index: usize, excluded: bool) -> String {
 fn choose_multicolour(h: &mut Harness<'_, App>) {
     h.get_by_label("Output: Multicolour").click();
     h.run_steps(3);
-    common::wait_until(h, 60.0, |a| {
-        a.has_result() && a.palette_colours().len() == SWATCHES as usize
-    });
+    common::wait_for_result_where(h, 60.0, |a| a.palette_colours().len() == SWATCHES as usize);
     h.remove_cursor();
     h.run_steps(3);
 }
@@ -522,7 +520,7 @@ fn px_15_tooltip() {
     open_advanced(&mut h);
     multicolour_excluded(&mut h);
     smooth_81(&mut h);
-    common::wait_until(&mut h, 60.0, App::has_result);
+    common::wait_for_result(&mut h, 60.0);
     h.get_by_label("About Tracyo").hover();
     h.run_steps(30);
     h.set_render_cursor(false);
