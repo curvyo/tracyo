@@ -38,3 +38,5 @@ jobs:
       - uses: rustsec/audit-check@v2.0.0
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+          # The same three unmaintained zbus helper crates deny.toml ignores (docs/technical-debt.md).
+          ignore: RUSTSEC-2026-0370,RUSTSEC-2026-0371,RUSTSEC-2026-0372
