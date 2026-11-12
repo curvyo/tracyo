@@ -300,15 +300,12 @@ mod tests {
 
     /// 1 px = 1 mm, the mask x 0 to 50.
     fn clips() -> (PartClip, PartClip) {
-        let region = Region {
-            rect: PxRect::new(0, -100, 50, 200),
-            subtract: false,
-        };
+        let region = Region::rect(PxRect::new(0, -100, 50, 200), false);
         let map = PixelMap::scale(1.0, 1.0);
-        let inside = Clip::of_regions(&[region], MaskMode::Inside, map)
+        let inside = Clip::of_regions(std::slice::from_ref(&region), MaskMode::Inside, map)
             .unwrap()
             .unwrap();
-        let outside = Clip::of_regions(&[region], MaskMode::Outside, map)
+        let outside = Clip::of_regions(std::slice::from_ref(&region), MaskMode::Outside, map)
             .unwrap()
             .unwrap();
         (PartClip::Region(outside), PartClip::Region(inside))

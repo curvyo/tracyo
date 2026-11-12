@@ -2,7 +2,7 @@
 
 use kurbo::{Point, Rect};
 
-use crate::regions::{PxRect, Region};
+use crate::regions::{Form, PxRect, Region};
 
 /// A resize handle of a selected rectangle.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -125,12 +125,79 @@ pub fn drawn(from: Point, to: Point, centre: bool, square: bool) -> Option<PxRec
     Some(PxRect::new(ax, ay, px(to.x), px(to.y)))
 }
 
-/// The topmost (last) region whose rectangle, grown by `slop_px`, holds `p`.
+/// The topmost (last) region that holds `p`: a rectangle grown by `slop_px`, a lasso by its
+/// non-zero winding area or within `slop_px` of a side.
 #[must_use]
 pub fn region_at(regions: &[Region], p: Point, slop_px: f64) -> Option<usize> {
-    regions
+    regions.iter().rposition(|r| match &r.form {
+        Form::Rect(rect) => rect.to_kurbo().inflate(slop_px, slop_px).contains(p),
+        Form::Lasso(points) => {
+            let ring: Vec<Point> = points.iter().map(|c| c.to_kurbo()).collect();
+            winding(&ring, p) != 0 || near_a_side(&ring, p, slop_px)
+        }
+    })
+}
+
+/// The winding number of the closed polygon `ring` round `p`.
+#[must_use]
+pub fn winding(ring: &[Point], p: Point) -> i32 {
+    let Some(mut a) = ring.last().copied() else {
+        return 0;
+    };
+    let mut winding = 0;
+    for &b in ring {
+        let side = (b.x - a.x) * (p.y - a.y) - (p.x - a.x) * (b.y - a.y);
+        if a.y <= p.y {
+            if b.y > p.y && side > 0.0 {
+                winding += 1;
+            }
+        } else if b.y <= p.y && side < 0.0 {
+            winding -= 1;
+        }
+        a = b;
+    }
+    winding
+}
+
+/// Whether `p` is within `distance` of a side of the closed polygon `ring`.
+fn near_a_side(ring: &[Point], p: Point, distance: f64) -> bool {
+    let Some(mut a) = ring.last().copied() else {
+        return false;
+    };
+    for &b in ring {
+        let (dx, dy) = (b.x - a.x, b.y - a.y);
+        let len2 = dx * dx + dy * dy;
+        let t = if len2 > 0.0 {
+            (((p.x - a.x) * dx + (p.y - a.y) * dy) / len2).clamp(0.0, 1.0)
+        } else {
+            0.0
+        };
+        let nearest = Point::new(a.x + t * dx, a.y + t * dy);
+        if nearest.distance(p) <= distance {
+            return true;
+        }
+        a = b;
+    }
+    false
+}
+
+/// The corner of a selected lasso (`corners` in screen pixels) the pointer is within `radius` of;
+/// the nearest centre wins.
+#[must_use]
+pub fn corner_at(corners: &[Point], pointer: Point, radius: f64) -> Option<usize> {
+    corners
         .iter()
-        .rposition(|r| r.rect.to_kurbo().inflate(slop_px, slop_px).contains(p))
+        .enumerate()
+        .map(|(i, c)| (i, c.distance(pointer)))
+        .filter(|(_, d)| *d <= radius)
+        .min_by(|a, b| a.1.total_cmp(&b.1))
+        .map(|(i, _)| i)
+}
+
+/// The picture pixel nearest to `p`, for a lasso corner.
+#[must_use]
+pub fn nearest_pixel(p: Point) -> crate::regions::PxPoint {
+    crate::regions::PxPoint::new(px(p.x), px(p.y))
 }
 
 /// The handle of the selected rectangle `rect` (screen pixels) the pointer is on: corners always,
@@ -265,14 +332,8 @@ mod tests {
     #[test]
     fn the_topmost_region_wins_and_the_slop_reaches_past_the_outline() {
         let regions = [
-            Region {
-                rect: PxRect::new(0, 0, 100, 100),
-                subtract: false,
-            },
-            Region {
-                rect: PxRect::new(40, 40, 60, 60),
-                subtract: true,
-            },
+            Region::rect(PxRect::new(0, 0, 100, 100), false),
+            Region::rect(PxRect::new(40, 40, 60, 60), true),
         ];
         assert_eq!(region_at(&regions, pt(50.0, 50.0), 0.0), Some(1));
         assert_eq!(region_at(&regions, pt(10.0, 10.0), 0.0), Some(0));
@@ -389,5 +450,58 @@ mod tests {
             PxRect::new(-2, 12, 2, 19)
         );
         assert_eq!(moved(PxRect::new(1, 2, 5, 9), i32::MAX, 0).x1, i32::MAX);
+    }
+
+    fn lasso(points: &[(i32, i32)], subtract: bool) -> Region {
+        let corners: Vec<crate::regions::PxPoint> = points
+            .iter()
+            .map(|&(x, y)| crate::regions::PxPoint::new(x, y))
+            .collect();
+        Region::lasso(&corners, subtract).unwrap()
+    }
+
+    #[test]
+    fn a_lasso_is_hit_inside_by_its_winding_and_within_the_slop_of_a_side() {
+        let triangle = [lasso(&[(0, 0), (100, 0), (0, 100)], false)];
+        assert_eq!(region_at(&triangle, pt(20.0, 20.0), 0.0), Some(0));
+        // Inside the box, outside the slanted side: not hit without slop, hit within 8 px of it.
+        assert_eq!(region_at(&triangle, pt(70.0, 70.0), 0.0), None);
+        assert_eq!(region_at(&triangle, pt(53.0, 53.0), 8.0), Some(0));
+        assert_eq!(region_at(&triangle, pt(70.0, 70.0), 8.0), None);
+        assert_eq!(region_at(&triangle, pt(-6.0, 50.0), 8.0), Some(0));
+    }
+
+    #[test]
+    fn a_figure_eight_is_hit_in_both_lobes_and_not_between_them() {
+        let eight = [lasso(&[(20, 10), (80, 70), (80, 10), (20, 70)], false)];
+        assert_eq!(region_at(&eight, pt(70.0, 40.0), 0.0), Some(0));
+        assert_eq!(region_at(&eight, pt(30.0, 40.0), 0.0), Some(0));
+        assert_eq!(region_at(&eight, pt(50.0, 20.0), 0.0), None);
+    }
+
+    #[test]
+    fn the_topmost_of_a_lasso_and_a_rectangle_wins() {
+        let regions = [
+            lasso(&[(0, 0), (100, 0), (0, 100)], false),
+            Region::rect(PxRect::new(10, 10, 30, 30), false),
+        ];
+        assert_eq!(region_at(&regions, pt(20.0, 20.0), 0.0), Some(1));
+        assert_eq!(region_at(&regions, pt(60.0, 20.0), 0.0), Some(0));
+    }
+
+    #[test]
+    fn a_corner_is_hit_within_the_radius_and_the_nearest_wins() {
+        let corners = [pt(100.0, 100.0), pt(110.0, 100.0), pt(200.0, 300.0)];
+        assert_eq!(corner_at(&corners, pt(104.0, 100.0), 16.0), Some(0));
+        assert_eq!(corner_at(&corners, pt(107.0, 100.0), 16.0), Some(1));
+        assert_eq!(corner_at(&corners, pt(200.0, 316.0), 16.0), Some(2));
+        assert_eq!(corner_at(&corners, pt(200.0, 317.0), 16.0), None);
+        assert_eq!(corner_at(&[], pt(0.0, 0.0), 16.0), None);
+    }
+
+    #[test]
+    fn a_corner_lands_on_the_nearest_whole_pixel() {
+        let c = nearest_pixel(pt(10.4, 20.6));
+        assert_eq!((c.x, c.y), (10, 21));
     }
 }

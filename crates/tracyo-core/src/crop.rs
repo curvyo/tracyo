@@ -119,10 +119,7 @@ mod tests {
     }
 
     fn clip(rect: PxRect, mode: MaskMode) -> Clip {
-        let region = Region {
-            rect,
-            subtract: false,
-        };
+        let region = Region::rect(rect, false);
         Clip::of_regions(&[region], mode, pixel_map(1000, 1000))
             .unwrap()
             .unwrap()

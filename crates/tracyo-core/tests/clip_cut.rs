@@ -16,10 +16,7 @@ use common::{full_map, p1, request_at, trace};
 const SEAM_MM: f64 = 132.292;
 
 fn r1() -> Region {
-    Region {
-        rect: PxRect::new(0, 0, 500, 1000),
-        subtract: false,
-    }
+    Region::rect(PxRect::new(0, 0, 500, 1000), false)
 }
 
 fn clip_of(regions: &[Region], mode: MaskMode) -> Clip {
@@ -92,24 +89,12 @@ fn criterion_13_a_cut_shape_has_only_lines_and_the_small_disc_keeps_its_curves()
 #[test]
 fn criterion_13_an_l_and_a_frame_are_cut_along_their_edges() {
     let l = [
-        Region {
-            rect: PxRect::new(0, 0, 500, 1000),
-            subtract: false,
-        },
-        Region {
-            rect: PxRect::new(500, 600, 1000, 1000),
-            subtract: false,
-        },
+        Region::rect(PxRect::new(0, 0, 500, 1000), false),
+        Region::rect(PxRect::new(500, 600, 1000, 1000), false),
     ];
     let frame = [
-        Region {
-            rect: PxRect::new(60, 60, 960, 960),
-            subtract: false,
-        },
-        Region {
-            rect: PxRect::new(120, 120, 900, 900),
-            subtract: true,
-        },
+        Region::rect(PxRect::new(60, 60, 960, 960), false),
+        Region::rect(PxRect::new(120, 120, 900, 900), true),
     ];
     for (regions, label) in [(&l[..], "L"), (&frame[..], "frame")] {
         let clip = clip_of(regions, MaskMode::Inside);
@@ -171,10 +156,7 @@ fn criterion_14_inside_and_outside_of_one_trace_fit_without_gap_or_overlap() {
 
 #[test]
 fn a_mask_off_the_picture_is_a_notice_not_a_trace() {
-    let off = [Region {
-        rect: PxRect::new(2000, 0, 2100, 100),
-        subtract: false,
-    }];
+    let off = [Region::rect(PxRect::new(2000, 0, 2100, 100), false)];
     let p = |mode| plan(&off, mode, full_map(1000), 1000, 1000);
     assert_eq!(
         p(MaskMode::Inside),
@@ -189,23 +171,14 @@ fn a_mask_off_the_picture_is_a_notice_not_a_trace() {
         plan(&[], MaskMode::Inside, full_map(1000), 1000, 1000),
         MaskPlan::Whole
     );
-    let subtracted = [Region {
-        rect: PxRect::new(0, 0, 100, 100),
-        subtract: true,
-    }];
+    let subtracted = [Region::rect(PxRect::new(0, 0, 100, 100), true)];
     assert_eq!(
         plan(&subtracted, MaskMode::Inside, full_map(1000), 1000, 1000),
         MaskPlan::Nothing(tracyo_core::clip::OUTSIDE_IMAGE)
     );
     let all = [
-        Region {
-            rect: PxRect::new(0, 0, 100, 100),
-            subtract: false,
-        },
-        Region {
-            rect: PxRect::new(-5, -5, 200, 200),
-            subtract: true,
-        },
+        Region::rect(PxRect::new(0, 0, 100, 100), false),
+        Region::rect(PxRect::new(-5, -5, 200, 200), true),
     ];
     assert_eq!(
         plan(&all, MaskMode::Inside, full_map(1000), 1000, 1000),
@@ -237,4 +210,97 @@ fn the_saved_svg_of_r1_inside_matches_its_golden_file() {
     assert_eq!(paths.len(), 1, "one layer, one path");
     let area: f64 = out.outlines.iter().map(Shape::area).sum::<f64>().abs();
     assert!(area > 1000.0);
+}
+
+/// Criterion 28 of specification 0002: P1 and the lasso L1 = (0, 0), (600, 0), (0, 1000) px, Inside:
+/// every vertex of a shape cut by the slanted side lies within 0.005 mm of it and no shape lies
+/// outside L1.
+#[test]
+fn criterion_28_a_slanted_lasso_side_cuts_within_five_microns() {
+    use tracyo_core::regions::PxPoint;
+    let l1 = Region::lasso(
+        &[
+            PxPoint::new(0, 0),
+            PxPoint::new(600, 0),
+            PxPoint::new(0, 1000),
+        ],
+        false,
+    )
+    .unwrap();
+    let clip = clip_of(&[l1], MaskMode::Inside);
+    let mut request = request_at(70.0);
+    request.clip = Some(clip);
+    let out = trace(&p1(), &request);
+    let s = 25.4 / 96.0;
+    // The signed distance in mm of (x, y) mm from the slanted side, negative inside.
+    let distance =
+        |p: kurbo::Point| (1000.0 * p.x + 600.0 * p.y - 600_000.0 * s) / 1000.0_f64.hypot(600.0);
+    let all: Vec<kurbo::Point> = out.outlines.iter().flat_map(points).collect();
+    let on_side: Vec<f64> = all
+        .iter()
+        .map(|p| distance(*p))
+        .filter(|d| d.abs() < 0.05)
+        .collect();
+    println!(
+        "{} vertices near the slanted side, worst {:?}",
+        on_side.len(),
+        on_side.iter().map(|d| d.abs()).fold(0.0, f64::max)
+    );
+    assert_eq!(
+        on_side.len(),
+        2,
+        "the side enters and leaves the big disc once each"
+    );
+    assert!(on_side.iter().all(|d| d.abs() <= 0.005), "{on_side:?}");
+    assert!(
+        all.iter()
+            .all(|p| distance(*p) <= 0.005 && p.x >= -0.005 && p.y >= -0.005),
+        "no shape lies outside L1"
+    );
+    // The cut shapes hold only lines.
+    for outline in &out.outlines {
+        let near = points(outline).iter().any(|p| distance(*p).abs() <= 0.005);
+        if near {
+            assert!(
+                !outline
+                    .elements()
+                    .iter()
+                    .any(|e| matches!(e, PathEl::CurveTo(..))),
+                "a cut shape holds only M, L and Z"
+            );
+        }
+    }
+}
+
+/// Inside and Outside of a lasso with a slanted side fit without gap or overlap, as criterion 14.
+#[test]
+fn criterion_14_holds_across_a_slanted_lasso_side() {
+    use tracyo_core::regions::PxPoint;
+    let l1 = Region::lasso(
+        &[
+            PxPoint::new(0, 0),
+            PxPoint::new(600, 0),
+            PxPoint::new(0, 1000),
+        ],
+        false,
+    )
+    .unwrap();
+    let whole = trace(&p1(), &request_at(70.0));
+    let traced_with = |mode| {
+        let mut request = request_at(70.0);
+        request.clip = Some(clip_of(std::slice::from_ref(&l1), mode));
+        trace(&p1(), &request)
+    };
+    let area = |o: &vectrace::wire::Output| common::net_area(&o.outlines).abs();
+    let (a, b) = (
+        traced_with(MaskMode::Inside),
+        traced_with(MaskMode::Outside),
+    );
+    let (sum, all) = (area(&a) + area(&b), area(&whole));
+    println!(
+        "inside {} + outside {} = {sum}, whole {all}",
+        area(&a),
+        area(&b)
+    );
+    assert!((sum - all).abs() <= 0.001 * all);
 }

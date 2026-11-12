@@ -685,10 +685,10 @@ mod tests {
     #[test]
     fn a_parts_request_with_clips_and_cached_wires_round_trips() {
         let clip = Clip::of_regions(
-            &[crate::regions::Region {
-                rect: crate::regions::PxRect::new(0, 0, 50, 80),
-                subtract: false,
-            }],
+            &[crate::regions::Region::rect(
+                crate::regions::PxRect::new(0, 0, 50, 80),
+                false,
+            )],
             crate::regions::MaskMode::Outside,
             vectrace::PixelMap::scale(1.0, 1.0),
         )
@@ -711,6 +711,49 @@ mod tests {
             palette_of: 1,
         });
         assert_eq!(round_request(&r), r);
+    }
+
+    #[test]
+    fn a_clip_of_lassos_with_slanted_sides_round_trips_through_the_worker_protocol() {
+        use crate::regions::{MaskMode, PxPoint, PxRect, Region};
+        let corners = [
+            PxPoint::new(0, 0),
+            PxPoint::new(600, 0),
+            PxPoint::new(0, 1000),
+        ];
+        let regions = [
+            Region::lasso(&corners, false).unwrap(),
+            Region::rect(PxRect::new(100, 100, 200, 200), true),
+        ];
+        let clip = Clip::of_regions(
+            &regions,
+            MaskMode::Inside,
+            vectrace::PixelMap::scale(0.26, 0.26),
+        )
+        .unwrap();
+        let mut request = plain(70);
+        request.clip = clip;
+        assert!(request.clip.is_some());
+        let r = Request::Trace(request);
+        assert_eq!(round_request(&r), r);
+        let parts = Request::TraceParts(TraceParts {
+            jobs: vec![PartJob {
+                part: 1,
+                request: {
+                    let mut p = plain(40);
+                    p.clip = Clip::of_regions(
+                        &regions,
+                        MaskMode::Outside,
+                        vectrace::PixelMap::scale(0.26, 0.26),
+                    )
+                    .unwrap();
+                    p
+                },
+                cached: None,
+            }],
+            palette_of: 0,
+        });
+        assert_eq!(round_request(&parts), parts);
     }
 
     #[test]
@@ -963,14 +1006,8 @@ mod tests {
     fn clip(outside: bool) -> Clip {
         use crate::regions::{MaskMode, PxRect, Region};
         let regions = [
-            Region {
-                rect: PxRect::new(0, 0, 50, 40),
-                subtract: false,
-            },
-            Region {
-                rect: PxRect::new(10, 10, 20, 20),
-                subtract: true,
-            },
+            Region::rect(PxRect::new(0, 0, 50, 40), false),
+            Region::rect(PxRect::new(10, 10, 20, 20), true),
         ];
         let mode = if outside {
             MaskMode::Outside

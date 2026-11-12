@@ -167,10 +167,7 @@ mod tests {
     }
 
     fn mask(x0: i32, y0: i32, x1: i32, y1: i32, mode: MaskMode) -> PartArea {
-        let region = Region {
-            rect: PxRect::new(x0, y0, x1, y1),
-            subtract: false,
-        };
+        let region = Region::rect(PxRect::new(x0, y0, x1, y1), false);
         PartArea::Mask(Clip::of_regions(&[region], mode, map()).unwrap().unwrap())
     }
 

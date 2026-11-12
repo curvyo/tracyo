@@ -25,10 +25,7 @@ fn rings(outlines: &[BezPath]) -> Vec<grid::Path64> {
 
 fn clip(rect: PxRect) -> Clip {
     Clip::of_regions(
-        &[Region {
-            rect,
-            subtract: false,
-        }],
+        &[Region::rect(rect, false)],
         MaskMode::Inside,
         full_map(1000),
     )

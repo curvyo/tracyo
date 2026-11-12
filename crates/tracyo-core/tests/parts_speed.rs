@@ -67,10 +67,7 @@ mod timing {
     }
 
     fn mask(x0: i32, y0: i32, x1: i32, y1: i32) -> PartArea {
-        let region = Region {
-            rect: PxRect::new(x0, y0, x1, y1),
-            subtract: false,
-        };
+        let region = Region::rect(PxRect::new(x0, y0, x1, y1), false);
         let clip = Clip::of_regions(&[region], MaskMode::Inside, pixel_map(WIDTH, WIDTH))
             .unwrap()
             .unwrap();
