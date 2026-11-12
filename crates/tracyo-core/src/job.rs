@@ -1,13 +1,22 @@
 //! Runs one trace of a kept picture with vectrace and reports whole percents.
 
+use std::borrow::Cow;
 use std::ops::ControlFlow;
 
 use vectrace::job::{Job, Mode};
 use vectrace::ocr::{OcrError, OcrLine, OcrModel, read_text};
 use vectrace::{ColourParams, Raster, TraceParams};
 
+use vectrace::PixelMap;
+use vectrace::wire::{self, Output};
+
+use crate::crop::crop_box;
+use crate::join::join;
+use crate::output_wire::to_numbers;
 use crate::picture::{Picture, REDUCED_SIDE};
+use crate::protocol::TraceParts;
 use crate::request::{TraceRequest, pixel_map};
+use crate::stack::PartClip;
 
 /// The numbers of a Multicolour result with no outline and no palette colour (every colour of the
 /// palette was deleted): nothing is traced.
@@ -57,8 +66,9 @@ impl Session {
         )
     }
 
-    /// The trace of `request` as vectrace's numbers; `on_percent` gets each higher whole percent.
-    pub fn run(&mut self, request: &TraceRequest, on_percent: &mut dyn FnMut(u8)) -> Vec<f64> {
+    /// The raster `request` is traced from (the full picture or its reduced copy, cut to the
+    /// crop of its clip) with the map to millimetres.
+    fn raster_of(&mut self, request: &TraceRequest) -> (Cow<'_, Picture>, PixelMap, f64) {
         let full_width = self.full.width;
         let picture = if request.reduced {
             let full = &self.full;
@@ -68,6 +78,50 @@ impl Session {
         } else {
             &self.full
         };
+        let map = pixel_map(full_width, picture.width);
+        let factor = f64::from(picture.width) / f64::from(full_width.max(1));
+        match crop_box(
+            request.clip.as_ref(),
+            request,
+            picture.width,
+            picture.height,
+            map,
+        ) {
+            Some(b) => (
+                Cow::Owned(picture.cropped(&b)),
+                map.compose(PixelMap::translation(kurbo::Vec2::new(
+                    f64::from(b.x0),
+                    f64::from(b.y0),
+                ))),
+                factor,
+            ),
+            None => (Cow::Borrowed(picture), map, factor),
+        }
+    }
+
+    /// How many pixels tracing `request` reads (the weight of its part in the progress).
+    pub fn traced_pixels(&mut self, request: &TraceRequest) -> u64 {
+        if request.reduced {
+            // The crop is cut from the reduced copy; the box needs its size.
+            return self.raster_of(request).0.pixels();
+        }
+        let map = pixel_map(self.full.width, self.full.width);
+        crop_box(
+            request.clip.as_ref(),
+            request,
+            self.full.width,
+            self.full.height,
+            map,
+        )
+        .map_or_else(
+            || self.full.pixels(),
+            |b| u64::from(b.width()) * u64::from(b.height()),
+        )
+    }
+
+    /// The trace of `request` as vectrace's numbers; `on_percent` gets each higher whole percent.
+    pub fn run(&mut self, request: &TraceRequest, on_percent: &mut dyn FnMut(u8)) -> Vec<f64> {
+        let (picture, map, factor) = self.raster_of(request);
         let params = TraceParams {
             selection: request.selection,
             invert: request.invert,
@@ -80,8 +134,8 @@ impl Session {
             fixed: spec.fixed.clone(),
             excluded: spec.excluded.clone(),
         });
-        // The lines are in the full picture's pixels; the reduced copy has fewer of them.
-        let factor = f64::from(picture.width) / f64::from(full_width.max(1));
+        // The lines are in the full picture's pixels (a trace with lines is never cropped); the
+        // reduced copy has fewer of them.
         let lines: Vec<OcrLine> = request.lines.iter().map(|l| l.scaled(factor)).collect();
         let job = Job {
             raster: Raster {
@@ -89,7 +143,7 @@ impl Session {
                 height: picture.height,
                 rgba: &picture.rgba,
             },
-            map: pixel_map(full_width, picture.width),
+            map,
             mode: colour_params
                 .as_ref()
                 .map_or(Mode::Mono(&params), Mode::Colours),
@@ -101,6 +155,75 @@ impl Session {
             shapes: request.shapes,
         };
         vectrace::job::run(&job, on_percent)
+    }
+
+    /// The parts of `parts` traced one after the other and joined: `on_part` gets each part's
+    /// numbers as soon as it is done (a cached part is not traced and not reported), `on_percent`
+    /// each higher whole percent of the whole job, which weighs each traced part by the pixels it
+    /// reads. The result is the numbers of the joined output.
+    pub fn run_parts(
+        &mut self,
+        parts: &TraceParts,
+        on_part: &mut dyn FnMut(u8, &[f64]),
+        on_percent: &mut dyn FnMut(u8),
+    ) -> Vec<f64> {
+        let weights: Vec<u64> = parts
+            .jobs
+            .iter()
+            .map(|j| {
+                if j.cached.is_some() {
+                    0
+                } else {
+                    self.traced_pixels(&j.request)
+                }
+            })
+            .collect();
+        let total: u64 = weights.iter().sum::<u64>().max(1);
+        let mut reached = 0_u8;
+        let mut report = |percent: u8, on_percent: &mut dyn FnMut(u8)| {
+            if percent > reached {
+                reached = percent;
+                on_percent(percent);
+            }
+        };
+        let mut done = 0_u64;
+        let mut wires: Vec<Vec<f64>> = Vec::with_capacity(parts.jobs.len());
+        for (job, &weight) in parts.jobs.iter().zip(&weights) {
+            if let Some(wire) = &job.cached {
+                wires.push(wire.clone());
+                continue;
+            }
+            let mut inner = |p: u8| {
+                // invariant: the sum is at most 99 * total / total.
+                #[allow(clippy::cast_possible_truncation)]
+                let percent = (99 * (done * 100 + weight * u64::from(p)) / (total * 100)) as u8;
+                report(percent.min(99), on_percent);
+            };
+            let wire = self.run(&job.request, &mut inner);
+            on_part(job.part, &wire);
+            wires.push(wire);
+            done += weight;
+        }
+        let outputs: Vec<Option<Output>> = wires.iter().map(|w| wire::read(w)).collect();
+        let joined = if outputs.iter().any(Option::is_none) {
+            vec![2.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+        } else {
+            let outputs: Vec<Output> = outputs.into_iter().flatten().collect();
+            let clips: Vec<PartClip> = parts
+                .jobs
+                .iter()
+                .map(|j| {
+                    j.request
+                        .clip
+                        .clone()
+                        .map_or(PartClip::Whole, PartClip::Region)
+                })
+                .collect();
+            let pairs: Vec<(&Output, &PartClip)> = outputs.iter().zip(&clips).collect();
+            to_numbers(&join(&pairs, usize::from(parts.palette_of)))
+        };
+        report(100, on_percent);
+        joined
     }
 }
 

@@ -108,6 +108,22 @@ impl Picture {
         u64::from(self.width) * u64::from(self.height)
     }
 
+    /// The pixels of the box `b` as a picture of their own.
+    #[must_use]
+    pub fn cropped(&self, b: &crate::crop::PxBox) -> Self {
+        let stride = self.width as usize * 4;
+        let mut rgba = Vec::with_capacity(b.width() as usize * b.height() as usize * 4);
+        for y in b.y0..b.y1 {
+            let start = y as usize * stride + b.x0 as usize * 4;
+            rgba.extend_from_slice(&self.rgba[start..start + b.width() as usize * 4]);
+        }
+        Self {
+            width: b.width(),
+            height: b.height(),
+            rgba,
+        }
+    }
+
     /// A copy whose longest side is at most `longest` pixels: every new pixel is the
     /// area-weighted mean of the pixels it covers, colour weighted by alpha so transparent pixels
     /// lend no colour. A small picture comes back unchanged.

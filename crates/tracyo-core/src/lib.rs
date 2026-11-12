@@ -5,10 +5,14 @@
 
 pub mod analysis;
 pub mod clip;
+pub mod crop;
 pub mod grid;
 pub mod job;
+pub mod join;
 pub mod method;
+pub mod output_wire;
 pub mod palette;
+pub mod parts;
 pub mod picture;
 pub mod progress;
 pub mod protocol;
@@ -17,6 +21,7 @@ pub mod regions;
 pub mod request;
 pub mod settings;
 pub mod shapes;
+pub mod stack;
 pub mod stages;
 pub mod svg;
 pub mod text;
