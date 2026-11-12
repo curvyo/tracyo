@@ -92,6 +92,7 @@ mod tests {
                 selection: vectrace::Selection::Brightness,
                 invert: false,
                 drop_border: false,
+                colours: None,
                 reduced: false,
             })
             .encode(),
@@ -118,6 +119,7 @@ mod tests {
             selection: vectrace::Selection::Brightness,
             invert: false,
             drop_border: false,
+            colours: None,
             reduced: false,
         })
         .encode();

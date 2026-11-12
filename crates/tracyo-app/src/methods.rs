@@ -6,7 +6,9 @@ use std::sync::mpsc::channel;
 use eframe::egui;
 use tracyo_core::analysis::Analysis;
 use tracyo_core::method::Method;
+use tracyo_core::palette;
 use vectrace::Rgb8;
+use vectrace::wire::Palette;
 
 use crate::app::{App, Pipette};
 
@@ -16,6 +18,7 @@ impl App {
     pub(crate) fn set_method(&mut self, ctx: &egui::Context, method: Method) {
         self.settings.method = method.index();
         let Some(doc) = &mut self.doc else { return };
+        doc.values.palette.forget_kept();
         if method == Method::RemoveBackground {
             doc.values.manual_background = None;
         }
@@ -49,6 +52,7 @@ impl App {
             return;
         };
         let armed = self.pipette;
+        let shown = self.shown_palette();
         let Some(doc) = &mut self.doc else { return };
         match armed {
             Pipette::Off => return,
@@ -57,8 +61,44 @@ impl App {
                 self.pipette = Pipette::Off;
             }
             Pipette::Colours => doc.values.pick(colour, add),
+            Pipette::Palette => {
+                doc.values.palette.pick(&shown, colour);
+            }
         }
         self.values_changed(ctx, false);
+    }
+
+    /// The swatches of the Multicolour palette as the maker sees them: fixed colours first, then
+    /// the largest area; after a delete only the colours kept.
+    pub(crate) fn palette_strip(&self) -> Vec<Palette> {
+        let Some(result) = &self.result else {
+            return Vec::new();
+        };
+        let mut row = palette::strip_order(&result.output.palette);
+        if let Some(kept) = self.kept_palette() {
+            row.retain(|e| kept.contains(&e.colour));
+        }
+        row
+    }
+
+    /// The palette after a delete, `None` for the found one (Pick colours has no deletable one).
+    fn kept_palette(&self) -> Option<&Vec<Rgb8>> {
+        let own = Method::from_index(self.settings.method) != Method::PickColours;
+        self.doc
+            .as_ref()?
+            .values
+            .palette
+            .kept
+            .as_ref()
+            .filter(|_| own)
+    }
+
+    /// The colours of the palette a delete or a pick starts from.
+    fn shown_palette(&self) -> Vec<Rgb8> {
+        match self.kept_palette() {
+            Some(kept) => kept.clone(),
+            None => self.palette_strip().iter().map(|p| p.colour).collect(),
+        }
     }
 
     /// Takes the picked colour at `index` out.

@@ -119,7 +119,7 @@ pub fn segmented(
     ui.painter().rect_stroke(
         whole,
         radius(theme::RADIUS_BUTTON),
-        Stroke::new(1.0, theme::BUTTON_BORDER),
+        Stroke::new(1.0, theme::PILL_OUTLINE),
         StrokeKind::Inside,
     );
     chosen
@@ -267,6 +267,86 @@ pub fn swatch_cell(
         );
     }
     (resp, clicked)
+}
+
+/// What a press on a palette swatch did.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CellPress {
+    /// Nothing: a plain click beside the x does nothing.
+    None,
+    /// The press landed on the x: delete the colour.
+    Delete,
+    /// Ctrl+click (Cmd on macOS): exclude the colour or bring it back.
+    ToggleExclude,
+}
+
+/// Half the x glyph with its casing: a press this close to the swatch's centre deletes.
+const X_REACH: f32 = 7.5;
+
+/// One colour of the Multicolour palette: the cell and swatch of a picked colour, an excluded
+/// colour faded with a crossed circle, and the x on hover or focus (a crossed circle with Ctrl
+/// held). A press deletes only on the x; Ctrl+click excludes.
+#[allow(clippy::too_many_arguments)] // a cell is its place, name, colour and two states
+pub fn palette_cell(
+    ui: &mut Ui,
+    icons: &mut Icons,
+    cell: Rect,
+    id: Id,
+    colour: Color32,
+    name: &str,
+    stop: bool,
+    excluded: bool,
+    stale: bool,
+) -> (Response, CellPress) {
+    let sense = if stop { Sense::click() } else { Sense::hover() };
+    let resp = ui.interact(cell, id, sense);
+    let clicked = resp.clicked() || (!stop && released_in(ui, cell));
+    labelled(&resp, Role::Button, name);
+    let swatch_rect = Rect::from_center_size(cell.center(), vec2(20.0, 20.0));
+    let (ctrl, pointer) = ui.input(|i| (i.modifiers.command, i.pointer.interact_pos()));
+    let press = if !clicked {
+        CellPress::None
+    } else if ctrl {
+        CellPress::ToggleExclude
+    } else if pointer.is_some_and(|p| (p - swatch_rect.center()).abs().max_elem() <= X_REACH) {
+        CellPress::Delete
+    } else {
+        CellPress::None
+    };
+    let active = resp.hovered() || (resp.has_focus() && focus_visible(ui.ctx()));
+    // Fading, hover or exclusion at 40 % and an old result at 50 %, each flattened onto the bar.
+    let alpha = if active || excluded { 0.4 } else { 1.0 } * if stale { 0.5 } else { 1.0 };
+    let fade = |c: Color32| if alpha < 1.0 { over_bar(c, alpha) } else { c };
+    ui.painter()
+        .rect_filled(swatch_rect, 4, fade(theme::SWATCH_BORDER));
+    ui.painter()
+        .rect_filled(swatch_rect.shrink(1.0), 3, fade(colour));
+    let glyph = if ctrl {
+        (active || excluded).then_some(Icon::Ban)
+    } else if active {
+        Some(Icon::X)
+    } else {
+        excluded.then_some(Icon::Ban)
+    };
+    if let Some(icon) = glyph {
+        let area = Rect::from_center_size(swatch_rect.center(), vec2(12.0, 12.0));
+        let glyph = if stale {
+            over_bar(theme::TOOLBAR_ICON, 0.5)
+        } else {
+            theme::TOOLBAR_ICON
+        };
+        icons.paint(ui, area, icon, 12.0, 15.0, theme::TOOLBAR_BG);
+        icons.paint(ui, area, icon, 12.0, 3.0, glyph);
+    }
+    if resp.has_focus() && focus_visible(ui.ctx()) {
+        ui.painter().rect_stroke(
+            swatch_rect,
+            4,
+            Stroke::new(2.0, theme::ACCENT),
+            StrokeKind::Outside,
+        );
+    }
+    (resp, press)
 }
 
 /// The expander: a double chevron, with a changed-dot while closed and an Advanced value is off

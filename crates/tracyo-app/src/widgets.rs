@@ -205,6 +205,9 @@ pub enum FieldEvent {
 pub struct FieldState {
     /// The text of an open entry.
     pub entry: Option<String>,
+    /// The text drawn instead of the value's own ("Auto 3" in the Colours field); set by the
+    /// caller before each frame.
+    pub shown: Option<String>,
     pressing: bool,
     just_opened: bool,
 }
@@ -396,7 +399,7 @@ fn paint_field(
         pos2(rect.left() + 8.0, rect.center().y - 10.0),
         vec2(text_width(ui, field.label, &label_font), 20.0),
     );
-    let value_text = field.format(value);
+    let value_text = state.shown.clone().unwrap_or_else(|| field.format(value));
     let unit_width = if field.unit.is_empty() {
         0.0
     } else {
@@ -408,8 +411,8 @@ fn paint_field(
         pos2(value_right - value_width, rect.center().y - 10.0),
         vec2(value_width, 20.0),
     );
-    if !editing {
-        let fraction = field.fraction(value) as f32;
+    let fraction = field.fraction(value) as f32;
+    if !editing && fraction > 0.0 {
         let edge_x =
             (rect.left() + fraction * rect.width()).clamp(inner.left() + 2.0, inner.right());
         let bar = Rect::from_min_max(inner.min, pos2(edge_x, inner.max.y));
@@ -781,8 +784,9 @@ pub fn tooltip(ctx: &egui::Context, resp: &Response, side: Side, lines: &[Line])
         .iter()
         .map(|l| ctx.fonts_mut(|f| f.layout(l.text.clone(), l.font.clone(), l.colour, 240.0)))
         .collect();
+    let heights: Vec<f32> = lines.iter().map(|l| line_height(&l.font)).collect();
     let width = layouts.iter().map(|g| g.size().x).fold(0.0_f32, f32::max) + 16.0;
-    let height = layouts.iter().map(|g| g.size().y).sum::<f32>() + 8.0;
+    let height = heights.iter().sum::<f32>() + 8.0;
     let screen = ctx.content_rect();
     let size = vec2(width, height);
     let anchor = resp.rect;
@@ -820,16 +824,30 @@ pub fn tooltip(ctx: &egui::Context, resp: &Response, side: Side, lines: &[Line])
                 rect,
                 radius(theme::RADIUS_BUTTON),
                 Stroke::new(1.0, theme::POPOVER_RING),
-                StrokeKind::Inside,
+                StrokeKind::Outside,
             );
             let mut y = rect.top() + 4.0;
-            for galley in layouts {
-                let h = galley.size().y;
+            for ((galley, line), source) in layouts.into_iter().zip(heights).zip(lines) {
+                // The 10 px line sits 1 px above the middle of its line box (measured on
+                // `px-10-palette-swatch-hover.png`).
+                let nudge = if source.font.size < 12.0 { -1.0 } else { 0.0 };
+                let lift = ((line - galley.size().y) / 2.0).floor() + nudge;
                 ui.painter()
-                    .galley(pos2(rect.left() + 8.0, y), galley, theme::FOREGROUND);
-                y += h;
+                    .galley(pos2(rect.left() + 8.0, y + lift), galley, theme::FOREGROUND);
+                y += line;
             }
         });
+}
+
+/// The line height of a tooltip line: 20 px for 14 px text, 16 px for 12 px, 13 px for 10 px.
+fn line_height(font: &FontId) -> f32 {
+    if font.size >= 14.0 {
+        20.0
+    } else if font.size >= 12.0 {
+        16.0
+    } else {
+        13.0
+    }
 }
 
 /// Forgets that a tooltip was waiting (call when the pointer is not over `resp`).

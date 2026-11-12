@@ -4,7 +4,9 @@
 
 use std::path::{Path, PathBuf};
 
+use eframe::egui::{Event, Modifiers, PointerButton};
 use egui_kittest::Harness;
+use egui_kittest::kittest::Queryable;
 use tracyo_app::config::Config;
 use tracyo_app::dialogs::Dialogs;
 use tracyo_app::fonts::Source;
@@ -75,4 +77,25 @@ pub fn wait_for_result(harness: &mut Harness<'_, App>, limit: f32) {
         assert!(start.elapsed().as_secs_f32() < limit, "timed out");
         std::thread::sleep(std::time::Duration::from_millis(20));
     }
+}
+
+/// A Ctrl+click (Cmd on macOS) on the control named `label`, its press and release in frames of
+/// their own as a mouse makes them (a queued press and release share one frame and its end
+/// state of the modifiers).
+pub fn ctrl_click(harness: &mut Harness<'_, App>, label: &str) {
+    let at = harness.get_by_label(label).rect().center();
+    harness.event(Event::PointerMoved(at));
+    harness.run_steps(2);
+    harness.event(Event::ModifiersChanged(Modifiers::COMMAND));
+    for pressed in [true, false] {
+        harness.event(Event::PointerButton {
+            pos: at,
+            button: PointerButton::Primary,
+            pressed,
+            modifiers: Modifiers::COMMAND,
+        });
+        harness.run_steps(2);
+    }
+    harness.event(Event::ModifiersChanged(Modifiers::NONE));
+    harness.run_steps(1);
 }

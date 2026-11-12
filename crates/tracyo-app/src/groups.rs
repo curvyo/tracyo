@@ -32,7 +32,7 @@ impl App {
         }
     }
 
-    fn pipette_button(
+    pub(crate) fn pipette_button(
         &mut self,
         ui: &mut egui::Ui,
         ctx: &egui::Context,

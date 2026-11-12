@@ -9,7 +9,7 @@ use eframe::egui::{self, Key, Modifiers, Pos2, Rect, Shape, Stroke, Ui, pos2, ve
 use tracyo_core::analysis::Analysis;
 use tracyo_core::method::{Method, PictureValues};
 use tracyo_core::picture::{Picture, ReadError};
-use tracyo_core::progress::{self, Esc, EscState, Progress};
+use tracyo_core::progress::{self, Esc, EscState, Progress, SaveCase};
 use tracyo_core::request::{self, TraceRequest};
 use tracyo_core::settings::Settings;
 use tracyo_core::svg;
@@ -90,6 +90,8 @@ pub(crate) enum Pipette {
     Background,
     /// Pick colours': replaces the picked colours, Shift adds; stays armed.
     Colours,
+    /// Multicolour's: adds a colour to the palette; stays armed.
+    Palette,
 }
 
 /// The whole application.
@@ -107,9 +109,10 @@ pub struct App {
     pub(crate) result: Option<TraceResult>,
     pub(crate) menu: Option<MenuKind>,
     pub(crate) menu_highlight: usize,
-    pub(crate) fields: [FieldState; 5],
+    pub(crate) fields: [FieldState; 6],
     pub(crate) pipette: Pipette,
     pub(crate) picked_stop: usize,
+    pub(crate) palette_stop: usize,
     pub(crate) analysing: Option<Receiver<Analysis>>,
     pub(crate) notice: Option<Notice>,
     pub(crate) bar_bottom: f32,
@@ -151,6 +154,7 @@ impl App {
             fields: Default::default(),
             pipette: Pipette::Off,
             picked_stop: 0,
+            palette_stop: 0,
             analysing: None,
             notice: None,
             bar_bottom: BAR_POS.y + 36.0,
@@ -237,6 +241,12 @@ impl App {
     #[must_use]
     pub fn picture_values(&self) -> Option<&PictureValues> {
         self.doc.as_ref().map(|d| &d.values)
+    }
+
+    /// The colours of the Multicolour palette's swatches, in the order they are shown.
+    #[must_use]
+    pub fn palette_colours(&self) -> Vec<vectrace::Rgb8> {
+        self.palette_strip().iter().map(|p| p.colour).collect()
     }
 
     /// Whether a pipette is armed on the canvas.
@@ -370,6 +380,10 @@ impl App {
     /// `for_saving` traces the full picture and shows the progress at once.
     pub(crate) fn start_trace(&mut self, ctx: &egui::Context, dragging: bool, for_saving: bool) {
         let Some(doc) = &self.doc else { return };
+        if doc.values.palette_deleted(&self.settings) {
+            self.trace_nothing(ctx);
+            return;
+        }
         let reduced = request::use_reduced(&doc.picture, dragging, for_saving);
         let req = TraceRequest {
             threshold: doc.values.threshold,
@@ -379,6 +393,7 @@ impl App {
                 .selection(&self.settings, doc.analysis.suggested_background),
             invert: doc.values.invert,
             drop_border: doc.values.drop_border,
+            colours: doc.values.colour_spec(&self.settings),
             reduced,
         };
         self.last_request_reduced = reduced;
@@ -395,6 +410,16 @@ impl App {
             result.stale = true;
         }
         ctx.request_repaint();
+    }
+
+    /// Every colour of the palette was deleted: nothing is traced, the result is empty at once.
+    fn trace_nothing(&mut self, ctx: &egui::Context) {
+        self.runner.stop();
+        self.job_counter += 1;
+        self.progress.clear();
+        self.pending_save = None;
+        self.last_request_reduced = false;
+        self.finish_trace(ctx, &tracyo_core::job::empty_colour_wire());
     }
 
     pub(crate) fn stop_trace(&mut self) {
@@ -433,9 +458,13 @@ impl App {
         };
         let reason = progress::nothing_to_save(
             &output,
-            doc.picture.pixels(),
-            Method::from_index(self.settings.method),
-            doc.values.swatches.len(),
+            &SaveCase {
+                picture_pixels: doc.picture.pixels(),
+                method: Method::from_index(self.settings.method),
+                picked: doc.values.swatches.len(),
+                multicolour: self.settings.multicolour,
+                palette_deleted: doc.values.palette_deleted(&self.settings),
+            },
         );
         let preview = Preview::new(&output.outlines);
         let now = self.now();
@@ -487,7 +516,7 @@ impl App {
         let text = svg::write(&svg::Document {
             width_px: doc.picture.width,
             height_px: doc.picture.height,
-            outlines: &result.output.outlines,
+            layers: &svg::layers_of(&result.output),
         });
         match config::write_atomic(path, text.as_bytes()) {
             Ok(()) => {

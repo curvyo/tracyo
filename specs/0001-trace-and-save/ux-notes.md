@@ -184,7 +184,7 @@ double-click to type" (70 %), opening to the **left** of the field.
 | Stop | `X` inside the blue button | "Stop (Esc)" | | | "Stop (Esc)" |
 | Retry | "Retry" | "Retry" | | | none; the "Stopped" text has "Preview is out of date", "Failed" has the failure sentence |
 | Output | "Single colour" \| "Multicolour" | "Output" | Single colour (remembered) | | none |
-| Colours | "Colours" … "Auto  3" (count muted `#5A5A5F` after two spaces) | "Colours" | Auto | Auto, 2 to 16, step 1, Shift 4; 120 px wide | value-field tip |
+| Colours | "Colours" … "Auto 3" (one space, one colour: the reference renders it so; a bar at 0 draws no bar and no edge) | "Colours" | Auto | Auto, 2 to 16, step 1, Shift 4; 120 px wide; with Pick colours dimmed, showing the number of picked colours | value-field tip |
 | Palette pipette | `Pipette` | "Pick palette colour from the image" | | | "Pick a colour from the image" |
 | Palette swatch | 20 px colour | "#4B392F · Brown" (", excluded") | | | "#4B392F · Brown" and, 10 px, "Ctrl+click: exclude" (Cmd on macOS; Curvyo's text, kept) |
 | Invert | `Contrast` | "Invert" | off at every start | | "Invert" |
@@ -210,7 +210,7 @@ Method second lines: "Dark and light pixels by a cut-off.", "Everything unlike t
 | Icon button 28 x 28 (About, pipettes, toggles, expander) | no ground, glyph 16 px `#3A3A3F` | ground `#B9C6E3`, radius 8 | ground `#2F6FEE`, glyph white | ring 2 + gap 1 |
 | Preset, Method | 1 px `#9B9BA0` border, radius 8, text 14 px left at 8 px, chevron 10 px right at 8 px, text truncated with "…" | ground `#B9C6E3` | menu open: same as hover | ring 2, no gap |
 | Text button (Auto, empty-state "Open image…") | no border, 8 px side padding, 14 px | ground `#B9C6E3` | Auto on: `#2F6FEE` / white | ring 2, no gap |
-| Segmented (Output, Denoise, Upscale) | 1 px `#9B9BA0` outline inside, radius 8, segments min 28 px, 8 px padding (Output 6 px), no gaps | segment ground `#B9C6E3` | segment `#2F6FEE` / white (corner segments clipped to the radius) | ring 2 inside the segment; one Tab stop, arrows move and select, no wrap |
+| Segmented (Output, Denoise, Upscale) | 1 px outline inside in `#3A3A3F` at 40 % drawn over the segments too (`#9B9BA0` on the bar, darker blue over the selected segment), radius 8, segments min 28 px, 8 px padding (Output 6 px), no gaps | segment ground `#B9C6E3` | segment `#2F6FEE` / white (corner segments clipped to the radius) | ring 2 inside the segment; one Tab stop, arrows move and select, no wrap |
 | Value field | white, 1 px `#89898C`, radius 5; label at 8 px left; value 8 px from the right, unit 4 px after it in `#5A5A5F`; bar `#C5D7FA` from the left to the value with a 2 px `#2F6FEE` right edge; where the edge would cross the label or value text only its top and bottom 6 px are drawn | border `#3A3A3F`; cursor ew-resize | while dragged: centred 12 px word "coarse" (Shift) or "fine" (Ctrl) in `#5A5A5F`; cursor ew-resize everywhere until release | ring 2 + gap 1 |
 | Value field typing (double-click, Enter, F2, a digit) | white, 1 px `#2F6FEE` border plus 1 px inset `#2F6FEE`, label stays left, number right-aligned before the unit, all selected (`#3367D1` / white) | | | Enter or Tab commit, Escape restores |
 | Blue button | `#2F6FEE`, white 14 px, radius 8, 12 px padding | `#347AFF` | | ring 2 + gap 1 |
@@ -249,7 +249,7 @@ centre zoom "100%", right "640 × 420 px" **(Proposal: Curvyo's bar with picture
 
 | Surface | Look |
 |---|---|
-| Tooltip | `#FFFFFF`, text `#0A0A0A` 12/16, radius 8, padding 4 x 8, 1 px ring `#E7E7E7`, max 256 px wide, no shadow, 400 ms, below the control 8 px (value fields: left); flips when it would leave the window |
+| Tooltip | `#FFFFFF`, text `#0A0A0A` 12/16, radius 8, padding 4 x 8, 1 px ring outside the box in `#0A0A0A` at 10 % (`px-10`), max 256 px wide, no shadow, 400 ms, below the control 8 px (value fields: left); flips when it would leave the window. A second line of 10 px text sits in a 13 px line, 1 px above its middle |
 | Notice slot | centred in the canvas right of x = 60, 12 px above the canvas bottom; `#DCDCE0`, radius 8, padding 8, 12 px, shadow; status: `#3A3A3F`, 3 s (5 s above 70 characters); alert: text `#B3261E`, plus 1 px `#B3261E` ring, 8 s; the next notice replaces it; no controls, no focus |
 | About panel | 280 px, `#DCDCE0`, 1 px `#B4B4B8` line on its canvas side; header 12 px from the top: "About Tracyo" 14 px `#3A3A3F` weight 400; 8 px; body 12 px side padding, 244 px text: intro 14 px `#3A3A3F`, 12 px, entries 12 px apart, term 14 px weight 600 `#3A3A3F`, text 14 px `#5A5A5F`, 4 px between; scrolls with a thin bar when long. Content per spec criterion 26. Opened and closed only by "i" (pressed while open); Esc in the panel returns focus to the canvas and leaves it open (Curvyo) **(Proposal: a docked panel, not a separate window)** |
 
@@ -377,8 +377,8 @@ ring. **Drop cue colour:** Curvyo's code uses `var(--accent)`, which is shadcn's
    toggles). `tests/pixels.rs` compares each control that exists where it is, region by region,
    each with the tolerance of step 3: the first row or both rows, the divider, Invert and Drop
    border shapes (px-03 only), Denoise to Corners (shifted by the missing controls: 241 px in
-   px-03, 469 px with the Multicolour row), the gap, Analyse. A later slice adds the Output pill
-   and the toggles and replaces the shifted regions with whole rows. The tests that need the
+   px-03, 469 px with the Multicolour row), the gap, Analyse. Slice 3 added the Output pill,
+   Colours and the palette; only the two Recognise toggles (slice 4) are still skipped (64 px, Denoise to Analyse shifted by them). The tests that need the
    reference's 1164 px cap run in a 1248 px window (section 3.3).
 
 ## 13. Differences from Curvyo and from the spec draft (for the lead)

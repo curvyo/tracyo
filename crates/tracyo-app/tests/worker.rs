@@ -40,6 +40,7 @@ fn request() -> TraceRequest {
         selection: vectrace::Selection::Brightness,
         invert: false,
         drop_border: false,
+        colours: None,
         reduced: false,
     }
 }

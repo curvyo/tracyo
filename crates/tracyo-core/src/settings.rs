@@ -92,6 +92,18 @@ pub const COLOUR_TOLERANCE: Field = Field {
     decimals: 0,
 };
 
+/// The Colours field of Multicolour: position 1 is Auto, 2 to 16 a count.
+pub const COLOURS: Field = Field {
+    label: "Colours",
+    unit: "",
+    min: 1.0,
+    max: 16.0,
+    step: 1.0,
+    big_step: 4.0,
+    fine_step: 1.0,
+    decimals: 0,
+};
+
 /// How far a key press moves a value.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Stride {
@@ -175,8 +187,8 @@ pub fn percent_of_luma(luma: u8) -> f64 {
     (f64::from(luma) * 100.0 / 255.0 + 0.5).floor()
 }
 
-/// The values the settings file remembers (spec criterion 18; Output, Colours and the two
-/// Recognise switches arrive with the slices that have them).
+/// The values the settings file remembers (spec criterion 18; the two Recognise switches arrive
+/// with the slice that has them).
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Settings {
@@ -198,6 +210,10 @@ pub struct Settings {
     pub remove_tolerance: u8,
     /// The Colour tolerance of Pick colours.
     pub pick_tolerance: u8,
+    /// Output: `true` is Multicolour, `false` Single colour.
+    pub multicolour: bool,
+    /// Colours of Multicolour: 0 is Auto, else 2 to 16.
+    pub colours: u8,
     /// Whether the Advanced block is open.
     pub advanced_open: bool,
     /// The window size in logical points at the last exit.
@@ -222,6 +238,8 @@ impl Settings {
             method: 0,
             remove_tolerance: vectrace::DEFAULT_BACKGROUND_TOLERANCE,
             pick_tolerance: vectrace::DEFAULT_PICK_TOLERANCE,
+            multicolour: false,
+            colours: 0,
             advanced_open: false,
             window: None,
         }
@@ -279,11 +297,32 @@ impl Settings {
             method: self.method.min(2),
             remove_tolerance: self.remove_tolerance.min(100),
             pick_tolerance: self.pick_tolerance.min(100),
+            multicolour: self.multicolour,
+            colours: if self.colours < 2 {
+                0
+            } else {
+                self.colours.min(16)
+            },
             advanced_open: self.advanced_open,
             window: self
                 .window
                 .filter(|[w, h]| w.is_finite() && h.is_finite() && *w >= 100.0 && *h >= 100.0),
         }
+    }
+
+    /// The Colours field's position: 1 for Auto, else the count.
+    #[must_use]
+    pub fn colours_position(&self) -> f64 {
+        f64::from(self.colours.max(1))
+    }
+
+    /// Sets Colours from a field position (1 and below is Auto).
+    pub fn set_colours_position(&mut self, position: f64) {
+        let clamped = COLOURS.clamp(position);
+        // invariant: clamped into 1..=16 above.
+        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+        let whole = clamped.round() as u8;
+        self.colours = if whole < 2 { 0 } else { whole };
     }
 
     /// The tracer's values for `threshold` (a luma 0 to 255).
@@ -589,5 +628,66 @@ mod tests {
             (0.0, 100.0, 10.0)
         );
         assert_eq!(COLOUR_TOLERANCE.label, "Colour tolerance");
+    }
+
+    #[test]
+    fn colours_start_at_auto_in_single_colour_and_survive_the_file() {
+        let s = Settings::default();
+        assert_eq!((s.multicolour, s.colours), (false, 0));
+        let set = Settings {
+            multicolour: true,
+            colours: 5,
+            ..Settings::default()
+        };
+        assert_eq!(Settings::from_toml(&set.to_toml()), set);
+    }
+
+    #[test]
+    fn the_colours_field_runs_from_auto_at_one_to_sixteen() {
+        assert_eq!(
+            (COLOURS.min, COLOURS.max, COLOURS.step, COLOURS.big_step),
+            (1.0, 16.0, 1.0, 4.0)
+        );
+        let mut s = Settings::default();
+        assert_eq!(s.colours_position(), 1.0);
+        s.set_colours_position(6.0);
+        assert_eq!((s.colours, s.colours_position()), (6, 6.0));
+        s.set_colours_position(1.0);
+        assert_eq!(s.colours, 0, "the lowest stop is Auto");
+        s.set_colours_position(40.0);
+        assert_eq!(s.colours, 16);
+        s.set_colours_position(f64::NAN);
+        assert_eq!(s.colours, 0);
+    }
+
+    #[test]
+    fn a_colour_count_in_the_file_is_clamped_and_one_means_auto() {
+        assert_eq!(
+            Settings::from_toml(
+                "colours = 99
+"
+            )
+            .colours,
+            16
+        );
+        assert_eq!(
+            Settings::from_toml(
+                "colours = 1
+"
+            )
+            .colours,
+            0
+        );
+    }
+
+    #[test]
+    fn a_preset_keeps_output_and_colours() {
+        let s = Settings {
+            multicolour: true,
+            colours: 7,
+            ..Settings::default()
+        };
+        let p = s.with_preset(2);
+        assert_eq!((p.multicolour, p.colours), (true, 7));
     }
 }

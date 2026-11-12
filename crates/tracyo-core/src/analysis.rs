@@ -58,6 +58,9 @@ impl Analysis {
         if Method::from_index(settings.method) == Method::PickColours {
             return;
         }
+        if settings.method != self.method.index() {
+            values.palette.forget_kept();
+        }
         settings.method = self.method.index();
         if self.method == Method::RemoveBackground {
             values.manual_background = None;
@@ -175,5 +178,23 @@ mod tests {
         a.apply(&mut s, &mut v);
         assert_eq!((s.method, s.remove_tolerance, v.threshold), (2, 40, 77));
         assert_eq!(v.swatches.len(), 1);
+    }
+
+    #[test]
+    fn a_new_method_forgets_a_deleted_palette() {
+        let mut settings = Settings::default();
+        let mut values = PictureValues::new(1);
+        values.palette.kept = Some(vec![Rgb8::new(1, 2, 3)]);
+        let remove = Analysis {
+            suggested_background: None,
+            method: Method::RemoveBackground,
+            threshold: 100,
+            tolerance: 30,
+        };
+        remove.apply(&mut settings, &mut values);
+        assert_eq!(values.palette.kept, None);
+        values.palette.kept = Some(vec![Rgb8::new(1, 2, 3)]);
+        remove.apply(&mut settings, &mut values);
+        assert!(values.palette.kept.is_some(), "the method did not change");
     }
 }

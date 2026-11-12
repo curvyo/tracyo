@@ -110,10 +110,12 @@ pub fn block_height(rows: f32) -> f32 {
     4.0 + 1.0 + 4.0 + rows * ROW + 4.0
 }
 
-pub(crate) fn field_tip(field: &Field, value: f64) -> Vec<Line> {
+/// The tooltip of a value field; `shown` is the text the field draws instead of the value's own.
+pub(crate) fn field_tip(field: &Field, value: f64, shown: Option<&str>) -> Vec<Line> {
+    let text = shown.map_or_else(|| field.format(value), str::to_owned);
     vec![
         Line {
-            text: format!("{}: {} {}", field.label, field.format(value), field.unit)
+            text: format!("{}: {} {}", field.label, text, field.unit)
                 .trim_end()
                 .to_owned(),
             font: theme::text12(),
@@ -146,7 +148,12 @@ pub(crate) fn field_widget(
     state: &mut widgets::FieldState,
 ) -> Option<(f64, bool)> {
     let (event, resp) = widgets::value_field(ui, rect, bar_id(name), field, value, state);
-    widgets::tooltip(ctx, &resp, Side::Left, &field_tip(field, value));
+    widgets::tooltip(
+        ctx,
+        &resp,
+        Side::Left,
+        &field_tip(field, value, state.shown.as_deref()),
+    );
     widgets::reset_tooltip(ctx, &resp);
     match event {
         FieldEvent::Set { value, dragging } => Some((value, dragging)),
@@ -215,7 +222,7 @@ impl App {
                 let open = self.settings.advanced_open;
                 let layout = flow(&widths, 28.0 + PAD + blue_w, max_inner, open);
                 let inner = layout.size.x - 2.0 * PAD;
-                let block = open.then(|| Self::block_layout(ui, inner));
+                let block = open.then(|| self.block_layout(ui, inner));
                 let height = layout.size.y + block.as_ref().map_or(0.0, |b| block_height(b.rows));
                 let (bar, _) =
                     ui.allocate_exact_size(vec2(layout.size.x, height), egui::Sense::hover());
@@ -662,5 +669,14 @@ mod tests {
         let narrow = block_flow(&widths, 75.0, 500.0);
         assert!(narrow.rows > 1.0);
         assert!(narrow.items.iter().all(|p| p.x + 150.0 <= 500.0 + 40.0));
+    }
+
+    #[test]
+    fn the_colours_tooltip_names_what_the_field_shows() {
+        let tip = field_tip(&settings::COLOURS, 1.0, Some("Auto 3"));
+        assert_eq!(tip[0].text, "Colours: Auto 3");
+        assert_eq!(tip[1].text, "Click to set, double-click to type");
+        let plain = field_tip(&settings::SMOOTH, 80.0, None);
+        assert_eq!(plain[0].text, "Smooth: 80");
     }
 }

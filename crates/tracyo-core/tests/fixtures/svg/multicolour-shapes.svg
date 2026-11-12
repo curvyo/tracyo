@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape" xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd" version="1.1" width="42.333mm" height="31.75mm" viewBox="0 0 42.333 31.75">
+  <sodipodi:namedview inkscape:document-units="mm"/>
+  <g inkscape:groupmode="layer" inkscape:label="#C8102E" id="layer1">
+    <path id="path1" fill="#C8102E" fill-rule="evenodd" stroke="none" d="M 2.646 2.646 L 23.812 2.646 L 23.812 23.812 L 2.646 23.812 L 2.646 2.646 Z M 9.26 9.26 L 9.26 17.198 L 17.198 17.198 L 17.198 9.26 L 9.26 9.26 Z"/>
+  </g>
+  <g inkscape:groupmode="layer" inkscape:label="#2B4C9B" id="layer2">
+    <path id="path2" fill="#2B4C9B" fill-rule="evenodd" stroke="none" d="M 26.458 2.646 L 37.042 2.646 L 37.042 13.229 L 26.458 13.229 L 26.458 2.646 Z"/>
+  </g>
+  <g inkscape:groupmode="layer" inkscape:label="#1E783C" id="layer3">
+    <path id="path3" fill="#1E783C" fill-rule="evenodd" stroke="none" d="M 26.458 18.521 L 34.396 18.521 L 34.396 26.458 L 26.458 26.458 L 26.458 18.521 Z"/>
+  </g>
+</svg>
