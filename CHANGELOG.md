@@ -4,7 +4,7 @@ All notable changes, newest first. The format follows [Keep a Changelog](https:/
 
 ## [Unreleased]
 
-First release, `0.1.0`.
+First release, `0.1.0`. Polygons and stars are saved as `<polygon>` and Inkscape stars, and vectrace 0.1.1 recognises a thin ellipse ring as one stroked ellipse.
 
 ### Added
 

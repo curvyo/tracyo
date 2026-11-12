@@ -8,7 +8,7 @@
     <rect id="rect1" x="2.646" y="2.646" width="15.875" height="10.583" rx="0" ry="0" fill="#000000" stroke="none"/>
     <circle id="circle1" cx="29.104" cy="7.938" r="5.283" fill="#000000" stroke="none"/>
     <ellipse id="ellipse1" cx="47.625" cy="7.938" rx="7.885" ry="3.993" transform="rotate(-0.099 47.625 7.938)" fill="#000000" stroke="none"/>
-    <circle id="circle2" cx="29.104" cy="34.396" r="7.41" fill="none" stroke="#000000" stroke-width="2.09" stroke-linejoin="miter"/>
+    <circle id="circle2" cx="29.104" cy="34.396" r="7.41" fill="none" stroke="#000000" stroke-width="2.089" stroke-linejoin="miter"/>
     <path id="star1" sodipodi:type="star" sodipodi:cx="10.586" sodipodi:cy="34.397" sodipodi:r1="8.434" sodipodi:r2="3.797" sodipodi:arg1="-0.314" sodipodi:arg2="0.314" sodipodi:sides="5" inkscape:flatsided="false" inkscape:rounded="0" inkscape:randomized="0" fill="#000000" stroke="none" d="M 18.607 31.79 L 14.197 35.57 L 15.544 41.22 L 10.587 38.195 L 5.63 41.221 L 6.975 35.571 L 2.564 31.792 L 8.354 31.326 L 10.585 25.963 L 12.817 31.325 Z"/>
     <rect id="rect2" x="73.567" y="37.58" width="11.617" height="4.214" rx="0" ry="0" transform="rotate(29.942 79.375 39.688)" fill="#000000" stroke="none"/>
   </g>
