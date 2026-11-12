@@ -19,7 +19,7 @@ with its size in mm. Method is Brightness only; no Advanced block yet.
 - [x] `svg`: frame, namedview, one `#000000` layer, path, numbers; goldens, XML-structure test, resvg coverage test (ADR 0005) — 20a-e, 20h, 21 (automatic)
 - [x] App: window and title, open card, empty state, canvas (pan, zoom, fit, tiles), preview meshes, bar with About button (no panel yet), Preset (menu), Method button (Brightness), value fields, expander placeholder hidden, blue button states; theme tokens and fonts (ADR 0003) — 1, 3, 5, 6 (outline), 10, 11, 13, 19, 22
 - [x] Dialogs (rfd) and atomic write; save traces the full picture first — 19
-- [x] kittest end-to-end (open by argument, trace, stop, retry, save), frame-budget CPU-time test, OOM test, `unshare -n` session test, Xvfb start test — 7, 8, 19, 23b, 24
+- [x] kittest end-to-end (open by argument, trace, stop, retry, save), frame-budget CPU-time test (timed in release, CI job `perf`), OOM test, `unshare -n` session test, Xvfb start test — 7, 8, 19, 23b, 24
 - [x] Pixel tests: px-00, px-01, px-02 (bar), px-05 (bar left of the blue button) and px-08 (menu), Rust port of `compare.py` with its self-tests (ux §12) — see the notes below
 - [x] Pixel tests px-06, px-07 and px-13: their references have the Advanced block open; done with slice 2, when the block exists (see the slice 2 notes)
 

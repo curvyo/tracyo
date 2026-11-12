@@ -77,6 +77,24 @@ jobs:
           timeout 5 xvfb-run -a target/debug/tracyo || status=$?
           test "$status" -eq 124
 
+  # The frame budget (criterion 7, 50 ms of UI-thread CPU time) is timed in release only: the
+  # debug test is ignored (`heavy.rs`). Same system packages as `test`, release build.
+  perf:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - name: System packages (software GL for wgpu, Xvfb, Liberation fonts)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y mesa-vulkan-drivers libegl1 xvfb fonts-liberation libxkbcommon-x11-0 libxcb-cursor0 jq
+      - name: Rust toolchain (from rust-toolchain.toml)
+        run: rustup show
+      - uses: Swatinem/rust-cache@v2
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-nextest
+      - run: cargo nextest run --release -p tracyo-app --test heavy --status-level fail
+
   doc:
     runs-on: ubuntu-24.04
     steps:
@@ -127,7 +145,7 @@ jobs:
 
   required:
     if: always()
-    needs: [fmt, clippy, test, doc, deny, msrv, machete, typos]
+    needs: [fmt, clippy, test, perf, doc, deny, msrv, machete, typos]
     runs-on: ubuntu-24.04
     steps:
       - name: Every needed job succeeded

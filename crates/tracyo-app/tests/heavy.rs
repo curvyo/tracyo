@@ -1,5 +1,6 @@
 //! Tests with a 12 Mpx picture: the UI thread's frame budget and running out of memory.
-//! They run alone (`.config/nextest.toml`).
+//! They run alone (`.config/nextest.toml`). The frame budget is timed in release only: debug
+//! builds are too slow for it and run it ignored (`ci.yml` job `perf`).
 
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
@@ -39,6 +40,10 @@ fn thread_cpu() -> std::time::Duration {
 /// while it opens, while it traces and while it is panned; never wall time.
 #[cfg(unix)]
 #[test]
+#[cfg_attr(
+    debug_assertions,
+    ignore = "timing: measured in release, see ci.yml job perf"
+)]
 fn a_frame_on_a_12_mpx_picture_stays_under_50_ms_of_cpu_time() {
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("big.png");

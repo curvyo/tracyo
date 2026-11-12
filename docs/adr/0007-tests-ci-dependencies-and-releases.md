@@ -37,8 +37,9 @@ PNG with Mesa llvmpipe through EGL, without an X server or a Vulkan driver.
    fail) are tests too. The rendered pictures and diffs are kept as CI artefacts. Linux only.
 4. **Frame budget** (criterion 7): a test traces a 12 Mpx picture in the worker and measures the
    UI thread's CPU time per `harness.step()` with `CLOCK_THREAD_CPUTIME_ID` (`rustix`, dev, unix),
-   never wall time. **Out of memory** (criterion 24): the worker is started under `prlimit --as`
-   in a Linux test and the app must show "Failed" with "out of memory".
+   never wall time. The budget (50 ms) is timed in release only: the test is `ignore`d in debug builds
+   (`cfg_attr(debug_assertions)`) and CI job `perf` runs it with `cargo nextest run --release`.
+   **Out of memory** (criterion 24): the worker is started under `prlimit --as` in a Linux test and the app must show "Failed" with "out of memory".
 5. **No network** (criterion 23): (a) `deny.toml` bans HTTP, TLS and browser-opening crates
    (`reqwest`, `hyper`, `ureq`, `ehttp`, `rustls`, `native-tls`, `openssl`, `openssl-sys`,
    `webbrowser`; `open` only as a dependency of `egui_kittest`). Local IPC (X11, Wayland, D-Bus
@@ -56,7 +57,8 @@ PNG with Mesa llvmpipe through EGL, without an X server or a Vulkan driver.
    `cargo deny check licenses bans sources` with exactly this list, every licence encountered.
 7. **CI** (`.github/workflows/`): `ci.yml` on every pull request and push to `main`, ubuntu-24.04:
    install Mesa (`mesa-vulkan-drivers libegl1`), Xvfb and Liberation fonts; the gate of `CLAUDE.md`
-   (fmt, clippy, nextest incl. kittest and pixel tests, deny, doc), the `unshare -n` session test,
+   (fmt, clippy, nextest incl. kittest and pixel tests, deny, doc), job `perf` (the release run of
+   the frame budget, same system packages), the `unshare -n` session test,
    and a start smoke test (`timeout 5 xvfb-run target/debug/tracyo` must end by the timeout, not by
    an error). `nightly.yml`: windows-latest and macos-latest build, clippy and nextest without the
    pixel and Linux-only tests. Toolchain from `rust-toolchain.toml` (1.99.0), `Swatinem/rust-cache`.
