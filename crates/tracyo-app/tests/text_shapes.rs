@@ -28,7 +28,7 @@ fn dialogs(save: Option<PathBuf>) -> Dialogs {
 /// The app with `picture` open and settled, the Advanced block open.
 fn opened<'a>(dir: &Path, picture: PathBuf, save: Option<PathBuf>) -> Harness<'a, App> {
     let mut h = common::harness(dir, Some(picture), dialogs(save));
-    common::wait_until(&mut h, 120.0, App::has_result);
+    common::wait_for_result(&mut h, 120.0);
     h.run_steps(3);
     if h.query_by_label("More trace options").is_some() {
         h.get_by_label("More trace options").click();
@@ -38,7 +38,7 @@ fn opened<'a>(dir: &Path, picture: PathBuf, save: Option<PathBuf>) -> Harness<'a
 }
 
 fn settle(h: &mut Harness<'_, App>) {
-    common::wait_until(h, 120.0, App::has_result);
+    common::wait_for_result(h, 120.0);
     h.run_steps(3);
 }
 

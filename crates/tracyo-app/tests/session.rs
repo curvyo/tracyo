@@ -63,7 +63,7 @@ fn open_read_text_recognise_shapes_and_save() {
             save: Some(target.clone()),
         },
     );
-    common::wait_until(&mut h, 240.0, App::has_result);
+    common::wait_for_result(&mut h, 240.0);
     let (texts, _) = h.state().recognised();
     assert!(texts >= 3, "{texts} text lines set");
     h.get_by_label("Save as\u{2026}").click();

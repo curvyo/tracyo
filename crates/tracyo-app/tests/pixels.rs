@@ -193,7 +193,7 @@ fn choose_multicolour(h: &mut Harness<'_, App>) {
 fn exclude_second(h: &mut Harness<'_, App>) {
     let name = swatch(h, 1, false);
     common::ctrl_click(h, &name);
-    common::wait_until(h, 60.0, App::has_result);
+    common::wait_for_result(h, 60.0);
     h.remove_cursor();
     h.run_steps(3);
 }
