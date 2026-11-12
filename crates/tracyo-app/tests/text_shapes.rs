@@ -150,6 +150,7 @@ fn recognise_text_reads_once_and_the_file_has_text_elements() {
         read_again |= h.state().is_reading();
         std::thread::sleep(std::time::Duration::from_millis(10));
     }
+    common::wait_for_result(&mut h, 60.0);
     assert!(!read_again);
     assert!(h.state().recognised().0 >= 3, "the lines are still set");
 
