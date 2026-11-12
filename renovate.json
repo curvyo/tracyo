@@ -14,6 +14,12 @@
       "groupName": "vectrace"
     },
     {
+      "description": "the geometry kernel is pinned exactly (ADR 0008): its bump stands alone, never merges by itself, and reruns the property tests",
+      "matchPackageNames": ["i_overlay"],
+      "groupName": "i_overlay",
+      "automerge": false
+    },
+    {
       "description": "the toolchain file stands alone",
       "matchFileNames": ["rust-toolchain.toml"],
       "groupName": "toolchain"

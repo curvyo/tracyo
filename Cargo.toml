@@ -16,6 +16,8 @@ image = { version = "0.25", default-features = false, features = ["png", "jpeg",
 serde = { version = "1", features = ["derive"] }
 toml = "1"
 thiserror = "2"
+# Exact pin (ADR 0008): the same version as Curvyo's geometry kernel; Renovate bumps it alone.
+i_overlay = { version = "=9.0.1", default-features = false }
 
 [workspace.lints.rust]
 unsafe_code = "forbid"
