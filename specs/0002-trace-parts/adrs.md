@@ -11,9 +11,9 @@ a `needs-customer` decision.
 | [0003](../../docs/adr/0003-ui-stack-and-look.md) | egui look of the Mask group, the Parts row and the canvas glyphs; new lucide icons rasterised as before |
 | [0004](../../docs/adr/0004-trace-worker-process.md) | criteria 20, 21: still one worker process, killed to cancel; ADR 0008 §4 extends §2 (requests `TraceParts`, reply `PartWire`), §3 (the app keeps part results across a kill) and §5 (reduced copy per part) |
 | [0005](../../docs/adr/0005-inkscape-svg-output.md) | criteria 17, 21: the joined result is written as one result, layers per colour, unchanged writer |
-| [0006](../../docs/adr/0006-bundled-assets.md) | icons `square`, `square-minus`, `plus`, `trash-2` added to `assets/icons/lucide/` with hashes |
+| [0006](../../docs/adr/0006-bundled-assets.md) | icons `square`, `lasso`, `square-minus`, `plus`, `trash-2` added to `assets/icons/lucide/` with hashes |
 | [0007](../../docs/adr/0007-tests-ci-dependencies-and-releases.md) | goldens, kittest, pixel comparison, `perf` job, `deny.toml`; Renovate gets an `i_overlay` rule (alone, no automerge) |
-| [0008](../../docs/adr/0008-trace-parts-cut-and-join.md) | criteria 5, 12 to 16, 18, 20 to 22, 25, 27: cut and join in `tracyo-core` on `i_overlay` `=9.0.1` (0.001 mm grid), rectangle regions with integer pixel corners, the parts state, one worker job with all parts, crop rules, the egui interaction modules, the tests |
+| [0008](../../docs/adr/0008-trace-parts-cut-and-join.md) | criteria 5, 12 to 16, 18, 20 to 22, 25, 27: cut and join in `tracyo-core` on `i_overlay` `=9.0.1` (0.001 mm grid), rectangle and lasso regions with integer pixel corners (non-zero winding for a lasso), the parts state, one worker job with all parts, crop rules, the egui interaction modules, the tests |
 
 ## Notes (too small for an ADR)
 
@@ -39,6 +39,14 @@ over the kept pixels, the background from the kept border pixels, `analyse` on t
 rest transparent). It runs on the analysis thread of debt 6, once per clip, and only fills values the
 maker has not set (Curvyo `0094` slice 2 note).
 
+**2026-11-13, lasso regions and the Mask group in the Parts row (customer).** A region is a rectangle
+or a lasso (ADR 0008 amendment 2026-11-13): the cut, the join, the stack, the crop and the worker
+protocol are unchanged because the clip is already a set of grid polygons; the model gets `Form`, the
+wash becomes triangles, the lasso draft is a core module. The mask is no longer rectilinear. Subtract
+applies to a lasso as it is finished. Esc finishes a lasso in progress first. The Mask group left the
+first row for the Parts row (ux-notes 0002 §2, §3): a layout change only, Open moved into the bar and
+the rail is gone (ADR 0003 amendment 2026-11-13). The property tests run with lasso shapes.
+
 ## Risks
 
 | Risk | Effect | Mitigation |
@@ -48,7 +56,7 @@ maker has not set (Curvyo `0094` slice 2 note).
 | Pieces of two parts with different settings meet the seam at different heights | a visible step at the seam (no gap, no overlap) | expected; the join closes the shared part of the seam; shown at the demo |
 | Cut shapes become polylines | more nodes in the SVG | criterion 13 asks for it; the same as Curvyo |
 | Clips and the wash are computed on the UI thread | a slow frame with many regions | at most 160 rectangles; criterion 27's frame test in the `perf` job |
-| The `px-*` references must be re-captured with Curvyo's dev server | pixel tests cannot run until then | slice 1 task for the ux-engineer; `capture.cjs` change listed in ux-notes §0 |
-| Subtract has no Curvyo reference picture | its look is unverified by pixels | P16 compares it with the bar's own pressed Rectangle (ux-notes §12.2) |
+| The `px-*` references must be re-captured with Curvyo's dev server | pixel tests cannot run until then | done 2026-11-12 and 2026-11-13 (ux-notes §0); the tests compare the whole bar in place in a 1280 x 800 window |
+| Subtract and Lasso have no Curvyo reference picture | their look is a clone of Pick mask paths | P16 and P17 compare them with the cloned rest and pressed looks `px-19`, `px-18` (ux-notes §12.2) |
 | 8 analyses of a 12 Mpx picture on the analysis thread (debt 6) | values arrive late, cannot be stopped | once per clip, cached by clip; debt 6 stays open |
 | Two implementations of cut and join (Curvyo and Tracyo) drift | different results for the same masks | Tracyo's tests port Curvyo's 0094 cases; the later move to vectrace (ADR 0008 Consequences) removes one |

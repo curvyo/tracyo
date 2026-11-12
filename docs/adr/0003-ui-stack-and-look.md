@@ -72,7 +72,7 @@ Full stack with wgpu, vectrace, image, resvg, fontdb and rfd: 19.1 MB, plus 9.9 
 
    | Painted by Tracyo (widgets module) | egui as is |
    |---|---|
-   | Trace bar surface and its flow layout (fixed item widths of ux-notes §3.2, wrap by whole items, last item right-aligned), icon buttons, Preset/Method buttons and menus, value field (bar, edge, drag words), blue button in all states (fill to the percent, x, Stopped/Failed + Retry, dimmed), segmented control, swatch cells, background chip, open card, notice slot, status bar, focus rings (keyboard only), house tooltip anchored below the control | text entry inside a value field (restyled `TextEdit`), `Area` and `Frame` for floating surfaces, scroll area of the About panel and Advanced block, AccessKit names and the live region |
+   | Trace bar surface and its flow layout (fixed item widths of ux-notes §3.2, wrap by whole items, last item right-aligned), icon buttons, Preset/Method buttons and menus, value field (bar, edge, drag words), blue button in all states (fill to the percent, x, Stopped/Failed + Retry, dimmed), segmented control, swatch cells, background chip, notice slot, status bar, focus rings (keyboard only), house tooltip anchored below the control | text entry inside a value field (restyled `TextEdit`), `Area` and `Frame` for floating surfaces, scroll area of the About panel and Advanced block, AccessKit names and the live region |
 
    Group opacity is not available: the flattened colours of ux-notes §2.1 are used. Shadows use
    `epaint::Shadow { offset [0, 2], blur 8, color black α 61 }`.
@@ -87,3 +87,12 @@ Full stack with wgpu, vectrace, image, resvg, fontdb and rfd: 19.1 MB, plus 9.9 
   Tracyo cannot tell this from a cancel. Debt item.
 - Wayland users get X11 windows; dropping files works everywhere.
 - Every look decision is in `theme`; a ux change touches one module.
+
+## Amendment 2026-11-13: no tool rail, Open in the bar, the bar centred
+
+Customer decision: the left toolbox is gone for good. The Open card and the 72 px column of items 9
+and 11 no longer exist: **Open is the first control of the bar** (a 28 px icon button with the Import
+glyph; the empty bar keeps its "Open image…" text button), and the bar is **centred** in the canvas
+on the width of the bar at rest (`bar::bar_x`, ux-notes of 0001, 3.1). The bar's `Area` is placed
+before it is drawn, so the widths of the items are measured from the root `Ui` first. The Mask
+group, the Parts row and the Lasso are the Parts row's (ADR 0008). Nothing else of this ADR changes.
