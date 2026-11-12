@@ -18,23 +18,24 @@ Sources: `~/curvyo/frontend/src/components/TraceBar.tsx` (`MaskGroup`, `MaskPill
 
 ## 0. Reference pictures (`reference/`)
 
-Made by `reference/capture.cjs` (instructions at its top) from `0001`'s `input-logo.png`. The mask
-paths were drawn with Curvyo's real Rectangle and Ellipse tools and picked with Pick mask paths:
-R1 round the LOGO block, R2 round the green bar, E1 round the disc, R3 below the picture.
+Made by `reference/capture.cjs` (instructions at its top; it uses `0001`'s `reference/tracyo-bar.cjs`)
+from `0001`'s `input-logo.png`. The mask paths were drawn with Curvyo's real Rectangle and Ellipse
+tools and picked with Pick mask paths: R1 round the LOGO block, R2 round the green bar, E1 round the
+disc (R4, a rectangle on E1's box, in the px set), R3 below the picture; the lasso L1 = picture px
+(60, 270), (230, 290), (200, 400) with Curvyo's Pen.
 
 | File | What |
 |---|---|
 | `curvyo-00` .. `curvyo-17` | Curvyo as it is (1280 x 800, panel open, so its bar has two rows): 00 Mask group at rest, 01 Pick armed with the hover box on R1 (view), 02 Inside with R1 and R2 (view), 03 the same bar, 04 Outside hovered, 05 Outside (view), 06 Clear mask tooltip, 07 Pick mask paths keyboard focus, 08 Advanced with one part, 09 three parts (1 inside, 2 active outside, 3 muted), 10 three parts (view), 11 chip hover with tooltip, 12 muted chip hover, 13 Add part tooltip, 14 trash armed, 15 chip keyboard focus, 16 one part whose mask is outside the image (dimmed Trace, tooltip), 17 that part plus an empty part 2 (dimmed Trace, tooltip) |
 | `curvyo-20` .. `curvyo-27` | Curvyo's canvas look: 20 selected rectangle (Select tool), 21 hover box on a rectangle, 22 selected ellipse, 23 rectangle being drawn (live outline and size chip), 24 Pen polygon being drawn (rubber band), 25 Pen over its close target, 26 Node tool on a closed polygon with one node selected, 27 the Remove badge (Ctrl held over empty canvas) |
-| `px-00` .. `px-17` | **Re-captured 2026-11-12** (last paragraph). The bar states 00 to 17 **as Tracyo draws them**: panel hidden, 1360 x 800 (bar cap 1164 px, see section 12), Pick mask paths replaced by **Rectangle, Subtract** in Curvyo's own icon-button look (Rectangle pressed in px-01, Subtract focused in px-07; the files committed before 2026-11-12 still show Rectangle, Ellipse, Polygon), finish button "Save as…". These are the pixel references of section 12 |
+| `px-00` .. `px-19` | **Re-captured 2026-11-13** (last paragraph). The bar **as Tracyo draws it**: a 1280 x 800 window, the bar centred (cap 1256), Open first, **Advanced open in every picture**, the Mask group (Rectangle, Lasso, Subtract, Inside \| Outside, Clear mask) in the Parts row, "Save as…". 00 to 17 the states of the table in section 12.2 (Rectangle pressed in 01, Subtract focused in 07); 18 Lasso pressed; 19 Rectangle and Subtract pressed. Lasso and Subtract are copies of Curvyo's Pick mask paths button with its own rest and pressed class strings: they have no Curvyo original. Views (01, 02, 05, 10) are the top 620 px of the window |
+| `px-20` .. `px-23` | **New 2026-11-13**, the lasso (views, 1280 x 620): 20 being drawn (three corners, rubber band to the pointer), 21 over the close target, 23 selected (corner 2 pressed last): Curvyo's Pen and Node tool on the picture under a still copy of Tracyo's bar, the picture **not veiled** (Curvyo's Pen cannot run in its Trace tool); 22 L1 closed and picked as the mask, Inside: Tracyo's finished lasso region with its wash and preview |
 
-**Validity after the revision of 2026-11-12.** Still valid: `curvyo-00` .. `curvyo-17`, `curvyo-20`,
-`curvyo-21`, `curvyo-23`, `curvyo-27` (Curvyo as it is; 09 and 10 show E1, an ellipse, but are used for
-the chip and wash look only). No case left: `curvyo-22` (ellipse), `curvyo-24`, `curvyo-25`, `curvyo-26`
-(Pen and Node tool). **All of `px-00` .. `px-17` must be re-captured**: they show three region tools
-(a 256 px group); with Rectangle and Subtract every item after the group moves 32 px left.
-`capture.cjs` changes: the injected buttons are Rectangle (`square`) and Subtract (`square-minus`),
-and part 2's mask in px-09 .. px-12 is the rectangle R4 (section 12.2) instead of the ellipse E1.
+**Validity.** Still valid: `curvyo-00` .. `curvyo-17`, `curvyo-20`, `curvyo-21`, `curvyo-23`, `curvyo-27`
+(Curvyo as it is; 09 and 10 show E1, an ellipse, but are used for the chip and wash look only), and
+again `curvyo-24`, `curvyo-25`, `curvyo-26` (the models of the lasso, section 5). No case:
+`curvyo-22` (ellipse). The `px-*` files committed before 2026-11-13 (Mask group in the first row,
+Advanced closed in 00 to 07, cap 1164) are replaced.
 
 ## 1. What replaces Pick mask paths
 
@@ -404,3 +405,30 @@ Not reproduced: the Subtract button is an inert clone (no hover tooltip, no hove
 behaviour); the Threshold readings (62 % in 00 and 01, 66 % in 02 to 08, 65 % from 09) are Curvyo's auto
 threshold on this picture, not Tracyo's, so a Tracyo run may show other numbers (section 12.2 names
 66 % for P3 only).
+
+## Reference pictures, re-captured 2026-11-13
+
+`px-00` .. `px-17` were re-captured and `px-18` .. `px-23` added with `reference/capture.cjs`
+(`SETS=px,lasso`) and `0001`'s `reference/tracyo-bar.cjs` (DOM patches only: no rail, the bar centred
+in a 1280 x 800 window at (24, 24) of a 1360 x 824 viewport, cap 1256, Open first, the Mask group
+moved into the Advanced block's own last line after a 1 x 20 px divider, Lasso and Subtract as inert
+copies of Pick mask paths). Curvyo: the frontend of `fc8edca8` with the wasm built from it (`main`'s
+frontend needs a newer wasm than the checkout holds), its Vite dev server, Chromium, Liberation Sans,
+scale 1. Sizes: 1222 x 145 (00, 03, 04, 07, 08, 09, 15, 18, 19), 1222 x 185 (06, 11 to 14), 1307 x 185
+(16, 17: to the viewport's edge for the Save as… tooltip), 1280 x 620 (01, 02, 05, 10, 20 to 23).
+
+Checked on the DOM of the patched bar (section 3's numbers): Open 8..36, Preset 80..212, Method
+220..396, Save as… 1093..1182 (Advanced closed, bar 1190, x 45) and 1101..1190 (open, 1198); Parts
+row y 81..117, label 8..40, chip 1 44..72, trash 108..136, divider 148, Rectangle 161..189, Lasso
+193..221, Subtract 225..253, Mask 257..385, Clear mask 389..417; eight parts: Clear mask 613..641.
+`compare.py` of each of the 24 against itself: PASS (0 %); against the file of the same name from
+2026-11-12: FAIL for all 18 (26.7 to 37.3 %, runs of 731 to 984 px); 18 and 19 against 08 (the same
+state with no tool pressed): FAIL (0.41 % and 0.84 %, runs of 28 px: the pressed box is found); 20 to
+23 against 02: FAIL (9.4 to 17.1 %).
+
+Not reproduced: the pictures centre the bar on its current width (Curvyo's DOM), not on the rest
+width of `0001 §3.1`, so the margins differ by 4 px with Advanced open; `compare.py` aligns on the bar
+and does not see it. The Threshold readings (62 % in 00 and 01, 66 % in 02 to 08, 65 % from 09, 86 %
+in 22) are Curvyo's auto threshold, not Tracyo's. The Lasso and Subtract copies have no hover tooltip
+and no behaviour.
+

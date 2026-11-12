@@ -18,12 +18,12 @@ Sources: `~/curvyo/frontend/src/index.css`, `components/TraceBar.tsx`, `TraceAdv
 `panel/EntryField.tsx`, `panel/Swatch.tsx`, `panel/TraceInfoPage.tsx`, `panel/FileTab.tsx`,
 `lib/traceText.ts`, `lib/tracePaletteText.ts`, `lib/cursors.ts`; `docs/tracing-images.md`.
 
-Reference pictures (`reference/`, made by `reference/capture.cjs` from `reference/input-logo.png`):
+Reference pictures (`reference/`, made by `reference/capture.cjs` with `reference/tracyo-bar.cjs` from `reference/input-logo.png`):
 
 | File set | What |
 |---|---|
 | `curvyo-NN-*.png` | Curvyo as it is (1280 x 800, panel open): 00 bar closed, 01 empty, 02 preview, 03 Advanced open, 04 Multicolour with palette, 05 running 42 %, 06 failed, 07 stopped, 08 Preset menu, 09 Method menu, 10 swatch hover, 11 swatch excluded, 12 value-field tooltip, 13 Trace button focus, 14 Preset hover, 15 tooltip |
-| `px-NN-*.png` | The same states, **Tracyo-equivalent**: Mask group and Parts hidden, finish button "Save as…", empty bar without its sentence and with "Open image…", 1360 x 800 with the panel hidden, so the bar has exactly the width it has in a 1280 x 800 Tracyo window. These are the pixel references of section 12 |
+| `px-NN-*.png` | The same states, **as Tracyo draws them** (re-captured 2026-11-13, last paragraph): Open first in the bar, the bar centred in a 1280 x 800 window (cap 1256), no tool rail, the Mask group in the Parts row of Advanced (`0002`), finish button "Save as…", empty bar without its sentence and with "Open image…". These are the pixel references of section 12 |
 
 Running and failed were staged by wrapping the trace worker (progress 42 %, an out-of-memory
 error); everything drawn is Curvyo's own code. The failed tooltip in the pictures is not shown.
@@ -433,3 +433,24 @@ without tabular digits or semibold, so there Liberation Sans). B: Tracyo always 
 Liberation Sans (identical everywhere and in tests; differs from Curvyo on Windows and macOS).
 C: always an embedded Roboto (Curvyo's look on a Linux machine with Roboto). Recommendation A.
 Default: A.
+
+## Reference pictures, re-captured 2026-11-13
+
+`px-00` .. `px-15` were re-captured with `reference/capture.cjs` (`SETS=px`) and the new
+`reference/tracyo-bar.cjs`, which patches Curvyo's rendered bar in the DOM only: rail hidden, the
+overlay pinned to a 1280 x 800 window at (24, 24) of a 1360 x 824 viewport (right of and below
+Curvyo's rulers), the bar centred on whole pixels with a 1256 px cap, Open (a copy of About with
+lucide `import`) first, the Mask group moved into the Parts row of Advanced. Curvyo: the frontend of
+`fc8edca8` with the wasm built from it (`main` has moved on and its frontend needs a newer wasm than
+the checkout holds), Vite dev server, Chromium, Liberation Sans, scale 1. `curvyo-*` are untouched.
+
+Affected cases (all of them; `tests/pixels.rs` needs the implementer): every bar starts 36 px later
+(Open), so the 232 px Mask shift, `with_mask_group`, the 1512 and 1480 px windows and the x = 60 cut
+go: all cases run in 1280 x 800 and compare their regions in place. The block cases (03, 04, 05, 06,
+07, 10, 11, 13, 14, 15) gain the Parts row as a third 36 px line (bar 121 px high). 06 and 07 were two
+rows at the old 1164 px cap and are one row now; 09 (Remove background) stays two rows at the full
+1256 px cap. 01 (empty bar) is the same picture up to 23 anti-aliased pixels. Checked: `compare.py`
+of each against itself PASS (0 %); against the 2026-11-11 file of the same name FAIL for all 15 bar
+pictures (15.7 to 30.9 %, runs of 85 to 1155 px); 01 has no 200 px bar run, as before (its test uses
+a fixed size).
+
