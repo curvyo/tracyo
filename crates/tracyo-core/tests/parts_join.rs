@@ -347,3 +347,41 @@ fn the_join_survives_the_settings_a_part_may_not_crop_for() {
     );
     assert!(out.paths >= 1);
 }
+
+/// Criterion 15, the automatic substitute for a reader of its own: a second reader draws the
+/// joined SVG with the even-odd rule, so a gap or an overlap at the seam would show as a light
+/// line inside the bar; the whole bar across the seam is covered.
+#[test]
+fn a_second_reader_draws_the_bar_across_the_seam_without_gap_or_overlap() {
+    let text = svg_of(&criterion_15());
+    let scale = 8.0_f32;
+    let tree = resvg::usvg::Tree::from_str(&text, &resvg::usvg::Options::default()).unwrap();
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    let mut pixmap = resvg::tiny_skia::Pixmap::new(
+        (tree.size().width() * scale).ceil() as u32,
+        (tree.size().height() * scale).ceil() as u32,
+    )
+    .unwrap();
+    resvg::render(
+        &tree,
+        resvg::tiny_skia::Transform::from_scale(scale, scale),
+        &mut pixmap.as_mut(),
+    );
+    // The bar is y = 127.000 to 137.583 mm; 6 mm either side of the seam at x = 132.292 mm, one
+    // pixel inside its edges.
+    let mut light = 0;
+    let mut checked = 0;
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    for y in ((127.1 * f64::from(scale)) as u32)..((137.4 * f64::from(scale)) as u32) {
+        for x in (((SEAM_MM - 6.0) * f64::from(scale)) as u32)
+            ..(((SEAM_MM + 6.0) * f64::from(scale)) as u32)
+        {
+            checked += 1;
+            if pixmap.pixel(x, y).unwrap().alpha() < 250 {
+                light += 1;
+            }
+        }
+    }
+    println!("{light} of {checked} pixels of the bar across the seam are not covered");
+    assert_eq!(light, 0);
+}

@@ -3610,6 +3610,7 @@ dependencies = [
  "kurbo",
  "resvg",
  "roxmltree 0.21.2",
+ "rustix 1.1.6",
  "serde",
  "thiserror 2.0.21",
  "toml",

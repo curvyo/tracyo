@@ -99,6 +99,8 @@ jobs:
         with:
           tool: cargo-nextest
       - run: cargo nextest run --release -p tracyo-app --test heavy --status-level fail
+      # Criterion 25 of 0002: 8 tiled parts of a 12 Mpx picture cost at most 1.3 times one trace.
+      - run: cargo nextest run --release -p tracyo-core --test parts_speed --status-level fail
 
   doc:
     runs-on: ubuntu-24.04
