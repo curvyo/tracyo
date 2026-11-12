@@ -2,7 +2,13 @@
 //! They run alone (`.config/nextest.toml`). The frame budget is timed in release only: debug
 //! builds are too slow for it and run it ignored (`ci.yml` job `perf`).
 
-#![allow(clippy::unwrap_used, clippy::expect_used)]
+// Pixel geometry converts between integers and f32; the values are screen coordinates.
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::cast_precision_loss,
+    clippy::many_single_char_names
+)]
 
 mod common;
 
@@ -90,6 +96,94 @@ fn a_frame_on_a_12_mpx_picture_stays_under_50_ms_of_cpu_time() {
         frames += 1;
     }
     println!("{frames} frames, worst UI-thread CPU time {worst:?}");
+    assert!(worst.as_millis() < 50, "worst frame {worst:?}");
+}
+
+/// Criterion 27 of 0002, one part: a frame of the UI thread stays under 50 ms of CPU time while 20
+/// rectangles (added and subtracted, overlapping) are drawn on a 12 Mpx picture, the mode is
+/// switched and the mask is cleared: the clip, the wash and the outlines are made on that thread.
+#[cfg(unix)]
+#[test]
+#[cfg_attr(
+    debug_assertions,
+    ignore = "timing: measured in release, see ci.yml job perf"
+)]
+fn a_frame_stays_under_50_ms_while_regions_are_edited_on_a_12_mpx_picture() {
+    use eframe::egui::{Event, Modifiers, PointerButton};
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("big.png");
+    big_picture(&path, 4000, 3000);
+    let mut h = common::harness(
+        dir.path(),
+        Some(path),
+        Dialogs::Fixed {
+            open: None,
+            save: None,
+        },
+    );
+    common::wait_for_result(&mut h, 300.0);
+    h.run_steps(3);
+    let mut worst = std::time::Duration::ZERO;
+    let mut step = |h: &mut egui_kittest::Harness<'_, tracyo_app::App>| {
+        let before = thread_cpu();
+        h.step();
+        let spent = thread_cpu().saturating_sub(before);
+        worst = worst.max(spent);
+        if spent.as_millis() > 30 {
+            println!("slow frame: {spent:?}");
+        }
+    };
+    h.get_by_label("Rectangle").click();
+    for _ in 0..3 {
+        step(&mut h);
+    }
+    for i in 0..20_u32 {
+        if i == 14 {
+            h.get_by_label("Subtract").click();
+            step(&mut h);
+        }
+        let (x, y) = (
+            200.0 + 150.0 * (i % 8) as f32,
+            200.0 + 130.0 * (i / 8) as f32,
+        );
+        let a = h.state().picture_corner_on_screen(x, y).unwrap();
+        let b = h
+            .state()
+            .picture_corner_on_screen(x + 700.0, y + 500.0)
+            .unwrap();
+        h.event(Event::PointerMoved(a));
+        step(&mut h);
+        h.event(Event::PointerButton {
+            pos: a,
+            button: PointerButton::Primary,
+            pressed: true,
+            modifiers: Modifiers::NONE,
+        });
+        step(&mut h);
+        for k in 1..=4 {
+            h.event(Event::PointerMoved(a + (b - a) * (k as f32 / 4.0)));
+            step(&mut h);
+        }
+        h.event(Event::PointerButton {
+            pos: b,
+            button: PointerButton::Primary,
+            pressed: false,
+            modifiers: Modifiers::NONE,
+        });
+        for _ in 0..3 {
+            step(&mut h);
+        }
+    }
+    assert_eq!(h.state().mask_regions().len(), 20);
+    h.get_by_label("Mask: Outside").click();
+    for _ in 0..5 {
+        step(&mut h);
+    }
+    h.get_by_label("Clear mask").click();
+    for _ in 0..5 {
+        step(&mut h);
+    }
+    println!("worst UI-thread CPU time while editing 20 regions: {worst:?}");
     assert!(worst.as_millis() < 50, "worst frame {worst:?}");
 }
 

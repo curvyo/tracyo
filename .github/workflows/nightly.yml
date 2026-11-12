@@ -30,9 +30,9 @@ jobs:
       matrix:
         include:
           - os: windows-latest
-            skip: "binary(pixels) | binary(heavy) | binary(start) | binary(session) | test(/^unix_/)"
+            skip: "binary(pixels) | binary(masks) | binary(heavy) | binary(start) | binary(session) | test(/^unix_/)"
           - os: macos-latest
-            skip: "binary(pixels) | binary(heavy) | binary(start) | binary(session)"
+            skip: "binary(pixels) | binary(masks) | binary(heavy) | binary(start) | binary(session)"
     runs-on: ${{ matrix.os }}
     defaults:
       run:

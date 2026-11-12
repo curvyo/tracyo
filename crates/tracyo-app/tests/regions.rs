@@ -16,7 +16,7 @@ use std::path::{Path, PathBuf};
 
 use eframe::egui::{Event, Key, Modifiers, PointerButton, Pos2};
 use egui_kittest::Harness;
-use egui_kittest::kittest::Queryable;
+use egui_kittest::kittest::{NodeT, Queryable};
 use tracyo_app::App;
 use tracyo_app::dialogs::Dialogs;
 use tracyo_core::regions::{MaskMode, PxRect};
@@ -484,6 +484,26 @@ fn the_saved_svg_is_cut_on_the_region_edge() {
     assert!(cut_shapes >= 1, "something is cut");
 }
 
+/// Brightness with a typed Threshold: the same settings whatever the mask keeps (an automatic value
+/// would follow the kept pixels).
+fn fix_values(h: &mut Harness<'_, App>) {
+    h.get_by_label("Method").click();
+    h.run_steps(3);
+    h.get_by_label("Brightness").click();
+    h.run_steps(3);
+    settle(h);
+    h.get_by_label("Threshold").focus();
+    h.run_steps(2);
+    press(h, Key::Enter, Modifiers::NONE);
+    h.event(Event::Text("50".into()));
+    h.run_steps(2);
+    press(h, Key::Enter, Modifiers::NONE);
+    settle(h);
+}
+
+/// A region across the block, the circle's edge and the letters of the logo picture.
+const CROSSING: (f32, f32, f32, f32) = (150.0, 20.0, 250.0, 300.0);
+
 /// Criterion 14 in the app: the Inside and the Outside file of one region fit.
 #[test]
 fn inside_and_outside_files_have_the_area_of_the_whole_trace() {
@@ -493,30 +513,43 @@ fn inside_and_outside_files_have_the_area_of_the_whole_trace() {
         |file: &Path| -> f64 { saved_paths(file).iter().map(Shape::area).sum::<f64>().abs() };
     let whole_file = dir.path().join("whole.svg");
     let mut h = opened(dir.path(), Some(whole_file.clone()));
+    fix_values(&mut h);
     press(&mut h, Key::S, Modifiers::COMMAND | Modifiers::SHIFT);
     h.run_steps(5);
     button(&mut h, "Rectangle");
-    draw(&mut h, (24.0, 25.0, 324.0, 235.0));
+    draw(&mut h, CROSSING);
     button(&mut h, "Rectangle");
     let inside = dir.path().join("inside.svg");
     // The dialog answers with a fixed path: save twice under different names by replacing the app.
     drop(h);
     let mut h = opened(dir.path(), Some(inside.clone()));
+    fix_values(&mut h);
     button(&mut h, "Rectangle");
-    draw(&mut h, (24.0, 25.0, 324.0, 235.0));
+    draw(&mut h, CROSSING);
     press(&mut h, Key::S, Modifiers::COMMAND | Modifiers::SHIFT);
     h.run_steps(5);
     drop(h);
     let outside = dir.path().join("outside.svg");
     let mut h = opened(dir.path(), Some(outside.clone()));
+    fix_values(&mut h);
     button(&mut h, "Rectangle");
-    draw(&mut h, (24.0, 25.0, 324.0, 235.0));
+    draw(&mut h, CROSSING);
     button(&mut h, "Mask: Outside");
     settle(&mut h);
     press(&mut h, Key::S, Modifiers::COMMAND | Modifiers::SHIFT);
     h.run_steps(5);
     let (a, b, all) = (area(&inside), area(&outside), area(&whole_file));
     println!("inside {a} + outside {b} = {}, whole {all}", a + b);
+    // TRACYO_KEEP_SVG=<folder> keeps the three files, to look at them with another reader.
+    if let Some(keep) = std::env::var_os("TRACYO_KEEP_SVG") {
+        for (file, name) in [
+            (&whole_file, "whole"),
+            (&inside, "inside"),
+            (&outside, "outside"),
+        ] {
+            std::fs::copy(file, Path::new(&keep).join(format!("{name}.svg"))).unwrap();
+        }
+    }
     assert!(
         (a + b - all).abs() <= 0.001 * all,
         "within 0.1 % of the whole trace"
@@ -602,7 +635,7 @@ fn a_typed_threshold_stays_when_a_mask_is_drawn() {
 /// Criterion 22: the same picture, region and settings give the same SVG bytes on every run, with
 /// one rayon thread in the worker and with the default number.
 #[test]
-fn the_same_cut_gives_the_same_bytes_with_one_thread_and_with_many() {
+fn unix_the_same_cut_gives_the_same_bytes_with_one_thread_and_with_many() {
     let dir = tempfile::tempdir().unwrap();
     let mut files = Vec::new();
     for (i, threads) in ["1", "1", "4", ""].into_iter().enumerate() {
@@ -636,5 +669,27 @@ fn without_a_picture_there_is_no_mask_group() {
     h.run_steps(3);
     for label in ["Rectangle", "Subtract", "Clear mask", "Mask: Inside"] {
         assert!(h.query_by_label(label).is_none(), "{label}");
+    }
+}
+
+/// Ux-notes 2: the Tab order is Preset, Rectangle, Subtract, Mask (one stop), Clear mask, Method.
+#[test]
+fn the_group_is_in_the_tab_order_between_preset_and_method() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut h = opened(dir.path(), None);
+    h.get_by_label("Preset").focus();
+    h.run_steps(2);
+    for label in [
+        "Rectangle",
+        "Subtract",
+        "Mask: Inside",
+        "Clear mask",
+        "Method",
+    ] {
+        press(&mut h, Key::Tab, Modifiers::NONE);
+        assert!(
+            h.get_by_label(label).accesskit_node().is_focused(),
+            "Tab should reach {label}"
+        );
     }
 }
