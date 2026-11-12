@@ -40,17 +40,40 @@ Demo: Add part, give it its own rectangle and settings, switch between chips (mo
 remove a part with the armed trash; the preview and the saved SVG show one joined result without a
 seam line; a later part wins where parts overlap; Stop during a save keeps the parts.
 
-- [ ] `parts` test-first: 1 to 8 parts, add copies the active part without colours, remove makes the part before active, select, open resets, part areas (Whole, Mask, Nothing) (ADR 0008 §3) — 2, 3, 4, 6, 23
-- [ ] `stack` test-first: later wins, untouched keeps its clip, trimmed, hidden; ports of Curvyo's `trace_parts` tests — 5, 16
-- [ ] `join` test-first: kept outlines, seam union per colour, single-part pieces not united, shapes follow or drop, failed part fails the join; property: join of Inside and Outside equals the whole trace (≤ 0.1 %, no seam segment) — 14, 15
-- [ ] Golden `parts-15.svg`; criterion 16 tests in both orders — 15, 16
-- [ ] `crop` test-first: box plus margin, exemptions (text, Drop border shapes, Denoise, Upscale Auto, whole, covering box); crop vs whole ≤ 0.1 % — 25 (prerequisite)
-- [ ] `protocol` `TraceParts` / `PartWire`; worker traces uncached parts from their crops, sends each wire, joins; progress weights; round trips (ADR 0008 §4) — 20, 21, 22
-- [ ] App: part cache (32 entries, key = part job bytes), latest wins, kill keeps received parts, reduced per part while dragging, Save as… traces all parts full — 20, 21, 24
-- [ ] App `parts_row`: label, chips with marks and muted state, Add part, trash armed (400 ms, 4 s, Esc, focus rules), keys; only part 1's settings saved; regions of other parts drawn, not editable (ux §3) — 1 (Parts row), 2, 3, 11, 23
-- [ ] Notice "no part has anything to trace"; tooltips and accessible names of ux §4 — 4, 11, 12
-- [ ] Determinism test: same parts twice, byte-identical SVG — 22
-- [ ] Kittest flows: add, select, remove, retrace counter (only the changed part), progress never backwards, Stop and failure; pixel cases P7 to P15 — 2, 3, 20, 21, 24
+- [x] `parts` test-first: 1 to 8 parts, add copies the active part without colours, remove makes the part before active, select, open resets, part areas (Whole, Mask, Nothing) (ADR 0008 §3) — 2, 3, 4, 6, 23
+- [x] `stack` test-first: later wins, untouched keeps its clip, trimmed, hidden; ports of Curvyo's `trace_parts` tests — 5, 16
+- [x] `join` test-first: kept outlines, seam union per colour, single-part pieces not united, shapes follow or drop, failed part fails the join; property: join of Inside and Outside equals the whole trace (≤ 0.1 %, no seam segment) — 14, 15
+- [x] Golden `parts-15.svg`; criterion 16 tests in both orders — 15, 16
+- [x] `crop` test-first: box plus margin, exemptions (text, Drop border shapes, Denoise, Upscale Auto, whole, covering box); crop vs whole ≤ 0.1 % — 25 (prerequisite)
+- [x] `protocol` `TraceParts` / `PartWire`; worker traces uncached parts from their crops, sends each wire, joins; progress weights; round trips (ADR 0008 §4) — 20, 21, 22
+- [x] App: part cache (32 entries, key = part job bytes), latest wins, kill keeps received parts, reduced per part while dragging, Save as… traces all parts full — 20, 21, 24
+- [x] App `parts_row`: label, chips with marks and muted state, Add part, trash armed (400 ms, 4 s, Esc, focus rules), keys; only part 1's settings saved; regions of other parts drawn, not editable (ux §3) — 1 (Parts row), 2, 3, 11, 23
+- [x] Notice "no part has anything to trace"; tooltips and accessible names of ux §4 — 4, 11, 12
+- [x] Determinism test: same parts twice, byte-identical SVG — 22
+- [x] Kittest flows: add, select, remove, retrace counter (only the changed part), progress never backwards, Stop and failure; pixel cases P7 to P15 — 2, 3, 20, 21, 24
+
+Done on `story/trace-parts-row` (implementer, 2026-11-12). Notes:
+
+- `parts`: the app keeps the active part live in the bar and the mask; `Parts` holds snapshots and
+  every list change takes the live copy first (`add`, `select` and `remove_active` return the part
+  to load). `Part` also carries `threshold_set` and a plain `Analysis`.
+- `stack` tests are written for this code, not literal ports of Curvyo's `trace_parts` tests (those
+  run on Curvyo's session and kernel); they check the same rules: later wins, untouched parts keep
+  their clip, trimmed parts get the visible polygons, hidden parts get no job.
+- `join` needed a writer for vectrace's numbers (`output_wire`, 220 lines, read back by
+  `vectrace::wire::read` in four round-trip tests), because the worker joins and vectrace has no
+  writer for an `Output`.
+- Property tests of the join: 2,000 cases each for area, no seam line, determinism, fixed point
+  and the order rule; criterion 14 to 16 and 22 on traced P1 through `Session::run_parts`.
+- The crop is made by the worker from the clip and the raster it traces (reduced or full), so
+  `PartJob` has no crop field (ADR 0008 deviation 6); `Session::run` crops too.
+- The mark on a chip is the mask mode on every chip but a muted one, part 1 included (px-08 shows
+  it on a single whole-image part; ux-notes section 3's "none = whole image" is superseded by the
+  picture).
+- Criterion 25's timing (the plan puts it in slice 4) is already in `parts_speed.rs`: 1.03 times for
+  8 tiled parts of 12 Mpx, 0.98 times for 8 covering parts (one is traced), release, thread CPU time.
+- Open in this slice: debts 25 to 30; the analysis per part clip (18), Multicolour (17) and text
+  and shapes (19) are slice 3.
 
 ## Slice 3: Colours, text and shapes per part (`story/trace-parts-colour-text`)
 
