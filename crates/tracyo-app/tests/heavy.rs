@@ -108,6 +108,7 @@ fn a_frame_on_a_12_mpx_picture_stays_under_50_ms_of_cpu_time() {
     debug_assertions,
     ignore = "timing: measured in release, see ci.yml job perf"
 )]
+#[allow(clippy::too_many_lines)] // one scripted session of edits
 fn a_frame_stays_under_50_ms_while_regions_are_edited_on_a_12_mpx_picture() {
     use eframe::egui::{Event, Modifiers, PointerButton};
     let dir = tempfile::tempdir().unwrap();
@@ -133,6 +134,10 @@ fn a_frame_stays_under_50_ms_while_regions_are_edited_on_a_12_mpx_picture() {
             println!("slow frame: {spent:?}");
         }
     };
+    h.get_by_label("More trace options").click();
+    for _ in 0..3 {
+        step(&mut h);
+    }
     h.get_by_label("Rectangle").click();
     for _ in 0..3 {
         step(&mut h);
@@ -175,6 +180,40 @@ fn a_frame_stays_under_50_ms_while_regions_are_edited_on_a_12_mpx_picture() {
         }
     }
     assert_eq!(h.state().mask_regions().len(), 20);
+    // Four more regions, lassos of five corners that cross themselves, added and subtracted.
+    h.get_by_label("Lasso").click();
+    for _ in 0..3 {
+        step(&mut h);
+    }
+    for i in 0..4_u32 {
+        let o = 300.0 + 400.0 * (i % 2) as f32;
+        let t = 400.0 + 500.0 * (i / 2) as f32;
+        for (dx, dy) in [
+            (0.0, 0.0),
+            (900.0, 700.0),
+            (900.0, 0.0),
+            (0.0, 700.0),
+            (450.0, 350.0),
+        ] {
+            let at = h.state().picture_corner_on_screen(o + dx, t + dy).unwrap();
+            h.event(Event::PointerMoved(at));
+            step(&mut h);
+            for pressed in [true, false] {
+                h.event(Event::PointerButton {
+                    pos: at,
+                    button: PointerButton::Primary,
+                    pressed,
+                    modifiers: Modifiers::NONE,
+                });
+                step(&mut h);
+            }
+        }
+        h.key_press(eframe::egui::Key::Enter);
+        for _ in 0..3 {
+            step(&mut h);
+        }
+    }
+    assert_eq!(h.state().mask_regions().len(), 24);
     h.get_by_label("Mask: Outside").click();
     for _ in 0..5 {
         step(&mut h);
