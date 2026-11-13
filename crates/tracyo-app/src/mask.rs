@@ -6,14 +6,18 @@ use std::sync::mpsc::channel;
 use eframe::egui;
 use kurbo::Point;
 use tracyo_core::analysis::Analysis;
-use tracyo_core::clip::{self, MaskPlan};
+use tracyo_core::clip::{self, Clip, MaskPlan};
 use tracyo_core::lasso::Draft;
 use tracyo_core::region_edit::Handle;
 use tracyo_core::regions::{MaskMode, PxRect, Region};
-use tracyo_core::request::pixel_map;
+use tracyo_core::request::{pixel_map, size_mm};
+use tracyo_core::stack::{PartClip, part_clips};
 use tracyo_core::wash;
 
 use crate::app::App;
+
+/// How many clips' analyses the app keeps.
+pub(crate) const CLIP_ANALYSES: usize = 32;
 
 /// The region tool that is pressed: at most one.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -346,38 +350,76 @@ impl App {
             .map_or_else(Vec::new, |d| d.mask.wash.clone())
     }
 
-    // ---- analysis of the kept pixels ----
+    // ---- analysis of the area each part keeps ----
 
-    /// Reads the values of the pixels the mask keeps on a thread (or, with no mask, takes the
-    /// whole picture's back). With `full` the answer replaces every analysed value, as the Analyse
-    /// button does; else only what the maker has not set.
+    /// What each part keeps once the later parts are taken out (the live part stored first).
+    fn visible_clips(&mut self) -> Vec<PartClip> {
+        let Some(live) = self.live_part() else {
+            return Vec::new();
+        };
+        let Some(doc) = self.doc.as_mut() else {
+            return Vec::new();
+        };
+        doc.parts.store(live);
+        let (w, h) = (doc.picture.width, doc.picture.height);
+        part_clips(
+            &doc.parts.areas(w, h),
+            kurbo::Rect::new(0.0, 0.0, size_mm(w), size_mm(h)),
+        )
+    }
+
+    /// Reads the values of the pixels each part keeps on a thread, once per clip (a clip that was
+    /// read before comes from the cache; the whole picture's values are those of the picture).
+    /// With `full` the active part's answer replaces every analysed value, as the Analyse button
+    /// does; else only what the maker has not set.
     pub(crate) fn analyse_kept(&mut self, ctx: &egui::Context, full: bool) {
-        let Some(doc) = &mut self.doc else { return };
-        let kept = match &doc.mask.plan {
-            MaskPlan::Clip(c) => {
-                let map = pixel_map(doc.picture.width, doc.picture.width);
-                c.kept_pixels(map, doc.picture.width, doc.picture.height)
-            }
-            _ => None,
-        };
-        let Some(kept) = kept else {
+        let clips = self.visible_clips();
+        let Some(doc) = &self.doc else { return };
+        let active = doc.parts.active_index();
+        let active_whole = matches!(clips.get(active), Some(PartClip::Whole));
+        let missing: Vec<Clip> = clips
+            .iter()
+            .filter_map(PartClip::region)
+            .filter(|c| !self.clip_analyses.iter().any(|(known, _)| known == *c))
+            .fold(Vec::new(), |mut all, c| {
+                if !all.contains(c) {
+                    all.push(c.clone());
+                }
+                all
+            });
+        if missing.is_empty() {
             self.region_analysing = None;
-            let whole = doc.whole_analysis;
-            if full {
-                self.analyse_whole(ctx);
-            } else {
-                self.take_region_analysis(ctx, whole);
-            }
+            self.apply_analyses(ctx, &clips, full);
             return;
-        };
+        }
         let picture = std::sync::Arc::clone(&doc.picture);
         let repaint = ctx.clone();
         let (tx, rx) = channel();
         std::thread::spawn(move || {
-            let _ = tx.send(Analysis::of_kept(&picture, &kept));
+            let map = pixel_map(picture.width, picture.width);
+            let found: Vec<(Clip, Analysis)> = missing
+                .into_iter()
+                .map(|c| {
+                    let analysis = c
+                        .kept_pixels(map, picture.width, picture.height)
+                        .map_or_else(
+                            || Analysis::of(&picture),
+                            |k| Analysis::of_kept(&picture, &k),
+                        );
+                    (c, analysis)
+                })
+                .collect();
+            let _ = tx.send(found);
             repaint.request_repaint();
         });
-        self.region_analysing = Some((rx, full));
+        // With the whole picture as the active part's area the Analyse answer comes from its own
+        // thread, not from this one.
+        self.region_analysing = Some((rx, full && !active_whole));
+        if active_whole {
+            // The active part's own values stand for the whole picture now: take them while the
+            // others are read.
+            self.apply_analyses(ctx, &clips, full);
+        }
     }
 
     /// Applies an answer of [`Self::analyse_kept`] that has arrived.
@@ -386,8 +428,8 @@ impl App {
             return;
         };
         let full = *full;
-        let analysis = match rx.try_recv() {
-            Ok(analysis) => analysis,
+        let found = match rx.try_recv() {
+            Ok(found) => found,
             Err(std::sync::mpsc::TryRecvError::Empty) => return,
             Err(std::sync::mpsc::TryRecvError::Disconnected) => {
                 self.region_analysing = None;
@@ -395,24 +437,64 @@ impl App {
             }
         };
         self.region_analysing = None;
-        if full {
-            self.apply_full_analysis(ctx, analysis);
-        } else {
-            self.take_region_analysis(ctx, analysis);
+        for (clip, analysis) in found {
+            self.clip_analyses.retain(|(known, _)| *known != clip);
+            self.clip_analyses.push((clip, analysis));
+            if self.clip_analyses.len() > CLIP_ANALYSES {
+                self.clip_analyses.remove(0);
+            }
+        }
+        let clips = self.visible_clips();
+        self.apply_analyses(ctx, &clips, full);
+    }
+
+    /// Gives every part the analysis of its own area (the clips are read from the cache; a part
+    /// whose clip is not there yet keeps what it has); a changed value traces again.
+    fn apply_analyses(&mut self, ctx: &egui::Context, clips: &[PartClip], full: bool) {
+        let Some(doc) = &mut self.doc else { return };
+        let active = doc.parts.active_index();
+        let mut changed = false;
+        let mut active_analysis = None;
+        for (i, clip) in clips.iter().enumerate() {
+            let (analysis, whole) = match clip {
+                PartClip::Nothing => continue,
+                PartClip::Whole => (doc.whole_analysis, true),
+                PartClip::Region(c) => {
+                    let Some((_, a)) = self.clip_analyses.iter().find(|(known, _)| known == c)
+                    else {
+                        continue;
+                    };
+                    (*a, false)
+                }
+            };
+            if i == active {
+                active_analysis = Some((analysis, whole));
+            } else {
+                changed |= doc.parts.take_analysis(i, analysis);
+            }
+        }
+        match active_analysis {
+            Some((_, true)) if full => self.analyse_whole(ctx),
+            Some((analysis, _)) if full => self.apply_full_analysis(ctx, analysis, false),
+            Some((analysis, _)) => changed |= self.take_region_analysis(analysis),
+            None => {}
+        }
+        if changed {
+            self.start_trace(ctx, false, false);
         }
     }
 
-    /// Takes the Threshold (unless the maker set it) and the Auto background of `analysis`; a
-    /// changed value traces again.
-    fn take_region_analysis(&mut self, ctx: &egui::Context, analysis: Analysis) {
-        let Some(doc) = &mut self.doc else { return };
+    /// Takes the Threshold (unless the maker set it) and the Auto background of `analysis` for
+    /// the active part; whether a value changed.
+    fn take_region_analysis(&mut self, analysis: Analysis) -> bool {
+        let Some(doc) = &mut self.doc else {
+            return false;
+        };
         let before = (doc.values.threshold, doc.analysis.suggested_background);
         doc.analysis.suggested_background = analysis.suggested_background;
         if !doc.threshold_set {
             doc.values.threshold = analysis.threshold;
         }
-        if before != (doc.values.threshold, doc.analysis.suggested_background) {
-            self.start_trace(ctx, false, false);
-        }
+        before != (doc.values.threshold, doc.analysis.suggested_background)
     }
 }

@@ -816,6 +816,9 @@ fn three_parts_with_their_own_methods_save_one_joined_path_across_the_seam() {
     common::wait_for_result(&mut h, 60.0);
     h.run_steps(3);
     click_label(&mut h, "More trace options");
+    // Part 1 keeps only the strip below the two rectangles, whose two pale tones would get an
+    // automatic Threshold of their own (criterion 18): it is typed so that the strip stays empty.
+    type_value(&mut h, "Threshold", "30");
     // Part 2: Brightness on the left rectangle, its own Threshold and Smooth.
     click_label(&mut h, "Add part");
     click_label(&mut h, "Rectangle");
