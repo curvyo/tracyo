@@ -1,6 +1,6 @@
 # UX notes: Trace parts
 
-Status: Draft (ux-engineer, 2026-11-12; revised by the architect 2026-11-12: subtraction is a Subtract toggle (lead, Frage 6 C), the spec follows section 13's rows 1 to 4; revised by the ux-engineer 2026-11-13: the Mask group moves into the Parts row (customer, Frage 8 A) and the Lasso joins Rectangle (customer), sections 1 to 7, 9 to 13). Reference: Curvyo `main` at `fc8edca8`, its dev server
+Status: Draft (ux-engineer, 2026-11-12; revised 2026-11-13 on PR #16, customer: a right click finishes the lasso and Esc aborts it, and the Advanced block is one flowing line that wraps only when the window is too narrow, sections 1, 3, 6, 7, 12.2, 13; revised by the architect 2026-11-12: subtraction is a Subtract toggle (lead, Frage 6 C), the spec follows section 13's rows 1 to 4; revised by the ux-engineer 2026-11-13: the Mask group moves into the Parts row (customer, Frage 8 A) and the Lasso joins Rectangle (customer), sections 1 to 7, 9 to 13). Reference: Curvyo `main` at `fc8edca8`, its dev server
 rendered in Chromium at 1x with Liberation Sans (as `0001`). Rule unchanged: **what Curvyo draws,
 Tracyo draws**; where Curvyo's code and its documents disagree, the code wins. Own choices are
 marked **(Proposal)**. No hint or tip text; labels that name a control or a state stay. All sizes
@@ -59,7 +59,7 @@ pressed pipette of Pick colours and the pressed Advanced toggles (Invert, Drop b
 Curvyo's own class string of Pick mask paths, unpressed and pressed, on a copy of that button.
 
 **Region tools.** Rectangle and Lasso are the two region tools; at most one is pressed. Pressing one
-releases the other (and ends a lasso in progress, section 6). A region tool is released by its own
+releases the other (and closes a lasso in progress, section 6). A region tool is released by its own
 press, Esc (section 7) or opening a picture. **Subtract** is independent of them: each press flips it,
 it may be pressed with either tool or with none, and only its own press or opening a picture releases
 it. Subtract changes no region already drawn; it applies to the regions finished while it is pressed
@@ -95,10 +95,16 @@ is no Tab stop. The first row's order is `0001 §3.4`'s, with nothing between Pr
 
 ## 3. The Parts row (last line of Advanced)
 
-The Parts row is the **last line of the Advanced block, a line of its own** (36 px): Output to
-Corners and Analyse (far right) keep their line and places of `0001` (`px-03` of `0001`), and the
-Parts row starts below them at the block's 8 px padding (`px-00`, `px-08`, `px-09`). It never joins
-the Corners line, however wide the window, so Analyse never moves. Items, vertically centred:
+The Parts row is the **last item of the Advanced block's flow** (customer, 2026-11-13: the row does
+not break a line of its own accord). The block is one flowing line, Curvyo's `flex-wrap` of the
+Advanced row (`gap-x-2`): Output, Denoise, Upscale, Corners, Analyse (`margin-left: auto`), then the
+Parts row, the Parts group with the Mask group right behind it, as one item of **409 px with one
+part** (`96 + 32 n` Parts group, 25, 256 Mask group). It wraps **only when the window width does not
+suffice**; then the whole item, Parts group, divider and Mask group, moves to the next line at the
+block's 8 px padding, with no divider before it (`px-00`, `px-08`, `px-09`: 1280 px, where the line
+holds the Output line and Analyse but not the Parts item); Analyse stays at the far right of the
+first line. Behind Analyse on the same line the item stands 25 px after it with a divider at the
+13th px (the divider rule of the table below). Items, vertically centred:
 
 | Item | Size | Look | Accessible |
 |---|---|---|---|
@@ -121,13 +127,23 @@ trash 332..360, divider 372, Rectangle 385..413, Lasso 417..445, Subtract 449..4
 Clear mask 613..641. Vertically (Advanced open, one first row): first row y 0..36, divider of the
 block at 40, Output line 45..81, **Parts row 81..117**, controls at 85..113; the bar is 121 px high.
 
-**Fit and wrap.** The row needs 16 + 377 + 32 n px of bar width, at most 649 with eight parts. The bar
-is never narrower than 776 px (the 800 px minimum window, `0001 §1`), so the row is **one line at every
-supported width**, 1248 and 1280 px included (bar 1198 px there, 549 px to spare with eight parts).
-Rule for a narrower block all the same (Curvyo's bar rule): the row wraps by whole groups; the Mask
-group goes first, as a whole, to a second 36 px line starting at the block's padding, and its divider
-is not drawn there; label and chips never wrap apart, Add part and the trash wrap together after the
-chips only when the Parts group alone is wider than the block.
+**Fit and wrap (customer, 2026-11-13).** The block's items are whole and flow in this order; the
+Parts item (`409 + 32 (n - 1)` px) is behind Analyse on its line when `x + 75 + 25 + 409` fits the
+block's width (the bar's inside less the block's 4 px), else it starts the next line. The bar is as
+wide as its first row (1198 px with Brightness, Advanced open), **unless the whole block fits on one
+line in the window** (bar at most W - 24): then the bar widens to that line and everything stays on
+it. With Brightness, Single colour and one part that line is 1347 px of bar, so the window must be
+**1371 px** or more: 1920 x 1080 shows Output to Clear mask on one line, 1371 x 800 is the last
+width that does, 1370, 1300 and 1280 move the Parts item down as a whole and keep the 1198 px bar of
+the references. Each part adds 32 px, so the line breaks at the part that no longer fits (at 1371
+px the second part). Widening only when the whole line fits is a **(Proposal)**: Curvyo's own pill
+would take the whole cap whenever the line does not fit, which the 1280 px references contradict;
+the cost is that Save as…, at the far right of the first row, moves right when the bar widens
+(opening Advanced at 1920 px moves it by 149 px, adding a part by 32 px). Rule for a block narrower
+than the item all the same: the Mask group goes first, as a whole, to a second 36 px line starting at
+the block's padding, and its divider is not drawn there; label and chips never wrap apart, Add part
+and the trash wrap together after the chips only when the Parts group alone is wider than the block.
+The widened line is rounded up to whole pixels so that Analyse and the Parts item stand on them.
 
 **Chip states** (`px-09`, `px-11`, `px-12`, `px-15`):
 
@@ -231,8 +247,17 @@ drag, Space+drag and scroll still pan.
 | double click | finishes the lasso; its second click adds no corner |
 | Enter | finishes the lasso (consumed: not Save as…) |
 | Backspace | removes the last corner; removing the only corner cancels the lasso **(Proposal, as Curvyo `0114`)** |
-| Esc | finishes the lasso and releases Lasso (customer's Proposal: Esc ends the tool and keeps the closed shape) |
-| the tool ends otherwise: Lasso or Rectangle pressed, a chip picked, Add part, a part removed | the lasso is finished first (closed by a straight side from the last corner to the first), then the press acts |
+| right click (anywhere on the canvas, Lasso pressed, a lasso in progress) | finishes the lasso, closed by a straight side from the last corner to the first; it sets no corner and the canvas opens no context menu (customer, 2026-11-13). Lasso stays pressed. Without a lasso in progress it does nothing |
+| Esc | **aborts** the lasso: the shape being drawn is discarded, nothing is added to the mask, and Lasso is released as Esc releases Rectangle (customer, 2026-11-13; replaces "Esc finishes") |
+| the tool ends otherwise: Lasso or Rectangle pressed, a chip picked, Add part, a part removed | the lasso is **closed automatically** first (customer: "wenn man sie nicht zu macht wird sie automatisch geschlossen"), by a straight side from the last corner to the first, then the press acts |
+
+**Which ends close and which discard.** *Close* (3 or more corners and an area become a region, else
+dropped): right click, click on the first corner, double click, Enter, and the automatic close when
+another tool is pressed (Rectangle or Lasso), a chip is picked, Add part or the trash removes a part,
+or the tool is left in any other way that keeps the shape. *Discard* (nothing is stored): Esc, Clear
+mask, opening a picture, Backspace on the only corner. Pressing Lasso itself releases the tool and
+closes the shape first, as for Rectangle. Rectangle drawing is unchanged: Esc during a drag
+restores.
 | Clear mask, opening a picture | the lasso in progress is dropped with the regions **(Proposal; Curvyo `0114` keeps it because its masks outlive the tool)** |
 | Advanced closed, the window loses focus, pan or zoom | nothing ends; the lasso stays in progress |
 | Shift, Ctrl, Alt | **no meaning** while a lasso is drawn or a corner dragged: no angle lock, no snapping, every corner lands at the pointer's pixel. Curvyo-consistent "no constraint": Curvyo `0114` makes Shift not special; Curvyo's Pen uses Shift only at a target (sharp or smooth close, which straight sides do not have) and Ctrl as an angle lock, which a mask outline does not need. Subtract is the toggle, never a key |
@@ -256,8 +281,9 @@ Ctrl means Cmd on macOS. Canvas keys act when no text entry has focus. Additions
 
 | Key | Where | Does |
 |---|---|---|
-| Esc | anywhere | finish a lasso in progress and release Lasso (section 6); else stop a running trace; else disarm the pipette; else release the pressed region tool (Rectangle or Lasso); else deselect the region; else as `0001` (focus to the canvas). An armed trash consumes the first Esc (disarm only) |
+| Esc | anywhere | abort a lasso in progress (discard the shape) and release Lasso (section 6); else stop a running trace; else disarm the pipette; else release the pressed region tool (Rectangle or Lasso); else deselect the region; else as `0001` (focus to the canvas). An armed trash consumes the first Esc (disarm only) |
 | Enter | canvas | finish a lasso in progress; else Save as… (`0001`) |
+| right click | canvas, a lasso in progress | finish it, closed (section 6); no context menu |
 | Backspace | canvas, a lasso in progress | removes its last corner |
 | Delete, Backspace | canvas, a region selected, no lasso in progress | removes it |
 | Arrows | canvas, a region selected | move it 1 picture px; Shift 10 px (Curvyo nudges 1 mm / 10 mm) |
@@ -346,7 +372,9 @@ R3 = (100, 450)-(300, 520) (below the picture). The `px-*` pictures are those re
 | P15 No part to trace | `px-17` | P14 plus Add part | bar: dimmed Save as…, chip 2 muted and active |
 | P16 Subtract pressed | `px-19` (Curvyo's pressed class on a copy of its button; Curvyo has no Subtract) | as P3 plus Rectangle and Subtract pressed | whole bar |
 | P17 Lasso pressed | `px-18` (as P16, Curvyo has no Lasso) | as P3 plus Lasso pressed | whole bar |
-| P18 Eight parts | none (geometry) | P1 plus seven Add part | the Parts row is one line at y 81..117; chips 44..296, Add part 300..328, trash 332..360, divider x 372, Rectangle 385..413, Lasso 417..445, Subtract 449..477, Mask 481..609, Clear mask 613..641 (± 1 px, section 3); Add part dimmed |
+| P18 Eight parts | none (geometry) | P1 plus seven Add part, 1280 px | the Parts row is the item that wrapped, one line at y 81..117; chips 44..296, Add part 300..328, trash 332..360, divider x 372, Rectangle 385..413, Lasso 417..445, Subtract 449..477, Mask 481..609, Clear mask 613..641 (± 1 px, section 3); Add part dimmed |
+| P19 Wide window | `px-08`, the 409 x 36 crop at (8, 81), and geometry | 1920 x 1080, Brightness, Advanced open, one part | no Curvyo reference exists for this width (Curvyo is read-only here); the Parts and Mask groups equal the crop of `px-08` within the 1 px blur and stand 25 px behind Analyse on its line (label at Analyse right + 25, chip 1 at label + 36, Add part + 68, trash + 100, Rectangle + 153, Lasso + 185, Subtract + 217, Inside + 249, Clear mask + 381); dividers at Analyse right + 12 and trash right + 12; bar 85 px high, ending 12 px behind Clear mask, left edge 365; `tests/wrap.rs` |
+| P20 Narrower than one line | geometry | 1300 x 800, and 1370 against 1371 | Analyse at left + 1186, the Parts item at the block's padding one 36 px line lower (bar 121 px high), no divider before it, the 1198 px bar; the same item at 1371 px is behind Analyse; `tests/wrap.rs` |
 | C1 Wash Inside | `curvyo-02` | R1, R2 Inside | sample, not a pixel diff: the LOGO block inside R1 `#B5C1DC` ± 3, the triangle (outside) at 12 % (white `#FFFFFF` stays white; the yellow `#F2B705` becomes `#FDF6E1` ± 3) |
 | C2 Wash Outside | `curvyo-05` | R1, R2 Outside | LOGO block `#E6EAF3` ± 3; no preview outline inside R1 or R2 |
 | C3 Region line | `curvyo-02` | R1 at 100 % | a 1 px line `#000000` (± 24) along R1; at 400 % 4 px (3.8 rounded) |
@@ -367,11 +395,11 @@ cursors, shadow halos, tooltip x, the drag ghost.
 | 2 | Other parts' regions | drawn, not editable (Curvyo's mask paths are always visible) | spec 11 follows |
 | 3 | Draw modifiers | Shift from the centre, Ctrl square; resize Shift about the centre, Ctrl keep proportions (Curvyo) | spec 7, 9 follow |
 | 4 | Without a picture | no Mask group, no Parts (`0001`) | spec 1 follows |
-| 5 | Mask group | in the Parts row of Advanced, its own last line of the block (customer, 2026-11-13, Frage 8 A); the first row is `0001 §3.3`'s one row again | Curvyo: in the first row after Preset; Curvyo `0114` follows these notes |
+| 5 | Mask group | in the Parts row of Advanced, the last item of the block's flow: behind Analyse when the window allows, else on the next line (customer, 2026-11-13, Frage 8 A and the wrap rule); the first row is `0001 §3.3`'s one row again | Curvyo: in the first row after Preset; Curvyo `0114` follows these notes |
 | 6 | Selected region | no rotate, skew, radius or centre handles | Curvyo's Select tool shows them |
 | 7 | Size chip | picture px | Curvyo mm |
 | 8 | Region tool announcement, Save as… tooltip with parts | "Rectangle on", "Lasso on"; "Save as… (Ctrl+Shift+S), 3 parts joined" | new strings |
-| 9 | Lasso | Curvyo's Pen look while drawing, its Node-tool corner squares when selected, its mask-path line when finished; Esc finishes and releases; no modifiers; Backspace removes the last corner | Curvyo `0114` (to be built), same rules |
+| 9 | Lasso | Curvyo's Pen look while drawing, its Node-tool corner squares when selected, its mask-path line when finished; a right click finishes it, Esc aborts and releases; no modifiers; Backspace removes the last corner | Curvyo `0114` (to be built), same rules |
 | 10 | Lasso fill rule | non-zero winding (customer correction, 2026-11-13) | Curvyo `0114` criterion 23, the same |
 
 **Frage 6 (REGION-ALT): Which key subtracts?** Decided by the lead, 2026-11-12: **C**, a Subtract
@@ -432,3 +460,11 @@ and does not see it. The Threshold readings (62 % in 00 and 01, 66 % in 02 to 08
 in 22) are Curvyo's auto threshold, not Tracyo's. The Lasso and Subtract copies have no hover tooltip
 and no behaviour.
 
+
+## Wrap references, 2026-11-13
+
+Curvyo's dev server is not run for these widths (the Curvyo checkout is read-only for Tracyo's
+agents), so there are no new reference pictures. `px-00` .. `px-23` stay valid at 1280 x 800, where
+the Parts item does not fit behind Analyse. The wide and intermediate cases are asserted by geometry
+from the verified widths of section 3 (label 32, chips 28, gaps 4, 25 px gap with the divider at its
+13th px, Mask group 256) and, for the look of the groups, by the 409 x 36 crop of `px-08`.

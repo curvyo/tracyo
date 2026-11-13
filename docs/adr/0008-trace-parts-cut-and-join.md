@@ -324,6 +324,7 @@ named here; the cut, the join, the stack, the crop and the worker protocol are t
 16. **Interaction.** `lasso` (draft: click, close target of 16 px, Backspace, finish) and the lasso
     parts of `region_edit` (`region_at` by winding number or within the slop of a side, `corner_at`,
     `nearest_pixel`) are core and unit-tested; `tracyo-app` draws and routes the pointer
-    (`region_tool`, `region_paint`). `Esc` finishes a lasso first (`progress::Esc::FinishLasso`).
+    (`region_tool`, `region_paint`). `Esc` aborts a lasso in progress first (`progress::Esc::AbortLasso`, the shape is discarded and
+    Lasso released); a right click finishes it (amendment of 2026-11-13, PR #16; before, Esc finished it).
 17. **No new dependency, no new crate, no format change.** `lasso.svg` joins the lucide icons
     (`assets/ASSETS.md`).

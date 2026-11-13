@@ -9,7 +9,7 @@ First release, `0.1.0`. Polygons and stars are saved as `<polygon>` and Inkscape
 ### Added
 
 - Lasso regions (specification 0002, criteria 28 and 29): click corners of a straight-sided
-  polygon, close it on the first corner, with a double click, Enter or Esc, select it, move it,
+  polygon, close it on the first corner, with a double click, Enter or a right click (Esc aborts it), select it, move it,
   drag its corners; it is added or subtracted like a rectangle, a figure 8 is filled wherever it is
   covered, and the trace is cut exactly on its slanted sides.
 - The bar is centred with Open as its first control; the left toolbox is gone, and the Mask group
