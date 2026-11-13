@@ -8,7 +8,7 @@ use tracyo_core::settings;
 use vectrace::Rgb8;
 
 use crate::app::{App, Pipette};
-use crate::bar::{BlockFlow, bar_id, block_flow, field_widget, plain};
+use crate::bar::{BlockFlow, Last, bar_id, block_flow, field_widget, plain};
 use crate::controls::{self, CellPress, segmented, segmented_width};
 use crate::icons::Icon;
 use crate::theme;
@@ -183,16 +183,47 @@ impl App {
         }
     }
 
-    /// Where the block's items sit when `inner` px are inside the bar's padding.
-    pub(crate) fn block_layout(&self, ui: &egui::Ui, inner: f32) -> BlockFlow {
+    /// The widths of the Output row on one line, Denoise, Upscale and Corners.
+    fn block_cells(&self, ui: &egui::Ui) -> (f32, [f32; 3]) {
         let cell = |labels: &[&str]| (LABEL_W + segmented_width(ui, labels, 8.0)).max(MIN_CELL);
         let pill = segmented_width(ui, &OUTPUT, OUTPUT_PAD);
+        (
+            self.row_shape().places(pill).width,
+            [cell(&DENOISE), cell(&UPSCALE), MIN_CELL],
+        )
+    }
+
+    /// The `inner` width at which the whole block is one line: the Output row, Denoise, Upscale,
+    /// Corners, Analyse and the Parts row with its divider and the block's 4 px on the right.
+    pub(crate) fn block_line_width(&self, ui: &egui::Ui) -> f32 {
+        let (output, cells) = self.block_cells(ui);
+        let parts = self.doc.as_ref().map_or(1, |d| d.parts.len());
+        // Whole pixels, so that Analyse and the Parts row stand on whole pixels.
+        (output
+            + 8.0
+            + cells.iter().map(|w| w + 8.0).sum::<f32>()
+            + ANALYSE_W
+            + crate::parts_row::LEAD_GAP
+            + crate::parts_row::single_width(parts)
+            + 4.0)
+            .ceil()
+    }
+
+    /// Where the block's items sit when `inner` px are inside the bar's padding.
+    pub(crate) fn block_layout(&self, ui: &egui::Ui, inner: f32) -> BlockFlow {
+        let (_, cells) = self.block_cells(ui);
+        let pill = segmented_width(ui, &OUTPUT, OUTPUT_PAD);
         let output = self.row_shape().layout(pill, inner - 4.0);
-        let parts =
-            crate::parts_row::layout(self.doc.as_ref().map_or(1, |d| d.parts.len()), inner - 4.0);
-        let widths = [output.width, cell(&DENOISE), cell(&UPSCALE), MIN_CELL];
+        let count = self.doc.as_ref().map_or(1, |d| d.parts.len());
+        let parts = crate::parts_row::layout(count, inner - 4.0);
+        let widths = [output.width, cells[0], cells[1], cells[2]];
         let heights = [output.height, LINE, LINE, LINE];
-        block_flow(&widths, &heights, ANALYSE_W, inner - 4.0, parts.height)
+        let last = Last {
+            gap: crate::parts_row::LEAD_GAP,
+            width: crate::parts_row::single_width(count),
+            height: parts.height,
+        };
+        block_flow(&widths, &heights, ANALYSE_W, inner - 4.0, last)
     }
 
     /// Paints and drives the block; `origin` is its content corner. Returns whether a value that
@@ -248,8 +279,15 @@ impl App {
             self.analyse_again(ctx);
         }
 
-        // The Parts row with the Mask group: the block's last line, a line of its own.
-        self.parts_row(ui, ctx, content + block.parts.to_vec2(), inner - 4.0);
+        // The Parts row with the Mask group: behind Analyse when the line has room, else a line
+        // of its own.
+        self.parts_row(
+            ui,
+            ctx,
+            content + block.parts.to_vec2(),
+            inner - 4.0,
+            block.parts_beside,
+        );
         changed
     }
 

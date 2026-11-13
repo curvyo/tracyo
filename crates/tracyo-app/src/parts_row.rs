@@ -55,12 +55,22 @@ pub(crate) struct Layout {
     pub divider: bool,
 }
 
+/// The gap before the Parts row when it follows Analyse on its line; the divider stands 12 px into
+/// it, as between the trash and the Mask group.
+pub(crate) const LEAD_GAP: f32 = GROUP_GAP;
+
+/// The row's width on one line: the Parts group, the gap and the Mask group.
+#[must_use]
+pub(crate) fn single_width(parts: usize) -> f32 {
+    width(parts) + GROUP_GAP + crate::mask_group::WIDTH
+}
+
 /// The row for `parts` parts in `available` px (ux-notes 3 "Fit and wrap"): one line when the
 /// Parts group, the gap and the Mask group fit, else the Mask group, as a whole, on a second line.
 #[must_use]
 pub(crate) fn layout(parts: usize, available: f32) -> Layout {
     let group = width(parts);
-    if group + GROUP_GAP + crate::mask_group::WIDTH <= available {
+    if single_width(parts) <= available {
         Layout {
             height: 36.0,
             mask: Pos2::new(group + GROUP_GAP, 0.0),
@@ -96,13 +106,14 @@ enum Action {
 
 impl App {
     /// Paints and drives the row with its top-left corner at `origin`, `available` px wide: the
-    /// Parts group and the Mask group.
+    /// Parts group and the Mask group; `lead_divider` draws the divider before the Parts group.
     pub(crate) fn parts_row(
         &mut self,
         ui: &mut Ui,
         ctx: &egui::Context,
         origin: Pos2,
         available: f32,
+        lead_divider: bool,
     ) {
         let Some(live) = self.live_part() else { return };
         let Some(doc) = &mut self.doc else { return };
@@ -258,6 +269,14 @@ impl App {
             None => {}
         }
 
+        if lead_divider {
+            let x = origin.x - LEAD_GAP + 12.0;
+            ui.painter().rect_filled(
+                Rect::from_min_size(pos2(x, origin.y + 4.0), vec2(1.0, 20.0)),
+                0,
+                theme::DIVIDER,
+            );
+        }
         // The Mask group, after a divider (Curvyo's bar divider, 12 px into the gap).
         let places = layout(count, available);
         if places.divider {

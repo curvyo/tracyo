@@ -42,10 +42,27 @@ pub fn harness_stepped<'a>(
     width: f32,
     step_dt: f32,
 ) -> Harness<'a, App> {
+    harness_window(
+        dir,
+        open,
+        dialogs,
+        eframe::egui::vec2(width, 800.0),
+        step_dt,
+    )
+}
+
+/// As [`harness_stepped`] with a window of `size` points.
+pub fn harness_window<'a>(
+    dir: &Path,
+    open: Option<PathBuf>,
+    dialogs: Dialogs,
+    size: eframe::egui::Vec2,
+    step_dt: f32,
+) -> Harness<'a, App> {
     let config = Config::at(Some(dir.join("settings.toml")));
     let exe = PathBuf::from(env!("CARGO_BIN_EXE_tracyo"));
     let mut harness = Harness::builder()
-        .with_size(eframe::egui::vec2(width, 800.0))
+        .with_size(size)
         .with_step_dt(step_dt)
         .wgpu()
         .build_eframe(move |cc| {
