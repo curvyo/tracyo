@@ -249,7 +249,7 @@ drag, Space+drag and scroll still pan.
 | Backspace | removes the last corner; removing the only corner cancels the lasso **(Proposal, as Curvyo `0114`)** |
 | right click (anywhere on the canvas, Lasso pressed, a lasso in progress) | finishes the lasso, closed by a straight side from the last corner to the first; it sets no corner and the canvas opens no context menu (customer, 2026-11-13). Lasso stays pressed. Without a lasso in progress it does nothing |
 | Esc | **aborts** the lasso: the shape being drawn is discarded, nothing is added to the mask, and Lasso is released as Esc releases Rectangle (customer, 2026-11-13; replaces "Esc finishes") |
-| the tool ends otherwise: Lasso or Rectangle pressed, a chip picked, Add part, a part removed | the lasso is **closed automatically** first (customer: "wenn man sie nicht zu macht wird sie automatisch geschlossen"), by a straight side from the last corner to the first, then the press acts |
+| the tool ends otherwise: Lasso or Rectangle pressed, a chip picked, Add part, a part removed | the lasso is **closed automatically** first (customer: a lasso that is not closed by hand is closed automatically), by a straight side from the last corner to the first, then the press acts |
 
 **Which ends close and which discard.** *Close* (3 or more corners and an area become a region, else
 dropped): right click, click on the first corner, double click, Enter, and the automatic close when
