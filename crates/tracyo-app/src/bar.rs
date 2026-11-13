@@ -27,17 +27,32 @@ pub struct Flow {
     pub size: Vec2,
 }
 
-/// Whole items in lines: x and y of each, the tail's, and the height of all lines.
+/// Whole items in lines: x and y of each, the tail's, the last item's and the height of all lines.
 struct Rows {
     items: Vec<(f32, f32)>,
     tail: (f32, f32),
+    /// Where the last item stands and whether it shares the tail's line.
+    last: Option<((f32, f32), bool)>,
     height: f32,
 }
 
+/// An item after the tail, in the same flow: it follows the tail on its line, `gap` px behind it
+/// and flush right, or starts the next line.
+#[derive(Debug, Clone, Copy)]
+pub struct Last {
+    /// Space between the tail and this item when they share a line.
+    pub gap: f32,
+    /// Width on one line.
+    pub width: f32,
+    /// Height of its line.
+    pub height: f32,
+}
+
 /// Flows `widths` in whole items, wrapping when `inner` would be passed; `heights` are the items'
-/// heights (a line is as tall as its tallest item, items sit at its top); `tail` is the last
-/// item, 36 px high, pushed to the far right of its line (`margin-left: auto`).
-fn rows(widths: &[f32], heights: &[f32], tail: f32, inner: f32) -> Rows {
+/// heights (a line is as tall as its tallest item, items sit at its top); `tail` is the next item,
+/// 36 px high, pushed to the far right of its line (`margin-left: auto`) or, with a `last` item on
+/// its line, to just before that one.
+fn rows(widths: &[f32], heights: &[f32], tail: f32, inner: f32, last: Option<Last>) -> Rows {
     let mut y = 0.0_f32;
     let mut line = ROW;
     let mut x = 0.0_f32;
@@ -55,23 +70,41 @@ fn rows(widths: &[f32], heights: &[f32], tail: f32, inner: f32) -> Rows {
     if x > 0.0 && x + tail > inner {
         y += line;
         line = ROW;
+        x = 0.0;
+    }
+    let tail_y = y;
+    let mut tail_x = inner - tail;
+    let mut placed = None;
+    if let Some(l) = last {
+        if x + tail + l.gap + l.width <= inner + 1e-3 {
+            tail_x = inner - l.width - l.gap - tail;
+            line = line.max(l.height);
+            placed = Some(((inner - l.width, y), true));
+        } else {
+            y += line;
+            line = l.height;
+            placed = Some(((0.0, y), false));
+        }
     }
     Rows {
         items,
-        tail: (inner - tail, y),
+        tail: (tail_x, tail_y),
+        last: placed,
         height: y + line,
     }
 }
 
 /// The flow of the bar's rows. The bar is as wide as its items on one line (with the open
 /// Advanced block's zero-width item adding one more gap), at most `max_inner`; when they do not
-/// fit on one line the bar takes all of `max_inner` and the items wrap by whole items.
+/// fit on one line the bar takes all of `max_inner` and the items wrap by whole items. An open
+/// block that fits on one line in `max_inner` widens the bar to `block_inner`, its width on one
+/// line (0 when it does not fit or is closed).
 #[must_use]
-pub fn flow(widths: &[f32], tail: f32, max_inner: f32, block_open: bool) -> Flow {
+pub fn flow(widths: &[f32], tail: f32, max_inner: f32, block_open: bool, block_inner: f32) -> Flow {
     let gaps = widths.len() as f32 + if block_open { 1.0 } else { 0.0 };
     let single = widths.iter().sum::<f32>() + tail + gaps * PAD;
-    let inner = single.min(max_inner);
-    let r = rows(widths, &vec![ROW; widths.len()], tail, inner);
+    let inner = single.max(block_inner).min(max_inner);
+    let r = rows(widths, &vec![ROW; widths.len()], tail, inner, None);
     Flow {
         items: r
             .items
@@ -90,22 +123,34 @@ pub struct BlockFlow {
     pub items: Vec<egui::Pos2>,
     /// Top-left of the last item (Analyse), at the far right of its row.
     pub tail: egui::Pos2,
-    /// Top-left of the Parts row, the block's last line, a line of its own.
+    /// Top-left of the Parts row, the block's last item.
     pub parts: egui::Pos2,
+    /// Whether the Parts row shares the line of Analyse (a divider stands before it).
+    pub parts_beside: bool,
     /// Height of all the lines, the Parts row's included, in px.
     pub height: f32,
 }
 
 /// Flows the Advanced block's items of `widths` and `heights` in `inner` px; `tail` is Analyse.
-/// The Parts row of height `parts` (36 or 72 px) is the last line under all of them.
+/// The Parts row `parts` follows Analyse in the same flow: behind it on its line when it fits,
+/// else on a line of its own.
 #[must_use]
-pub fn block_flow(widths: &[f32], heights: &[f32], tail: f32, inner: f32, parts: f32) -> BlockFlow {
-    let r = rows(widths, heights, tail, inner);
+pub fn block_flow(
+    widths: &[f32],
+    heights: &[f32],
+    tail: f32,
+    inner: f32,
+    parts: Last,
+) -> BlockFlow {
+    let r = rows(widths, heights, tail, inner, Some(parts));
+    // invariant: `rows` places the last item when one is given.
+    let ((px, py), beside) = r.last.unwrap_or(((0.0, r.height), false));
     BlockFlow {
         items: r.items.iter().map(|&(x, y)| pos2(x, y + 4.0)).collect(),
         tail: pos2(r.tail.0, r.tail.1 + 4.0),
-        parts: pos2(0.0, r.height + 4.0),
-        height: r.height + parts,
+        parts: pos2(px, py + 4.0),
+        parts_beside: beside,
+        height: r.height,
     }
 }
 
@@ -221,9 +266,16 @@ impl App {
         widths.extend([150.0, 150.0, 171.0]);
         let open = self.settings.advanced_open;
         let max_inner = (canvas_w - 2.0 * BAR_MARGIN - 2.0 * PAD).max(200.0);
-        let layout = flow(&widths, 28.0 + PAD + blue_w, max_inner, open);
+        // An open block that fits on one line in the window widens the bar to that line.
+        let block_inner = if open {
+            Some(self.block_line_width(root)).filter(|w| *w <= max_inner)
+        } else {
+            None
+        }
+        .unwrap_or(0.0);
+        let layout = flow(&widths, 28.0 + PAD + blue_w, max_inner, open, block_inner);
         // The bar at rest (Save as… 89 px, Advanced closed) decides where it stands.
-        let rest = flow(&widths, 28.0 + PAD + 89.0, max_inner, false);
+        let rest = flow(&widths, 28.0 + PAD + 89.0, max_inner, false, 0.0);
         let x = bar_x(canvas_w, rest.size.x, layout.size.x);
         let inner = layout.size.x - 2.0 * PAD;
         let block = open.then(|| self.block_layout(root, inner));
@@ -614,7 +666,7 @@ mod tests {
 
     #[test]
     fn at_rest_the_bar_is_one_row_of_1190_px() {
-        let f = flow(&WIDTHS, 28.0 + 8.0 + 89.0, 1256.0 - 16.0, false);
+        let f = flow(&WIDTHS, 28.0 + 8.0 + 89.0, 1256.0 - 16.0, false, 0.0);
         assert_eq!(f.size, vec2(1190.0, 36.0));
         assert_eq!(f.items[0], pos2(8.0, 4.0), "Open is the first control");
         assert_eq!(f.items[1], pos2(8.0 + 28.0 + 8.0, 4.0), "About 44..72");
@@ -626,7 +678,7 @@ mod tests {
 
     #[test]
     fn at_800_wide_the_bar_wraps_by_whole_items_into_two_rows() {
-        let f = flow(&WIDTHS, 125.0, 776.0 - 16.0, false);
+        let f = flow(&WIDTHS, 125.0, 776.0 - 16.0, false, 0.0);
         assert_eq!(f.size.y, 72.0);
         // Open to Smooth fit the first row (720 px); Tolerance starts row two.
         assert_eq!(f.items[5].y, 4.0);
@@ -639,21 +691,21 @@ mod tests {
 
     #[test]
     fn an_open_block_adds_one_gap_to_the_bar() {
-        let rest = flow(&WIDTHS, 125.0, 1240.0, true);
+        let rest = flow(&WIDTHS, 125.0, 1240.0, true, 0.0);
         assert_eq!(rest.size, vec2(1198.0, 36.0));
         // The blue group stays flush right: the extra gap sits before it.
         assert_eq!(rest.tail.x + 125.0 + 8.0, 1198.0);
-        let running = flow(&WIDTHS, 28.0 + 8.0 + 75.0, 1240.0, true);
+        let running = flow(&WIDTHS, 28.0 + 8.0 + 75.0, 1240.0, true, 0.0);
         assert_eq!(running.size.x, 1184.0);
     }
 
     #[test]
     fn a_wider_blue_button_wraps_the_group_when_the_cap_is_met() {
         // Stopped is 106 px wide; the bar is capped at 1256 px.
-        let f = flow(&WIDTHS, 28.0 + 8.0 + 106.0, 1240.0, true);
+        let f = flow(&WIDTHS, 28.0 + 8.0 + 106.0, 1240.0, true, 0.0);
         assert_eq!(f.size.x, 1215.0, "Stopped fits on one row at 1280");
         assert_eq!(f.size.y, 36.0);
-        let narrow = flow(&WIDTHS, 28.0 + 8.0 + 106.0, 1180.0, true);
+        let narrow = flow(&WIDTHS, 28.0 + 8.0 + 106.0, 1180.0, true, 0.0);
         assert_eq!(narrow.size, vec2(1196.0, 72.0));
         assert_eq!(narrow.tail.y, 40.0);
         assert_eq!(narrow.items[7].y, 4.0);
@@ -662,7 +714,7 @@ mod tests {
     #[test]
     fn remove_background_takes_the_whole_width_and_wraps_the_blue_group() {
         let widths = [28.0, 28.0, 132.0, 176.0, 150.0, 168.0, 150.0, 150.0, 171.0];
-        let f = flow(&widths, 125.0, 1240.0, false);
+        let f = flow(&widths, 125.0, 1240.0, false, 0.0);
         assert_eq!(f.size, vec2(1256.0, 72.0));
         // Ignore below still fits the first row (px-09 shows it there); only the expander and
         // the blue button wrap.
@@ -688,16 +740,33 @@ mod tests {
         assert_eq!(bar_x(1280.0, 1256.0, 1256.0), 12.0);
     }
 
+    /// The Parts row of one part: 128 + 25 + 256 wide on one line, 72 px high when it wraps inside.
+    fn parts(height: f32) -> Last {
+        Last {
+            gap: 25.0,
+            width: 409.0,
+            height,
+        }
+    }
+
     #[test]
     fn the_block_puts_analyse_flush_right_and_wraps_whole_items() {
         let widths = [60.0, 185.0, 150.0, 150.0];
-        let b = block_flow(&widths, &[36.0; 4], 75.0, 1142.0, 36.0);
-        assert_eq!(b.height, 36.0 + 36.0, "the Parts row is a line of its own");
-        assert_eq!(b.parts, pos2(0.0, 36.0 + 4.0));
+        // 60 + 185 + 150 + 150 + 4 x 8 + 75 + 25 + 409 = 1086: the Parts row follows Analyse.
+        let b = block_flow(&widths, &[36.0; 4], 75.0, 1142.0, parts(36.0));
+        assert_eq!(b.height, 36.0, "one line");
+        assert!(b.parts_beside);
+        assert_eq!(b.parts, pos2(1142.0 - 409.0, 4.0));
+        assert_eq!(b.tail.x, 1142.0 - 409.0 - 25.0 - 75.0);
         assert_eq!(b.items[0], pos2(0.0, 4.0));
         assert_eq!(b.items[1].x, 68.0);
-        assert_eq!(b.tail.x, 1142.0 - 75.0);
-        let narrow = block_flow(&widths, &[36.0; 4], 75.0, 500.0, 36.0);
+        // Narrower than that, the Parts row moves down as a whole; Analyse stays far right.
+        let wrapped = block_flow(&widths, &[36.0; 4], 75.0, 1000.0, parts(36.0));
+        assert!(!wrapped.parts_beside);
+        assert_eq!(wrapped.parts, pos2(0.0, 36.0 + 4.0));
+        assert_eq!(wrapped.tail, pos2(1000.0 - 75.0, 4.0));
+        assert_eq!(wrapped.height, 72.0);
+        let narrow = block_flow(&widths, &[36.0; 4], 75.0, 500.0, parts(72.0));
         assert!(narrow.height > 72.0);
         assert!(narrow.items.iter().all(|p| p.x + 150.0 <= 500.0 + 40.0));
     }
@@ -705,20 +774,21 @@ mod tests {
     #[test]
     fn a_tall_item_makes_its_line_as_tall_and_the_next_line_starts_below_it() {
         let widths = [700.0, 150.0, 150.0];
-        let b = block_flow(&widths, &[92.0, 36.0, 36.0], 75.0, 800.0, 36.0);
+        let b = block_flow(&widths, &[92.0, 36.0, 36.0], 75.0, 800.0, parts(36.0));
         // Denoise and Upscale do not fit beside the 700 px item and its gap.
         assert_eq!(b.items[0], pos2(0.0, 4.0));
         assert_eq!(b.items[1], pos2(0.0, 96.0));
         assert_eq!(b.items[2], pos2(158.0, 96.0));
         assert_eq!(b.height, 92.0 + 36.0 + 36.0);
         assert_eq!(b.parts, pos2(0.0, 92.0 + 36.0 + 4.0));
-        let beside = block_flow(&[300.0, 150.0], &[92.0, 36.0], 75.0, 1000.0, 36.0);
+        let beside = block_flow(&[300.0, 150.0], &[92.0, 36.0], 75.0, 1000.0, parts(36.0));
         assert_eq!(
             beside.items[1],
             pos2(308.0, 4.0),
             "a short item sits at the line's top"
         );
-        assert_eq!(beside.height, 92.0 + 36.0);
+        assert_eq!(beside.height, 92.0, "Analyse and Parts share the tall line");
+        assert!(beside.parts_beside);
     }
 
     #[test]
