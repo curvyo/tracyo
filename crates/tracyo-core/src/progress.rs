@@ -167,13 +167,13 @@ impl Progress {
     }
 }
 
-/// What Esc does, in order: finish a lasso in progress and release Lasso, stop a trace, disarm the
+/// What Esc does, in order: abort a lasso in progress and release Lasso, stop a trace, disarm the
 /// pipette, close a menu or entry, release the pressed region tool, clear the region selection,
 /// then return the keyboard to the canvas. It never closes the window.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Esc {
-    /// Finish the lasso in progress (closed by a straight side) and release Lasso.
-    FinishLasso,
+    /// Discard the lasso in progress (nothing is added to the mask) and release Lasso.
+    AbortLasso,
     /// Stop the running trace.
     StopTrace,
     /// Disarm an armed pipette.
@@ -214,7 +214,7 @@ pub struct EscState {
 #[must_use]
 pub fn esc(state: EscState) -> Esc {
     if state.lasso_drawing {
-        Esc::FinishLasso
+        Esc::AbortLasso
     } else if state.running {
         Esc::StopTrace
     } else if state.pipette_armed {
@@ -396,7 +396,7 @@ mod tests {
     }
 
     #[test]
-    fn esc_finishes_a_lasso_then_stops_then_disarms_then_closes_then_returns() {
+    fn esc_aborts_a_lasso_then_stops_then_disarms_then_closes_then_returns() {
         let all = EscState {
             lasso_drawing: true,
             running: true,
@@ -406,7 +406,7 @@ mod tests {
             region_tool_pressed: true,
             region_selected: true,
         };
-        assert_eq!(esc(all), Esc::FinishLasso);
+        assert_eq!(esc(all), Esc::AbortLasso);
         let all = EscState {
             lasso_drawing: false,
             ..all

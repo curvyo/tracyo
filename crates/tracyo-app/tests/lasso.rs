@@ -22,7 +22,7 @@ use std::path::{Path, PathBuf};
 
 use canvas::{
     button, click, click_px, click_with, corner, drag_begin, drag_px, open_advanced, press,
-    release, saved_paths, settle,
+    release, right_click, saved_paths, settle,
 };
 use eframe::egui::{Event, Key, Modifiers, Pos2, pos2};
 use egui_kittest::Harness;
@@ -155,15 +155,50 @@ fn enter_finishes_the_lasso_and_is_not_save_as() {
 }
 
 #[test]
-fn escape_finishes_the_lasso_and_releases_the_tool() {
+fn a_right_click_finishes_the_lasso_closed_by_a_straight_side_and_keeps_the_tool() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut h = opened(dir.path(), None);
+    button(&mut h, "Lasso");
+    set_corners(&mut h, &L1);
+    // Anywhere on the canvas, also away from the first corner; it adds no corner.
+    let away = at(&h, (120, 380));
+    right_click(&mut h, away);
+    settle(&mut h);
+    assert_eq!(lassos(&h), vec![L1.to_vec()], "closed by a straight side");
+    assert_eq!(h.state().lasso_in_progress().len(), 0);
+    assert!(h.state().lasso_pressed(), "Lasso stays pressed");
+}
+
+#[test]
+fn a_right_click_drops_a_lasso_of_fewer_than_three_corners_and_does_nothing_without_one() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut h = opened(dir.path(), None);
+    button(&mut h, "Lasso");
+    let away = at(&h, (120, 380));
+    right_click(&mut h, away);
+    assert_eq!(h.state().lasso_in_progress().len(), 0);
+    set_corners(&mut h, &L1[..2]);
+    right_click(&mut h, away);
+    settle(&mut h);
+    assert_eq!(lassos(&h), Vec::<Vec<(i32, i32)>>::new());
+    assert_eq!(h.state().lasso_in_progress().len(), 0);
+    assert!(h.state().lasso_pressed());
+}
+
+#[test]
+fn escape_aborts_the_lasso_in_progress_adds_nothing_and_releases_the_tool() {
     let dir = tempfile::tempdir().unwrap();
     let mut h = opened(dir.path(), None);
     button(&mut h, "Lasso");
     set_corners(&mut h, &L1);
     press(&mut h, Key::Escape, Modifiers::NONE);
     settle(&mut h);
-    assert_eq!(lassos(&h), vec![L1.to_vec()], "closed by a straight side");
-    assert!(!h.state().lasso_pressed());
+    assert_eq!(lassos(&h), Vec::<Vec<(i32, i32)>>::new(), "nothing added");
+    assert_eq!(h.state().lasso_in_progress().len(), 0);
+    assert!(
+        !h.state().lasso_pressed(),
+        "Lasso is released as for Rectangle"
+    );
     // Without a lasso in progress Esc releases the tool as it does for Rectangle.
     button(&mut h, "Lasso");
     press(&mut h, Key::Escape, Modifiers::NONE);

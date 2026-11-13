@@ -36,13 +36,14 @@ impl App {
     #[allow(clippy::too_many_lines)] // one pass over the pointer's state, split by what is pressed
     pub(crate) fn region_input(&mut self, ui: &Ui, resp: &Response, canvas: Rect, space: bool) {
         let armed = self.pipette != Pipette::Off;
-        let (pointer, press, mods, time, pressed) = ui.input(|i| {
+        let (pointer, press, mods, time, pressed, right_pressed) = ui.input(|i| {
             (
                 i.pointer.latest_pos(),
                 i.pointer.press_origin(),
                 i.modifiers,
                 i.time,
                 i.pointer.button_pressed(PointerButton::Primary),
+                i.pointer.button_pressed(PointerButton::Secondary),
             )
         });
         let Some(doc) = &mut self.doc else { return };
@@ -92,6 +93,10 @@ impl App {
                     Click::Added | Click::Ignored => mask.last_press = Some((time, at)),
                 }
             }
+        }
+        // A right click finishes the lasso in progress; the canvas has no context menu to open.
+        if lasso_tool && right_pressed && resp.hovered() && !mask.draft.is_empty() {
+            finish = true;
         }
         // A press on a corner of the selected lasso selects that corner and holds it for the
         // drag or click that follows.

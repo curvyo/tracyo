@@ -177,6 +177,14 @@ impl App {
         true
     }
 
+    /// Esc: the lasso in progress is thrown away, nothing is stored.
+    pub(crate) fn abort_lasso(&mut self) {
+        if let Some(doc) = &mut self.doc {
+            doc.mask.draft = Draft::new();
+            doc.mask.last_press = None;
+        }
+    }
+
     /// Presses or releases a region tool; a lasso in progress is finished first.
     pub(crate) fn set_tool(&mut self, ctx: &egui::Context, tool: Tool) {
         self.finish_lasso(ctx);

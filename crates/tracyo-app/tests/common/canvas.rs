@@ -75,6 +75,21 @@ pub fn click(h: &mut Harness<'_, App>, at: Pos2) {
     click_with(h, at, Modifiers::NONE);
 }
 
+/// A press and release of the secondary button at `at`.
+pub fn right_click(h: &mut Harness<'_, App>, at: Pos2) {
+    h.event(Event::PointerMoved(at));
+    h.run_steps(2);
+    for pressed in [true, false] {
+        h.event(Event::PointerButton {
+            pos: at,
+            button: PointerButton::Secondary,
+            pressed,
+            modifiers: Modifiers::NONE,
+        });
+        h.run_steps(2);
+    }
+}
+
 /// The press of a drag from `from` to `to` with its first moves, the button still down.
 pub fn drag_begin(h: &mut Harness<'_, App>, from: Pos2, to: Pos2) {
     h.event(Event::PointerMoved(from));
