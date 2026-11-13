@@ -43,7 +43,7 @@ maker has not set (Curvyo `0094` slice 2 note).
 or a lasso (ADR 0008 amendment 2026-11-13): the cut, the join, the stack, the crop and the worker
 protocol are unchanged because the clip is already a set of grid polygons; the model gets `Form`, the
 wash becomes triangles, the lasso draft is a core module. The mask is no longer rectilinear. Subtract
-applies to a lasso as it is finished. Esc finishes a lasso in progress first. The Mask group left the
+applies to a lasso as it is finished. Esc aborts a lasso in progress first (discards it); a right click finishes it (PR #16, 2026-11-13). The Mask group left the
 first row for the Parts row (ux-notes 0002 §2, §3): a layout change only, Open moved into the bar and
 the rail is gone (ADR 0003 amendment 2026-11-13). The property tests run with lasso shapes.
 
