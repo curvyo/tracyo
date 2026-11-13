@@ -966,8 +966,8 @@ impl App {
                 region_selected,
             };
             match progress::esc(state) {
-                Esc::FinishLasso => {
-                    self.finish_lasso(ctx);
+                Esc::AbortLasso => {
+                    self.abort_lasso();
                     if let Some(doc) = &mut self.doc
                         && doc.mask.tool == Tool::Lasso
                     {
