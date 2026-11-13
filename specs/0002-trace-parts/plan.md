@@ -112,11 +112,31 @@ Demo: Multicolour in two parts gives one layer per colour; part 2 on the darker 
 own background; Recognise text in one part and not in the other; a rectangle cut by a seam is a path,
 one wholly inside is a `<rect>`.
 
-- [ ] Join of multicolour parts: layers by exact RGB, largest first, single-colour parts as `#000000`, palette of the active part; golden `parts-17.svg` — 17
-- [ ] Region-only analysis per part clip, cached per clip, only unset values filled (`adrs.md` note) — 18
-- [ ] Text per part: lines filtered by each part's clip (box centre), whole-picture trace for parts with text, OCR once per picture; P3 fixture with its source noted — 19
-- [ ] Shapes after the cut; shape regions dropped when their outline went into a seam union — 19
-- [ ] Kittest flows for 17 to 19 with the real worker — 17, 18, 19
+- [x] Join of multicolour parts: layers by exact RGB, largest first, single-colour parts as `#000000`, palette of the active part; golden `parts-17.svg` — 17
+- [x] Region-only analysis per part clip, cached per clip, only unset values filled (`adrs.md` note) — 18
+- [x] Text per part: lines filtered by each part's clip (box centre), whole-picture trace for parts with text, OCR once per picture; P3 fixture with its source noted — 19
+- [x] Shapes after the cut; shape regions dropped when their outline went into a seam union — 19
+- [x] Kittest flows for 17 to 19 with the real worker — 17, 18, 19
+
+Done on `story/trace-parts-colour-text` (implementer, 2026-11-13). Notes:
+
+- The join, the stack and the worker already did what 17 and 19 ask (layers by exact RGB, text by the
+  box centre through `Job::mask`, shape regions dropped when their outline went into a seam union);
+  slice 3 adds the tests that pin them down (`tracyo-core/tests/parts_colour_text.rs`, golden
+  `parts-17.svg`, `tracyo-app/tests/parts_colour_text.rs`) and the one piece of code that was missing:
+  the analysis per part.
+- Analysis per part (18): `App::analyse_kept` reads the area each part keeps after the later parts are
+  cut out (`stack::part_clips`), once per clip on the analysis thread, cached by clip (32 entries);
+  `Parts::take_analysis` gives a non-active part its values, the active part's live copy takes its own.
+  Only the background and, unless typed, the Threshold are filled; a part that is whole again gets the
+  picture's analysis back. Removing a part reads the areas again.
+- P3 is `precision.png`, the poster of Curvyo's 0091 reference set (CC0, `assets/ASSETS.md`).
+- Test adjusted: `three_parts_with_their_own_methods_save_one_joined_path_across_the_seam` types
+  part 1's Threshold. Part 1 keeps only a strip of two pale tones there, whose own automatic Threshold
+  (criterion 18) traces the #D8D8D8 half as a fourth shape; the old expectation relied on part 1 using
+  the whole picture's Threshold.
+- Debt 35: a part whose area holds only two pale tones gets an automatic Threshold between them.
+
 
 ## Slice 4: Speed, the last pixels and polish (`story/trace-parts-polish`)
 
