@@ -8,6 +8,11 @@ First release, `0.1.0`. Polygons and stars are saved as `<polygon>` and Inkscape
 
 ### Added
 
+- Colours, text and shapes per part (specification 0002, slice 3): Multicolour parts join into one
+  layer per colour (equal colours merge across a seam); every part reads the automatic Threshold and
+  Auto background of the area it keeps once later parts are cut out (kept per area, so switching
+  chips or removing a part is instant); Recognise text can be on in one part and off in another;
+  Recognise shapes looks at the cut result only.
 - Lasso regions (specification 0002, criteria 28 and 29): click corners of a straight-sided
   polygon, close it on the first corner, with a double click, Enter or a right click (Esc aborts it), select it, move it,
   drag its corners; it is added or subtracted like a rectangle, a figure 8 is filled wherever it is
