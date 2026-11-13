@@ -199,6 +199,21 @@ impl Parts {
         })
     }
 
+    /// Gives part `index` the background and, unless the maker set it, the Threshold that the
+    /// analysis of its own area found; whether anything changed. Another part's snapshot only: the
+    /// active part's live copy is the app's.
+    pub fn take_analysis(&mut self, index: usize, analysis: Analysis) -> bool {
+        let Some(part) = self.parts.get_mut(index) else {
+            return false;
+        };
+        let before = (part.values.threshold, part.analysis.suggested_background);
+        part.analysis.suggested_background = analysis.suggested_background;
+        if !part.threshold_set {
+            part.values.threshold = analysis.threshold;
+        }
+        before != (part.values.threshold, part.analysis.suggested_background)
+    }
+
     /// The mask's part of the hidden status text: "Inside 2 paths", with two or more parts
     /// "3 parts" instead, and last "Part 3 has no paths" for an active later part without regions.
     #[must_use]
@@ -377,6 +392,32 @@ mod tests {
         parts.store(live);
         assert_eq!(parts.nothing_notice(100, 100), None);
         assert_eq!(Parts::new(part()).nothing_notice(100, 100), None);
+    }
+
+    #[test]
+    fn a_part_takes_the_analysis_of_its_own_area_unless_the_threshold_was_set() {
+        let found = Analysis {
+            suggested_background: Some(vectrace::Rgb8::new(0xD8, 0xD8, 0xD8)),
+            method: crate::method::Method::Brightness,
+            threshold: 77,
+            tolerance: 40,
+        };
+        let mut parts = Parts::new(part());
+        add(&mut parts);
+        assert!(parts.take_analysis(0, found));
+        assert_eq!(parts.all()[0].values.threshold, 77);
+        assert_eq!(
+            parts.all()[0].analysis.suggested_background,
+            found.suggested_background
+        );
+        assert!(!parts.take_analysis(0, found), "nothing new");
+        let mut typed = part();
+        typed.values.threshold = 33;
+        typed.threshold_set = true;
+        let mut parts = Parts::new(typed);
+        assert!(parts.take_analysis(0, found), "the background changed");
+        assert_eq!(parts.all()[0].values.threshold, 33, "the typed value stays");
+        assert!(!parts.take_analysis(5, found), "no such part");
     }
 
     #[test]
