@@ -161,6 +161,7 @@ impl App {
         };
         self.trash = None;
         self.load_part(next);
+        self.analyse_kept(ctx, false);
         self.start_trace(ctx, false, false);
     }
 

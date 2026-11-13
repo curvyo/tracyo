@@ -7,7 +7,7 @@ use std::time::{Duration, Instant};
 
 use eframe::egui::{self, Key, Modifiers, Pos2, Rect, Shape, Stroke, Ui, pos2, vec2};
 use tracyo_core::analysis::Analysis;
-use tracyo_core::clip::MaskPlan;
+use tracyo_core::clip::{Clip, MaskPlan};
 use tracyo_core::method::{Method, PictureValues};
 use tracyo_core::parts::{Part, Parts};
 use tracyo_core::picture::{Picture, ReadError};
@@ -125,6 +125,9 @@ pub(crate) enum Pipette {
     Palette,
 }
 
+/// The analysis of the pixels each clip keeps.
+pub(crate) type ClipAnalyses = Vec<(Clip, Analysis)>;
+
 /// The whole application.
 #[allow(clippy::struct_excessive_bools)] // independent frame flags
 pub struct App {
@@ -146,7 +149,9 @@ pub struct App {
     pub(crate) palette_stop: usize,
     pub(crate) analysing: Option<Receiver<Analysis>>,
     /// The analysis of the pixels a mask keeps, and whether it answers the Analyse button.
-    pub(crate) region_analysing: Option<(Receiver<Analysis>, bool)>,
+    pub(crate) region_analysing: Option<(Receiver<ClipAnalyses>, bool)>,
+    /// The analysis of the pixels a clip keeps, by clip (the cache of the analysis thread).
+    pub(crate) clip_analyses: ClipAnalyses,
     pub(crate) notice: Option<Notice>,
     pub(crate) bar_bottom: f32,
     pub(crate) pending_save: Option<PathBuf>,
@@ -212,6 +217,7 @@ impl App {
             palette_stop: 0,
             analysing: None,
             region_analysing: None,
+            clip_analyses: Vec::new(),
             notice: None,
             bar_bottom: BAR_MARGIN + 36.0,
             pending_save: None,
@@ -441,6 +447,7 @@ impl App {
         self.pipette = Pipette::Off;
         self.analysing = None;
         self.region_analysing = None;
+        self.clip_analyses.clear();
         // A new picture starts from part 1's settings, whichever part was active.
         self.settings = self.remembered();
         self.part_cache.clear();

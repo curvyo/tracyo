@@ -150,15 +150,20 @@ impl App {
             }
         };
         self.analysing = None;
-        self.apply_full_analysis(ctx, analysis);
+        self.apply_full_analysis(ctx, analysis, true);
     }
 
     /// Takes every analysed value: the Analyse button's answer.
-    pub(crate) fn apply_full_analysis(&mut self, ctx: &egui::Context, analysis: Analysis) {
+    pub(crate) fn apply_full_analysis(
+        &mut self,
+        ctx: &egui::Context,
+        analysis: Analysis,
+        whole: bool,
+    ) {
         let Some(doc) = &mut self.doc else { return };
         analysis.apply(&mut self.settings, &mut doc.values);
         doc.threshold_set = false;
-        if !matches!(doc.mask.plan, tracyo_core::clip::MaskPlan::Clip(_)) {
+        if whole {
             doc.whole_analysis = analysis;
         }
         doc.analysis = analysis;
