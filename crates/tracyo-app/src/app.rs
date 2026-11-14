@@ -161,6 +161,7 @@ pub struct App {
     pub(crate) job_counter: u64,
     pub(crate) picture_counter: u64,
     pub(crate) pointer_picture: Option<(u32, u32)>,
+    pub(crate) said: crate::status_region::Said,
     pub(crate) fit_next_frame: bool,
     pub(crate) fit_zoom_enlarge: bool,
     pub(crate) last_request_reduced: bool,
@@ -227,6 +228,7 @@ impl App {
             job_counter: 0,
             picture_counter: 0,
             pointer_picture: None,
+            said: crate::status_region::Said::default(),
             fit_next_frame: false,
             fit_zoom_enlarge: false,
             last_request_reduced: false,
@@ -1072,6 +1074,7 @@ impl eframe::App for App {
         self.bar(ui, &ctx, canvas);
         self.canvas(ui, canvas);
         self.status_bar(ui, screen);
+        self.status_region(ui, screen);
         if self.about_open {
             let panel = Rect::from_min_max(
                 pos2(canvas.right(), screen.top()),

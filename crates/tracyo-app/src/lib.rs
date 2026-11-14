@@ -35,6 +35,7 @@ mod region_paint;
 mod region_tool;
 pub mod runner;
 mod stage;
+mod status_region;
 pub mod theme;
 mod widgets;
 pub mod worker;
