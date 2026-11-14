@@ -226,7 +226,8 @@ impl Region {
     }
 }
 
-/// Whether all `points` lie on one line (exact, in 64 bits).
+/// Whether all `points` lie on one line (exact, in 128 bits: i32 differences times i32 differences
+/// can pass 64 bits).
 fn collinear(points: &[PxPoint]) -> bool {
     let Some(&first) = points.first() else {
         return true;
@@ -235,11 +236,11 @@ fn collinear(points: &[PxPoint]) -> bool {
         return true;
     };
     let (dx, dy) = (
-        i64::from(second.x) - i64::from(first.x),
-        i64::from(second.y) - i64::from(first.y),
+        i128::from(second.x) - i128::from(first.x),
+        i128::from(second.y) - i128::from(first.y),
     );
     points.iter().all(|p| {
-        dx * (i64::from(p.y) - i64::from(first.y)) == dy * (i64::from(p.x) - i64::from(first.x))
+        dx * (i128::from(p.y) - i128::from(first.y)) == dy * (i128::from(p.x) - i128::from(first.x))
     })
 }
 
@@ -286,6 +287,33 @@ mod tests {
         let r = PxRect::new(5, 5, 5, 9);
         assert_eq!((r.width(), r.height()), (1, 4));
         assert_eq!(PxRect::new(i32::MAX, 0, i32::MAX, 3).width(), 1);
+    }
+
+    #[test]
+    fn corners_at_the_limits_of_i32_do_not_overflow_the_line_test() {
+        let corner = |x, y| PxPoint::new(x, y);
+        assert!(
+            Region::lasso(
+                &[
+                    corner(i32::MIN, i32::MIN),
+                    corner(0, 0),
+                    corner(i32::MAX, i32::MAX)
+                ],
+                false
+            )
+            .is_none()
+        );
+        assert!(
+            Region::lasso(
+                &[
+                    corner(i32::MIN, i32::MAX),
+                    corner(i32::MAX, i32::MIN),
+                    corner(0, 0)
+                ],
+                false
+            )
+            .is_some()
+        );
     }
 
     #[test]
