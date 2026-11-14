@@ -1,6 +1,6 @@
 # ADR 0008: Trace parts: where the cut and the join live, and how parts are traced
 
-**Status:** Proposed (architect, 2026-11-12). Extends ADR 0002 (modules) and ADR 0004 §2, §3, §5
+**Status:** Accepted (slice 4, 2026-11-14; deviations 1 to 21 below, amendments of 2026-11-13). Extends ADR 0002 (modules) and ADR 0004 §2, §3, §5
 (protocol, cancel, reduced preview); supersedes nothing.
 
 ## Context
@@ -328,3 +328,21 @@ named here; the cut, the join, the stack, the crop and the worker protocol are t
     Lasso released); a right click finishes it (amendment of 2026-11-13, PR #16; before, Esc finished it).
 17. **No new dependency, no new crate, no format change.** `lasso.svg` joins the lucide icons
     (`assets/ASSETS.md`).
+
+## Deviations found while building slice 4 (2026-11-14; the status becomes Accepted)
+
+18. **The hidden status region is built, in part** (spec criterion 11, ux-notes of 0002 section 4):
+    `status_region` puts one 1 x 1 px AccessKit node (`Role::Status`, polite live region) at the
+    window's bottom-left. It says "Rectangle on", "Lasso on" and "Subtract off" when a tool is
+    pressed or released (pressing one region tool says only the new one), and the mask text of
+    `Parts::announcement` ("Inside 2 paths", "3 parts. Part 3 has no paths") when it changes. The
+    trash arming text and the notices of a dimmed Save as… stay tooltips (debts 5, 24, 26, 34).
+19. **`collinear` in `regions` computes in 128 bits.** The differences of two `i32` corners can reach
+    2^32, so the cross product passed 64 bits and panicked in a debug build for lasso corners near the
+    limits of `i32`; found by the fuzz cases of `tests/invalid_geometry.rs` (criterion 27).
+20. **Measured (release, thread CPU time, this machine).** Criterion 25: one trace of the 12 Mpx
+    picture 512 ms; 8 tiled parts 534 ms = 1.04 times (limit 1.3); 8 covering parts, one traced, 1.00
+    times (limit 9). Criterion 27: the worst UI-thread frame is 2.9 ms while 8 parts of 20 rectangles
+    are drawn on the 12 Mpx picture, traced, switched and panned (limit 50 ms); 1.7 ms for one part
+    with 20 rectangles and 4 lassos. No target is missed.
+21. **No change to the cut, the join, the protocol, the format or the dependencies.**

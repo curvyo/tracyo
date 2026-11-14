@@ -1,6 +1,6 @@
 # ADRs for 0002 Trace parts
 
-Status: Proposed (architect, 2026-11-12). Everything below is vetoable at the demo; nothing here is
+Status: Accepted (slice 4, 2026-11-14; was proposed by the architect on 2026-11-12). Everything below is vetoable at the demo; nothing here is
 a `needs-customer` decision.
 
 ## ADRs this feature rests on

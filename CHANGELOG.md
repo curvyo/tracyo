@@ -8,6 +8,10 @@ First release, `0.1.0`. Polygons and stars are saved as `<polygon>` and Inkscape
 
 ### Added
 
+- Parts, speed and polish (specification 0002, slice 4): eight parts of a 12 Mpx picture trace in
+  1.04 times the time of one; the window's accessibility tree has a status region that says
+  "Rectangle on", "Lasso off", "Subtract on", "3 parts" and the mask counts; a lasso with corners at
+  the limits of the coordinates no longer panics.
 - Colours, text and shapes per part (specification 0002, slice 3): Multicolour parts join into one
   layer per colour (equal colours merge across a seam); every part reads the automatic Threshold and
   Auto background of the area it keeps once later parts are cut out (kept per area, so switching
