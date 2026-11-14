@@ -3,6 +3,8 @@
 
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
+#[path = "common/canvas.rs"]
+mod canvas;
 mod common;
 
 use egui_kittest::kittest::Queryable;
@@ -72,4 +74,49 @@ fn open_read_text_recognise_shapes_and_save() {
     let doc = roxmltree::Document::parse(&text).unwrap();
     assert!(doc.descendants().filter(|n| n.has_tag_name("text")).count() >= 3);
     assert!(text.contains("BERATUNG"));
+}
+
+/// Two parts of the logo, one with its own rectangle and one with another, each traced from its own
+/// settings, joined and saved (criteria 22 and 26): the file does not change without a network.
+#[test]
+fn open_trace_two_parts_and_save_the_logo() {
+    let dir = tempfile::tempdir().unwrap();
+    let target = std::env::var_os("TRACYO_SESSION_PARTS_OUT")
+        .map_or_else(|| dir.path().join("parts.svg"), std::path::PathBuf::from);
+    let mut h = common::harness_sized(
+        dir.path(),
+        Some(common::logo()),
+        Dialogs::Fixed {
+            open: None,
+            save: Some(target.clone()),
+        },
+        1280.0,
+    );
+    common::wait_for_result(&mut h, 120.0);
+    h.run_steps(3);
+    canvas::open_advanced(&mut h);
+    canvas::button(&mut h, "Rectangle");
+    canvas::drag_px(&mut h, (24.0, 25.0), (324.0, 235.0));
+    canvas::button(&mut h, "Rectangle");
+    canvas::button(&mut h, "Add part");
+    canvas::button(&mut h, "Rectangle");
+    canvas::drag_px(&mut h, (344.0, 315.0), (619.0, 405.0));
+    canvas::button(&mut h, "Rectangle");
+    canvas::settle(&mut h);
+    assert_eq!(h.state().part_count(), 2);
+    h.get_by_label("Save as\u{2026}").click();
+    h.run_steps(3);
+    let text = std::fs::read_to_string(&target).expect("the SVG was written");
+    let golden = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/tests/fixtures/logo-parts-session.svg"
+    );
+    if std::env::var_os("TRACYO_UPDATE_GOLDEN").is_some() {
+        std::fs::write(golden, &text).unwrap();
+    }
+    assert_eq!(
+        text,
+        std::fs::read_to_string(golden).unwrap(),
+        "the saved SVG differs from the golden file"
+    );
 }

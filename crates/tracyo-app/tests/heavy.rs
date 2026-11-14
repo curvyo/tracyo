@@ -226,6 +226,148 @@ fn a_frame_stays_under_50_ms_while_regions_are_edited_on_a_12_mpx_picture() {
     assert!(worst.as_millis() < 50, "worst frame {worst:?}");
 }
 
+/// Presses the primary button at `a`, drags to `b` in four moves and releases, a frame each,
+/// timing every frame on the UI thread into `worst`.
+#[cfg(unix)]
+fn timed_drag(
+    h: &mut egui_kittest::Harness<'_, tracyo_app::App>,
+    worst: &mut std::time::Duration,
+    a: eframe::egui::Pos2,
+    b: eframe::egui::Pos2,
+) {
+    use eframe::egui::{Event, Modifiers, PointerButton};
+    let mut step = |h: &mut egui_kittest::Harness<'_, tracyo_app::App>| {
+        let before = thread_cpu();
+        h.step();
+        let spent = thread_cpu().saturating_sub(before);
+        *worst = (*worst).max(spent);
+        if spent.as_millis() > 30 {
+            println!("slow frame: {spent:?}");
+        }
+    };
+    h.event(Event::PointerMoved(a));
+    step(h);
+    h.event(Event::PointerButton {
+        pos: a,
+        button: PointerButton::Primary,
+        pressed: true,
+        modifiers: Modifiers::NONE,
+    });
+    step(h);
+    for k in 1..=4 {
+        h.event(Event::PointerMoved(a + (b - a) * (k as f32 / 4.0)));
+        step(h);
+    }
+    h.event(Event::PointerButton {
+        pos: b,
+        button: PointerButton::Primary,
+        pressed: false,
+        modifiers: Modifiers::NONE,
+    });
+    for _ in 0..3 {
+        step(h);
+    }
+}
+
+/// A click on the control `label`, then three timed frames.
+#[cfg(unix)]
+fn timed_click(
+    h: &mut egui_kittest::Harness<'_, tracyo_app::App>,
+    worst: &mut std::time::Duration,
+    label: &str,
+) {
+    h.get_by_label(label).click();
+    for _ in 0..3 {
+        let before = thread_cpu();
+        h.step();
+        *worst = (*worst).max(thread_cpu().saturating_sub(before));
+    }
+}
+
+/// Criteria 25 and 27 of 0002, eight parts: a frame of the UI thread stays under 50 ms of CPU time
+/// while 8 parts of a 12 Mpx picture, each with 20 rectangles (added and subtracted, overlapping),
+/// are made and traced, while the parts are switched and while the picture is panned.
+#[cfg(unix)]
+#[test]
+#[cfg_attr(
+    debug_assertions,
+    ignore = "timing: measured in release, see ci.yml job perf"
+)]
+fn a_frame_stays_under_50_ms_with_8_parts_of_20_regions_on_a_12_mpx_picture() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("big.png");
+    big_picture(&path, 4000, 3000);
+    let mut h = common::harness(
+        dir.path(),
+        Some(path),
+        Dialogs::Fixed {
+            open: None,
+            save: None,
+        },
+    );
+    common::wait_for_result(&mut h, 300.0);
+    h.run_steps(3);
+    let mut worst = std::time::Duration::ZERO;
+    timed_click(&mut h, &mut worst, "More trace options");
+    for part in 0..8_u32 {
+        if part > 0 {
+            timed_click(&mut h, &mut worst, "Add part");
+        }
+        // Part `part` owns one cell of a 4 x 2 tiling; its regions overlap inside the cell.
+        let (ox, oy) = (1000.0 * (part % 4) as f32, 1500.0 * (part / 4) as f32);
+        timed_click(&mut h, &mut worst, "Rectangle");
+        for i in 0..20_u32 {
+            if i == 14 {
+                timed_click(&mut h, &mut worst, "Subtract");
+            }
+            let (x, y) = (ox + 40.0 * (i % 8) as f32, oy + 60.0 * (i / 8) as f32);
+            let a = h.state().picture_corner_on_screen(x, y).unwrap();
+            let b = h
+                .state()
+                .picture_corner_on_screen(x + 600.0, y + 900.0)
+                .unwrap();
+            timed_drag(&mut h, &mut worst, a, b);
+        }
+        timed_click(&mut h, &mut worst, "Subtract");
+        timed_click(&mut h, &mut worst, "Rectangle");
+        assert_eq!(h.state().mask_regions().len(), 20);
+    }
+    assert_eq!(h.state().part_count(), 8);
+    // The parts trace: every frame until the joined result is back is timed.
+    let start = std::time::Instant::now();
+    let mut frames = 0;
+    while h.state_mut().button() != Button::Rest || !h.state().has_result() {
+        let before = thread_cpu();
+        h.step();
+        worst = worst.max(thread_cpu().saturating_sub(before));
+        frames += 1;
+        assert!(start.elapsed().as_secs() < 600, "never traced");
+        std::thread::sleep(std::time::Duration::from_millis(5));
+    }
+    for k in 0..8_usize {
+        let chip = h.state().chip_name(k).unwrap();
+        assert!(chip.ends_with("20 paths"), "{chip}");
+        timed_click(&mut h, &mut worst, &chip);
+    }
+    for _ in 0..20 {
+        h.event(eframe::egui::Event::MouseWheel {
+            unit: eframe::egui::MouseWheelUnit::Point,
+            delta: eframe::egui::vec2(25.0, 10.0),
+            phase: eframe::egui::TouchPhase::Move,
+            source: eframe::egui::MouseWheelSource::Wheel,
+            modifiers: eframe::egui::Modifiers::NONE,
+        });
+        let before = thread_cpu();
+        h.step();
+        worst = worst.max(thread_cpu().saturating_sub(before));
+    }
+    assert!(h.state().result_paths().is_some_and(|n| n > 0));
+    println!(
+        "8 parts of 20 regions: {frames} frames while tracing, worst UI-thread CPU time {worst:?}"
+    );
+    assert!(worst.as_millis() < 50, "worst frame {worst:?}");
+}
+
 /// Criterion 24: running out of memory in the worker shows Failed with the reason, no crash.
 #[cfg(target_os = "linux")]
 #[test]

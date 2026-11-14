@@ -143,12 +143,28 @@ Done on `story/trace-parts-colour-text` (implementer, 2026-11-13). Notes:
 Demo: a 12 Mpx photo in 8 parts traces about as fast as one part; editing 8 parts with 20 rectangles
 stays smooth; every bar state matches Curvyo's pictures.
 
-- [ ] `perf` job: criterion 25 in-process in `tracyo-core` (thread CPU time, 12 Mpx, 8 tiled parts vs one trace; 8 covering parts), the result reported by the tester, a miss to `docs/technical-debt.md` with the customer — 25
-- [ ] `perf` job: UI frame budget with parts tracing and with 8 parts × 20 regions being edited — 25, 27
-- [ ] Invalid geometry never panics (fuzz-style cases through `Clip::of_regions` and `join`) — 27
-- [ ] Remaining pixel cases and announcements ("Rectangle on", "Subtract on", "3 parts", Save as… tooltip with parts); expander "Changed: 3 parts" — 1, 11
-- [ ] No-network session test with parts (0001/23 unchanged) — 26
-- [ ] Docs: `docs/technical-debt.md` entries for whatever stays open; ADR 0008 status to Accepted with its deviations — DoD
+- [x] `perf` job: criterion 25 in-process in `tracyo-core` (thread CPU time, 12 Mpx, 8 tiled parts vs one trace; 8 covering parts), the result reported by the tester, a miss to `docs/technical-debt.md` with the customer — 25
+- [x] `perf` job: UI frame budget with parts tracing and with 8 parts × 20 regions being edited — 25, 27
+- [x] Invalid geometry never panics (fuzz-style cases through `Clip::of_regions` and `join`) — 27
+- [x] Remaining pixel cases and announcements ("Rectangle on", "Subtract on", "3 parts", Save as… tooltip with parts); expander "Changed: 3 parts" — 1, 11
+- [x] No-network session test with parts (0001/23 unchanged) — 26
+- [x] Docs: `docs/technical-debt.md` entries for whatever stays open; ADR 0008 status to Accepted with its deviations — DoD
+
+Done on `story/trace-parts-polish` (implementer, 2026-11-14). Notes:
+
+- Criterion 25 in-process (`parts_speed.rs`, slice 2) re-measured: 1.04 times for 8 tiled parts, 1.00
+  times for 8 covering parts. Criterion 27's frame budget with parts is the new test in `heavy.rs`
+  (8 parts of 20 rectangles on 12 Mpx, worst UI-thread frame 2.9 ms). No target is missed, so no
+  debt and no question.
+- Invalid geometry: `tests/invalid_geometry.rs` (fixed seed, rectangles and lassos with limit,
+  repeated and collinear corners) found an `i64` overflow in `regions::collinear` in a debug build;
+  fixed with 128-bit arithmetic.
+- The hidden status region exists now for the tools and the mask text (ADR 0008 deviation 18,
+  `tests/status_region.rs`); the pixel cases P1 to P20 and C1 to C8 and "Changed: 3 parts" (unit-tested in
+  `method.rs`) were already in place from slices 2 and 2b; the Save as… tooltip with parts has no test (debt 36).
+- No-network session: `open_trace_two_parts_and_save_the_logo` with the golden
+  `logo-parts-session.svg`, run with and without `unshare -n` in `ci.yml`.
+- ADR 0008 is Accepted with deviations 1 to 21; debts 5, 24, 26 reworded, 34 removed.
 
 ## Risks
 
