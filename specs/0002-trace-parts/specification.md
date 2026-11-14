@@ -1,6 +1,6 @@
 # Trace parts
 
-Status: Draft
+Status: Done (PR #18)
 Priority: Must
 Origin: Customer ("Ich brauche parts."). Everything marked **(Proposal)** is the product owner's and vetoable at the demo.
 Revised 2026-11-12 (architect for the product owner): reconciled with `ux-notes.md` (Curvyo's behaviour wins); regions are rectangles only (customer, 2026-11-12); subtraction by a Subtract toggle (lead, ux Frage 6 C). Criterion numbers are unchanged; nothing was removed whole.
