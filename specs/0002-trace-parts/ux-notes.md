@@ -73,7 +73,7 @@ Customer, 2026-11-13 (Frage 8 A): the whole Mask group leaves the first row and 
 row of Advanced, behind the chips, Add part and the trash. **The first row is `0001 §3.2`'s again**
 (Open, About, Preset, Method, the method's field and group, Smooth, Tolerance, Ignore below,
 expander, Save as…), with no Mask group; its widths, rows, wrap and centring are those of `0001 §3.1`
-and `§3.3` (1190 px in the references, 1226 px since 2026-11-15, one row at 1280 px, x 27).
+and `§3.3` (1226 px since 2026-11-15, as the references show it, one row at 1280 px, x 27).
 
 The group, 4 px apart: Rectangle 28, Lasso 28, Subtract 28, the Mask segments 128, Clear mask 28 =
 **256 px** (Curvyo's is 192: Pick 28, segments 128, Clear mask 28). It is shown whenever the Parts row
@@ -356,8 +356,8 @@ Tracyo if its UI font differs. **Window:** every case runs in a **1280 x 800** w
 finds the centred bar by its ground as in `0001 §12.2` step 3. `pixels_per_point = 1`, picture
 `0001-trace-and-save/reference/input-logo.png`, Method Brightness. Regions: R1 = picture px
 (24, 25)-(324, 235), R2 = (344, 315)-(619, 405), R4 = (330, 30)-(610, 310) (the box of Curvyo's E1),
-R3 = (100, 450)-(300, 520) (below the picture). The `px-*` pictures are those re-captured after
-2026-11-12 (section 0).
+R3 = (100, 450)-(300, 520) (below the picture). The `px-*` pictures are those re-captured on
+2026-11-15 (section 0).
 
 | Case | Reference | Tracyo state | Compare |
 |---|---|---|---|
@@ -466,6 +466,21 @@ and does not see it. The Threshold readings (62 % in 00 and 01, 66 % in 02 to 08
 in 22) are Curvyo's auto threshold, not Tracyo's. The Lasso and Subtract copies have no hover tooltip
 and no behaviour.
 
+
+## Reference pictures, re-captured 2026-11-15
+
+`px-00` .. `px-23` were re-captured with `reference/capture.cjs` (`SETS=px,lasso`) and `0001`'s
+`reference/tracyo-bar.cjs`, which now also puts the Analyse icon button (a derived copy of Curvyo's
+icon button on its blue ground, lucide `scan-search`; `0001` §14.5) between the expander and Save as…
+and hides Curvyo's Analyse text button in the block (customer decision REF-RECAPTURE A). Curvyo at
+`fc8edca8` (checked out detached, its wasm built from it), Vite dev server, Chromium, Liberation Sans,
+scale 1. Sizes: 1258 x 145 (00, 03, 04, 07, 08, 09, 15, 18, 19), 1258 x 185 (06, 11 to 14), 1325 x 185
+(16, 17, to the viewport's edge), 1280 x 620 (01, 02, 05, 10, 20 to 23). The bar with Advanced open is
+1234 wide: Analyse 1101..1129, Save as… 1137..1226 from its left edge; the block and the Parts row are
+as on 2026-11-13. `compare.py` of each against itself: PASS (0 %); against its 2026-11-13 file: FAIL
+for all 24 (2.67 to 7.84 %, runs of 82 to 487 px). The bar cases of `tests/masks.rs` and
+`tests/parts.rs` compare the whole bar again (1234 x 121; P14 and P15 the row 1234 x 40 and the lines
+left of the Save as… tooltip); the Analyse stop-gap (`px::bar_regions`, `px::assert_analyse`) is gone.
 
 ## Wrap references, 2026-11-13
 

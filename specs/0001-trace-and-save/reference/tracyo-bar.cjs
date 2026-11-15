@@ -11,7 +11,12 @@
 // - moves the Mask group out of the first row into the Parts row of Advanced, its own last line:
 //   Parts, chips, Add part, trash, a 1 x 20 px divider in a 25 px gap, then Rectangle (Curvyo's
 //   Pick mask paths button, relabelled), Lasso and Subtract (inert clones of it), Inside | Outside,
-//   Clear mask; Analyse stays at the far right of the line above;
+//   Clear mask;
+// - takes Analyse out of the Advanced block and puts it in the first row's tail, between the
+//   expander and the finish button (ux-notes 0001 section 14, customer decision 2026-11-15): Curvyo
+//   has no such button, so it is an inert one with Curvyo's icon-button classes (28 px, radius 8,
+//   focus ring 2 + gap 1) on the blue ground and with the hover of Curvyo's blue buttons
+//   (`--editor-accent`, white, `brightness-110`), lucide `scan-search` 16 px, name "Analyse";
 // - names the finish button "Save as…".
 const path = require('node:path');
 
@@ -26,16 +31,18 @@ async function icon(name) {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="lucide lucide-${name}">${body}</svg>`;
 }
 
-/** The icons the patch draws: Open, then the three region buttons. */
+/** The icons the patch draws: Open, Analyse, then the three region buttons. */
 async function icons() {
-  const [open, rectangle, lasso, subtract] = await Promise.all(['import', 'square', 'lasso', 'square-minus'].map(icon));
-  return { open, tools: [rectangle, lasso, subtract] };
+  const [open, analyse, rectangle, lasso, subtract] = await Promise.all(['import', 'scan-search', 'square', 'lasso', 'square-minus'].map(icon));
+  return { open, analyse, tools: [rectangle, lasso, subtract] };
 }
 
 const ICON_BUTTON = 'flex size-7 shrink-0 items-center justify-center rounded-md outline-none focus-visible:ring-2 focus-visible:ring-[var(--editor-accent)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--toolbar-bg)]';
 /** Curvyo's icon-button classes at rest and pressed (the pressed pipette's). */
 const REST = `${ICON_BUTTON} text-[var(--toolbar-icon)] hover:bg-[var(--editor-accent-hover)]`;
 const PRESSED = `${ICON_BUTTON} bg-[var(--toolbar-icon-active-bg)] text-[var(--toolbar-icon-active-fg)]`;
+/** The Analyse icon button: Curvyo's icon button on the ground and hover of its blue buttons. */
+const ACCENT = `${ICON_BUTTON} bg-[var(--editor-accent)] text-white hover:brightness-110`;
 
 /** CSS added once per page, after the picture is imported (the Import card is a rail card). */
 const STYLE = '[role=toolbar]:not([aria-label=Trace]){visibility:hidden!important}';
@@ -46,7 +53,7 @@ const STYLE = '[role=toolbar]:not([aria-label=Trace]){visibility:hidden!importan
  * pointer hover or a keyboard focus (it rebuilds nothing that holds hover or focus).
  */
 function sync(page, icons, pressed = []) {
-  return page.evaluate(({ icons, REST, PRESSED, CAP, WINDOW, pressed }) => {
+  return page.evaluate(({ icons, REST, PRESSED, ACCENT, CAP, WINDOW, pressed }) => {
     const rail = document.querySelector('[aria-label^="Select tool"]');
     if (rail) rail.closest('.z-30').style.visibility = 'hidden';
     const bar = document.querySelector('[role=toolbar][aria-label=Trace]');
@@ -71,6 +78,25 @@ function sync(page, icons, pressed = []) {
       open.innerHTML = icons.open;
       about.parentElement.before(slot);
     }
+    // Analyse right before the finish button's item of the tail (React appends a replaced finish
+    // slot at the end, so the order holds; it is checked again on every call).
+    const slotEl = bar.querySelector('[data-trace-slot]');
+    if (slotEl) {
+      let item = slotEl;
+      while (item.parentElement && !item.parentElement.classList.contains('ml-auto')) item = item.parentElement;
+      let analyse = bar.querySelector('[data-tracyo-analyse]');
+      if (!analyse) {
+        analyse = document.createElement('button');
+        analyse.type = 'button';
+        analyse.dataset.tracyoAnalyse = '';
+        analyse.setAttribute('aria-label', 'Analyse');
+        analyse.className = ACCENT;
+        analyse.innerHTML = icons.analyse;
+      }
+      if (analyse.nextElementSibling !== item) item.before(analyse);
+    }
+    const blockAnalyse = bar.querySelector('[data-trace-analyse]');
+    if (blockAnalyse) blockAnalyse.parentElement.style.display = 'none';
     const mask = document.querySelector('[data-trace-mask]');
     const advanced = bar.querySelector('[role=group][aria-label=Advanced]');
     if (!mask) return centre();
@@ -116,7 +142,7 @@ function sync(page, icons, pressed = []) {
       b.className = pressed.includes(i) ? PRESSED : REST;
     });
     return centre();
-  }, { icons, REST, PRESSED, CAP, WINDOW, pressed });
+  }, { icons, REST, PRESSED, ACCENT, CAP, WINDOW, pressed });
 }
 
 /** The clip of the bar with 12 px around it (and `below`, `right` px more). */

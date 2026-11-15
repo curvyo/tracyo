@@ -1,6 +1,7 @@
 //! Pixel comparison of the app's states with the references of `specs/0001-trace-and-save`,
-//! re-captured on 2026-11-13: a 1280 x 800 window for every case, the bar centred with Open as its
-//! first control, the Advanced block with the Parts row and the Mask group of `0002`. Each region
+//! re-captured on 2026-11-15: a 1280 x 800 window for every case, the bar centred with Open as its
+//! first control and Analyse in its tail, the Advanced block with the Parts row and the Mask group
+//! of `0002`. Each region
 //! is compared where it stands in the reference; the 0002 cases of the Parts row and the Mask
 //! group are in `masks.rs` and `parts.rs`.
 
@@ -34,20 +35,12 @@ fn check_regions(name: &str, rendered: &image::RgbaImage, regions: &[Region]) {
     px::check_regions(SPEC, name, rendered, regions);
 }
 
-/// Compares the regions of a bar of `old_w` px in the reference whose blue button is `blue_w` wide
-/// (`px::bar_regions`, plus `extra`) and checks the Analyse button the reference lacks.
-fn check_bar(
-    name: &str,
-    rendered: &image::RgbaImage,
-    old_w: u32,
-    blue_w: u32,
-    height: u32,
-    extra: Vec<Region>,
-) {
-    let mut regions = px::bar_regions(old_w, blue_w, height);
+/// Compares the whole bar, `width` x `height`, and the regions of `extra` with the reference `name`
+/// of 0001 (re-captured 2026-11-15 with Analyse in the tail).
+fn check_bar(name: &str, rendered: &image::RgbaImage, width: u32, height: u32, extra: Vec<Region>) {
+    let mut regions = bar("bar", width, height);
     regions.extend(extra);
     check_regions(name, rendered, &regions);
-    px::assert_analyse(rendered, old_w + px::ANALYSE_SHIFT, blue_w, 0);
 }
 
 /// The bar of the first row alone is 36 px high; with Advanced open it is 121 px (the Output line,
@@ -171,8 +164,7 @@ fn px_00_bar_closed() {
     check_bar(
         "px-00-bar-closed",
         &h.render().unwrap(),
-        1190,
-        89,
+        1226,
         36,
         Vec::new(),
     );
@@ -190,14 +182,7 @@ fn px_01_empty() {
 fn px_02_preview() {
     let dir = tempfile::tempdir().unwrap();
     let mut h = opened(dir.path());
-    check_bar(
-        "px-02-preview",
-        &h.render().unwrap(),
-        1190,
-        89,
-        36,
-        Vec::new(),
-    );
+    check_bar("px-02-preview", &h.render().unwrap(), 1226, 36, Vec::new());
 }
 
 #[test]
@@ -208,8 +193,7 @@ fn px_03_advanced_open() {
     check_bar(
         "px-03-advanced-open",
         &h.render().unwrap(),
-        1198,
-        89,
+        1234,
         OPEN_H,
         Vec::new(),
     );
@@ -224,8 +208,7 @@ fn px_04_multicolour_palette() {
     check_bar(
         "px-04-multicolour-palette",
         &h.render().unwrap(),
-        1198,
-        89,
+        1234,
         OPEN_H,
         Vec::new(),
     );
@@ -248,8 +231,7 @@ fn px_10_palette_swatch_hover() {
     check_bar(
         "px-10-palette-swatch-hover",
         &h.render().unwrap(),
-        1198,
-        89,
+        1234,
         OPEN_H,
         tooltip,
     );
@@ -264,8 +246,7 @@ fn px_11_palette_excluded() {
     check_bar(
         "px-11-palette-excluded",
         &h.render().unwrap(),
-        1198,
-        89,
+        1234,
         OPEN_H,
         Vec::new(),
     );
@@ -290,8 +271,7 @@ fn px_05_running_42() {
     check_bar(
         "px-05-running-42",
         &h.render().unwrap(),
-        1184,
-        75,
+        1220,
         OPEN_H,
         Vec::new(),
     );
@@ -332,8 +312,7 @@ fn px_07_stopped() {
     check_bar(
         "px-07-stopped",
         &h.render().unwrap(),
-        1215,
-        106,
+        1251,
         OPEN_H,
         Vec::new(),
     );
@@ -361,8 +340,7 @@ fn px_06_failed() {
     check_bar(
         "px-06-failed",
         &h.render().unwrap(),
-        1219,
-        110,
+        1255,
         OPEN_H,
         Vec::new(),
     );
@@ -388,8 +366,7 @@ fn px_13_trace_button_focus() {
     check_bar(
         "px-13-trace-button-focus",
         &h.render().unwrap(),
-        1198,
-        89,
+        1234,
         OPEN_H,
         Vec::new(),
     );
@@ -403,25 +380,13 @@ fn px_09_method_menu() {
     h.run_steps(3);
     h.remove_cursor();
     h.run_steps(3);
-    // Both rows of the Remove background bar (it takes the 1256 px cap) and the menu below them.
-    // The capped bar keeps its 1256 px, so the tail, now 36 px wider, starts 36 px further left:
-    // the expander of the reference (1123) stands at 1087, Save as… stays at 1159..1248, and
-    // Analyse (1123..1151) has no reference.
+    // Both rows of the Remove background bar (it takes the 1256 px cap; the tail with Analyse
+    // stands flush right in row 2) and the menu below them.
     let regions = vec![
-        Region::same("row 1", (0, 0), (1256, 36)),
-        Region::same("row 2 left", (0, 36), (1083, 36)),
-        Region {
-            name: "expander",
-            reference_at: (1119, 36),
-            got_at: (1083, 36),
-            size: (40, 36),
-        },
-        Region::same("blue button", (1155, 36), (101, 36)),
+        Region::same("rows", (0, 0), (1256, 72)),
         Region::same("menu", (220, 72), (232, 108)),
     ];
-    let rendered = h.render().unwrap();
-    check_regions("px-09-method-menu", &rendered, &regions);
-    px::assert_analyse(&rendered, 1256, 89, 36);
+    check_regions("px-09-method-menu", &h.render().unwrap(), &regions);
 }
 
 #[test]
@@ -441,8 +406,7 @@ fn px_12_value_field_tooltip() {
     check_bar(
         "px-12-value-field-tooltip",
         &h.render().unwrap(),
-        1190,
-        89,
+        1226,
         36,
         Vec::new(),
     );
@@ -463,8 +427,7 @@ fn px_14_preset_hover() {
     check_bar(
         "px-14-preset-hover",
         &h.render().unwrap(),
-        1198,
-        89,
+        1234,
         OPEN_H,
         Vec::new(),
     );
@@ -480,14 +443,7 @@ fn px_08_preset_menu() {
     h.run_steps(2);
     // The menu: under Preset, 80 px right of the bar's left edge, 4 px below it, 238 x 184.
     let menu = vec![Region::same("menu", (80, 40), (238, 184))];
-    check_bar(
-        "px-08-preset-menu",
-        &h.render().unwrap(),
-        1190,
-        89,
-        36,
-        menu,
-    );
+    check_bar("px-08-preset-menu", &h.render().unwrap(), 1226, 36, menu);
 }
 
 /// The longest vertical white run in column `x` of `image` that starts below row `from`: first

@@ -30,10 +30,7 @@ const SPEC: &str = "0002-trace-parts";
 const WINDOW: f32 = 1280.0;
 
 fn check(name: &str, h: &mut Harness<'_, App>, regions: &[Region]) {
-    let rendered = h.render().unwrap();
-    px::check_regions(SPEC, name, &rendered, regions);
-    // The Analyse button, which the references lack, stands between the expander and Save as….
-    px::assert_analyse(&rendered, 1198 + px::ANALYSE_SHIFT, 89, 0);
+    px::check_regions(SPEC, name, &h.render().unwrap(), regions);
 }
 
 fn fixed() -> Dialogs {
@@ -125,8 +122,8 @@ fn advanced<'a>(dir: &std::path::Path) -> Harness<'a, App> {
 }
 
 fn bar_rows3() -> Vec<Region> {
-    // The first row, the Output line and the Parts row: 36 + 4 + 1 + 4 + 72 + 4, 1198 px wide.
-    px::bar_regions(1198, 89, 121)
+    // The first row, the Output line and the Parts row: 36 + 4 + 1 + 4 + 72 + 4, 1234 px wide.
+    vec![Region::same("bar", (0, 0), (1234, 121))]
 }
 
 #[test]
@@ -256,14 +253,13 @@ fn p15_no_part_to_trace() {
     h.run_steps(1);
     // The tooltip of the window of this test lies where Curvyo's does not (it is clamped to the
     // window): the first row above it, the Output line left of it and the Parts row below it.
-    let rest = [
+    let regions = [
+        Region::same("row", (0, 0), (1234, 40)),
         Region::same("output", (0, 40), (850, 32)),
-        // Left of the tooltip, which the window clamps differently from Curvyo's (x 1033 now, 1036
-        // there); the Parts row ends at x 641.
+        // Left of the tooltip, which the window clamps differently from Curvyo's; the Parts row
+        // ends at x 641.
         Region::same("parts", (0, 72), (1000, 49)),
     ];
-    let mut regions = px::bar_regions(1198, 89, 36)[..2].to_vec();
-    regions.extend(rest);
     check("px-17-no-part-to-trace", &mut h, &regions);
 }
 

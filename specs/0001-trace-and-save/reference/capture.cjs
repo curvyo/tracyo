@@ -5,8 +5,8 @@
 //   LUCIDE=~/curvyo/frontend/node_modules/lucide-react/dist/esm/icons SETS=px node capture.cjs
 // Writes curvyo-*.png (Curvyo as it is, 1280 x 800, panel open) and px-*.png (the bar as Tracyo
 // draws it, patched in the DOM by tracyo-bar.cjs: no tool rail, the bar centred in a 1280 x 800
-// window and at most 1256 px wide, Open first, the Mask group in the Parts row of Advanced,
-// "Save as…"; the viewport is 1360 x 824 so the window sits right of and below Curvyo's rulers).
+// window and at most 1256 px wide, Open first, Analyse between the expander and the finish button,
+// the Mask group in the Parts row of Advanced, "Save as…"; the viewport is 1360 x 824 so the window sits right of and below Curvyo's rulers).
 // Device scale factor 1. The trace worker is wrapped so "running" (42 %) and "failed" can be staged;
 // everything drawn is Curvyo's. SETS (default "curvyo,px") picks the sets.
 const path = require('node:path');
@@ -116,6 +116,8 @@ async function run(browser, set, icons) {
   await relabel();
   await page.getByRole('button', { name: 'Fewer trace options' }).focus();
   await page.keyboard.press('Tab');
+  // Tracyo's tail has Analyse between the expander and the finish button.
+  if (tracyo) await page.keyboard.press('Tab');
   await page.waitForTimeout(300);
   await shot('13-trace-button-focus');
   await page.evaluate(() => document.activeElement.blur());

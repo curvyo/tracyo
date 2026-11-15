@@ -18,6 +18,8 @@ block and is a blue 28 px icon button (lucide `ScanSearch`) in the first row's t
 expander and "Save as…"** (section 14). This **deliberately departs from Curvyo's bar** (Curvyo keeps
 a blue "Analyse" text button last in its Advanced row and stays unchanged unless the customer asks).
 Changed: 3.1 to 3.4, 4, 12.2 step 6, 13, 14; the tail is now 161 px and the bar at rest 1226 px.
+The `px-*` references were re-captured with it the same day (customer decision REF-RECAPTURE A,
+section 14.5).
 
 Sources: `~/curvyo/frontend/src/index.css`, `components/TraceBar.tsx`, `TraceAdvanced.tsx`,
 `TraceField.tsx`, `TracePresetMenu.tsx`, `TracePalette.tsx`, `TraceColourGroup.tsx`,
@@ -30,7 +32,7 @@ Reference pictures (`reference/`, made by `reference/capture.cjs` with `referenc
 | File set | What |
 |---|---|
 | `curvyo-NN-*.png` | Curvyo as it is (1280 x 800, panel open): 00 bar closed, 01 empty, 02 preview, 03 Advanced open, 04 Multicolour with palette, 05 running 42 %, 06 failed, 07 stopped, 08 Preset menu, 09 Method menu, 10 swatch hover, 11 swatch excluded, 12 value-field tooltip, 13 Trace button focus, 14 Preset hover, 15 tooltip |
-| `px-NN-*.png` | The same states, **as Tracyo draws them** (re-captured 2026-11-13, last paragraph): Open first in the bar, the bar centred in a 1280 x 800 window (cap 1256), no tool rail, the Mask group in the Parts row of Advanced (`0002`), finish button "Save as…", empty bar without its sentence and with "Open image…". These are the pixel references of section 12 |
+| `px-NN-*.png` | The same states, **as Tracyo draws them** (re-captured 2026-11-13, last paragraph, and 2026-11-15 with Analyse between the expander and "Save as…", section 14.5): Open first in the bar, the bar centred in a 1280 x 800 window (cap 1256), no tool rail, the Mask group in the Parts row of Advanced (`0002`), finish button "Save as…", empty bar without its sentence and with "Open image…". These are the pixel references of section 12 |
 
 Running and failed were staged by wrapping the trace worker (progress 42 %, an out-of-memory
 error); everything drawn is Curvyo's own code. The failed tooltip in the pictures is not shown.
@@ -163,8 +165,8 @@ button was chosen, a text button would have wrapped the tail). Remove background
 rows, the bar takes the cap. **Pick colours: the pipette alone (1262) already passes the cap**, so
 with that method the tail wraps to a second row at 1280 (before Analyse joined the tail, up to one
 picked colour fitted). At 800 x 600 (up to 776): two rows (Open to Smooth 720 px; Tolerance, Ignore
-below and the tail). `px-00-bar-closed.png` shows the one-row bar of before (1190 px); it is compared
-in two regions (section 14.5).
+below and the tail). `px-00-bar-closed.png` shows this one-row bar (1226 px) and is compared whole
+(section 14.5).
 
 **Blue button width (lead, 2026-11-11; the reference wins over the earlier Proposal):** at rest
 "Save as…" is 89 px (Liberation Sans 14 px, 12 px side padding); while running it is 75 px, as in
@@ -421,8 +423,8 @@ ring. **Drop cue colour:** Curvyo's code uses `var(--accent)`, which is shadcn's
    references with the block open also show the Parts row of `0002` with one part (the last 36 px
    line); it is compared by `0002`'s cases, not here. No region is shifted any more: the 232 px
    offset of the old Mask group and the 1248 px window are gone. **From 2026-11-15** (section 14)
-   Analyse is part of the first row's tail and no block region holds it. The references could not be
-   re-captured with it (14.5): each bar is compared in the regions that still have a reference.
+   Analyse is part of the first row's tail and no block region holds it. The references were
+   re-captured with it the same day (14.5), so every bar is compared whole again.
 
 ## 13. Differences from Curvyo and from the spec draft (for the lead)
 
@@ -555,34 +557,35 @@ unchanged, follows "Ignore below", as the panel follows the bar's order **(Propo
 
 ### 14.5 Reference pictures and tests
 
-**The references could not be re-captured with the Analyse icon.** Capturing needs Curvyo's dev
-server at `fc8edca8` with the wasm built from it and `playwright-core`; the checkout is read-only and
-has moved on (its `TraceBar.tsx` and `TraceAdvanced.tsx` differ from `fc8edca8`), no worktree may be
-made and `playwright-core` is not installed here. `tracyo-bar.cjs` is not changed either (untested
-patch). So the `px-*` pictures stay the 2026-11-13 ones (Curvyo's own pixels, a 1190 or 1198 px bar
-with expander and Save as…, and the old 75 px Analyse in the block), and **there is no reference for
-the Analyse icon button**. Tolerances are unchanged. What the tests do (`tests/common/px.rs`
-`bar_regions`, `assert_analyse`):
+**Re-captured 2026-11-15 (customer decision REF-RECAPTURE A).** `0001` px-00, 02 .. 15 and `0002`
+px-00 .. 23 were re-captured with `reference/capture.cjs` (`SETS=px`; `0002`: `SETS=px,lasso`) from
+Curvyo at `fc8edca8` (checked out detached, its wasm built from it, its Vite dev server, Chromium,
+Liberation Sans, scale 1). `px-01-empty` is unchanged (no picture, no Analyse). `curvyo-*` are untouched.
 
-- the first row up to 4 px before the blue button (expander not moved) and the blue button with 4 px
-  ring room and the bar's end (moved 36 px right in the render) are compared with the reference;
-- with the block open the block's lines up to 4 px before the reference's old Analyse and the 12 px
-  at the bar's right end (without the bottom corner, whose shadow falls on the picture behind) are
-  compared; the Parts row with its tooltip cases stops left of the tooltip;
-- `px-09` (Remove background, capped) compares row 1, row 2 left of the tail, the expander at its
-  new place (1087 against 1123) and the blue button;
-- the Analyse button is asserted by geometry and colour instead: 28 x 28 at 8 px before the blue
-  button, `#2F6FEE` ground, light glyph pixels, ground on both sides (`assert_analyse`), and by
-  `tests/wrap.rs` (positions per window) and `tests/regions.rs` (Tab order, shown with a picture
-  only). Its look is therefore **checked against code only, not against a picture**: ring, hover and
-  glyph shape are unverified by pixels until a re-capture exists (to do when `fc8edca8` is checked
-  out: patch `tracyo-bar.cjs` to clone About into a blue 28 px button with `scan-search` and move
-  the expander before it, re-capture `0001` px-00, 02 .. 15 and `0002` px-00 .. 23, then compare
-  whole bars again).
-- `tests/pixels.rs`, `parts.rs`, `masks.rs`: Smooth's click point and P18 use the bar at x = 27.
-  `tests/wrap.rs`: `REST` 1226, `bar_left(1920)` 347, 1280 for the narrow case (bar 121 high), one
-  line from 1288 and wrap at 1287, a second part at 1288 moves the row, the tail wraps as one item
-  at 1249 and 1250. `bar.rs` unit tests: rest 1226, tail 161.
+**How the Analyse reference is made.** Curvyo has no Analyse icon button, so `tracyo-bar.cjs` derives
+one in the DOM: an inert `<button>` with Curvyo's icon-button classes (the About button's: 28 x 28,
+`rounded-md`, focus ring 2 + offset 1 on the bar ground) plus the ground, ink and hover of Curvyo's
+blue buttons (`bg-[var(--editor-accent)] text-white hover:brightness-110`, the classes of its Analyse
+and Trace buttons: `#2F6FEE`, hover `#347AFF`), lucide `scan-search` 16 px, stroke 1.5, name
+"Analyse". It stands in Curvyo's tail (`ml-auto` group, `gap-2`) between the expander and the finish
+button; Curvyo's own Analyse text button in the block is hidden. In `px-13` the capture tabs twice from
+the expander (Analyse, then the finish button), as Tracyo's Tab order does. The clone has no tooltip
+and no behaviour; its hover look is in no picture.
+
+**Checked on the pixels** (from the bar's left edge): closed, bar 1226, Analyse 1093..1121, Save as…
+1129..1218; open, bar 1234, Analyse 1101..1129, Save as… 1137..1226; `px-09` (capped, two rows) the
+tail flush right in row 2, Analyse 1123..1151, Save as… 1159..1248: section 14.3's numbers. Every
+picture is 36 px wider than its 2026-11-13 file (`0002` px-16, 17: 18 px, they run to the viewport's
+edge). `compare.py` of each against itself: PASS (0 %); against its 2026-11-13 file: FAIL for all
+(0.23 to 7.84 %, runs of 28 to 572 px).
+
+**Tests.** The stop-gaps are gone (`px::bar_regions`, `px::assert_analyse`, `ANALYSE_SHIFT`): every
+bar case of `tests/pixels.rs`, `masks.rs` and `parts.rs` compares the whole bar again (1226 x 36
+closed, 1234 x 121 open; running 1220, Stopped 1251, Failed 1255; `px-09` both rows, 1256 x 72) with
+the tolerance of 12.2 step 3, unchanged. The cases with the Save as… tooltip (`0002` px-16, 17) keep
+their regions left of and above the tooltip (row 1234 x 40). All pass, 0.13 to 0.65 % per region
+(px-01-empty 1.18 %, as before), runs of at most 10 px; inside the Analyse box 2 px differ.
+`tests/wrap.rs` and `tests/regions.rs` (positions per window, Tab order) are unchanged.
 
 ### 14.6 Tasks and decisions
 
@@ -590,7 +593,7 @@ the Analyse icon button**. Tolerances are unchanged. What the tests do (`tests/c
    `controls::accent_icon_button`, `Icon::ScanSearch` (`assets/icons/lucide/scan-search.svg`, hash in
    `assets/ASSETS.md`), About split, tests of 14.5.
 2. Spec 0001/14 and 0002/1 edited (marked "customer decision 2026-11-15").
-3. Open: re-capture the references (14.5).
+3. Done 2026-11-15: references re-captured with Analyse, bars compared whole again (14.5).
 4. Consequence to know: with Pick colours the tail wraps to row 2 at 1280 (section 3.3).
 
 **Frage 9 (ANALYSE-ORDER)**: decided B, expander, Analyse, Save as… (customer, 2026-11-15).
