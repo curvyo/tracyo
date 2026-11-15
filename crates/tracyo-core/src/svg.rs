@@ -212,20 +212,9 @@ fn turn(rotation: Angle, centre: Point) -> String {
     }
 }
 
-/// The corners of the closed straight-sided `outline`, without the closing segment.
-fn corners(outline: &BezPath) -> Vec<Point> {
-    outline
-        .elements()
-        .iter()
-        .filter_map(|e| match *e {
-            PathEl::MoveTo(p) | PathEl::LineTo(p) => Some(p),
-            _ => None,
-        })
-        .collect()
-}
-
-/// One element for a recognised shape: `<rect>`, `<circle>`, `<ellipse>`, `<polygon>` or
-/// Inkscape's star object (a `<path>` with `sodipodi:*` attributes and the star's own `d`).
+/// One element for a recognised shape: `<rect>`, `<circle>`, `<ellipse>` or
+/// Inkscape's star object for polygons (flat-sided) and stars (a `<path>` with `sodipodi:*` attributes
+/// and the corners as `d`, so any reader draws it).
 fn element(element: &Element, colour: &str, ids: &mut Ids) -> String {
     let paint = paint(element.style, colour);
     match element.primitive {
@@ -272,17 +261,27 @@ fn element(element: &Element, colour: &str, ids: &mut Ids) -> String {
                 )
             }
         }
-        Primitive::Polygon { .. } => {
+        Primitive::Polygon {
+            centre,
+            radius,
+            angle,
+            points,
+        } => {
             ids.polygon += 1;
             let outline = shapes::primitive_path(&element.primitive, element.rotation);
-            let points: Vec<String> = corners(&outline)
-                .into_iter()
-                .map(|p| format!("{},{}", number(p.x), number(p.y)))
-                .collect();
+            let arg1 = angle.as_radians() + element.rotation.as_radians();
+            let arg2 = arg1 + PI / f64::from(points);
+            let r1 = radius.as_mm();
             format!(
-                "<polygon id=\"polygon{}\" points=\"{}\" {paint}/>",
+                "<path id=\"polygon{}\" sodipodi:type=\"star\" sodipodi:cx=\"{}\" sodipodi:cy=\"{}\" sodipodi:r1=\"{}\" sodipodi:r2=\"{}\" sodipodi:arg1=\"{}\" sodipodi:arg2=\"{}\" sodipodi:sides=\"{points}\" inkscape:flatsided=\"true\" inkscape:rounded=\"0\" inkscape:randomized=\"0\" {paint} d=\"{}\"/>",
                 ids.polygon,
-                points.join(" ")
+                number(centre.x),
+                number(centre.y),
+                number(r1),
+                number(r1 * (PI / f64::from(points)).cos()),
+                number(arg1),
+                number(arg2),
+                path_data(&[outline])
             )
         }
         Primitive::Star {

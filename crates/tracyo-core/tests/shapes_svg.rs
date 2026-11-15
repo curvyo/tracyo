@@ -156,8 +156,8 @@ fn the_shapes_match_their_golden_file() {
     assert_eq!(text, std::fs::read_to_string(golden).unwrap());
 }
 
-/// Criterion 20f: rectangles, circles and ellipses are primitives, a polygon is a `<polygon>`, a star
-/// is Inkscape's star object, a band is a stroked primitive with no fill, and nothing is written twice.
+/// Criterion 20f: rectangles, circles and ellipses are primitives, a polygon is Inkscape's flat-sided star
+/// object, a star is Inkscape's star object, a band is a stroked primitive with no fill, and nothing is written twice.
 #[test]
 fn recognised_shapes_are_primitives_with_the_elements_of_criterion_20f() {
     let (picture, output) = trace(true);
@@ -173,12 +173,14 @@ fn recognised_shapes_are_primitives_with_the_elements_of_criterion_20f() {
         "the circle and the ring's centre line"
     );
     assert!(count(&names, "ellipse") >= 1);
-    assert!(
-        count(&names, "polygon") >= 2,
-        "the hexagon and the triangle"
+    assert_eq!(count(&names, "polygon"), 0, "polygons are star objects");
+    assert_eq!(
+        text.matches("inkscape:flatsided=\"true\"").count(),
+        2,
+        "the hexagon and the triangle are flat-sided star objects"
     );
     assert_eq!(
-        text.matches("sodipodi:type=\"star\"").count(),
+        text.matches("inkscape:flatsided=\"false\"").count(),
         1,
         "the star is Inkscape's star object"
     );
