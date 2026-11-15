@@ -218,6 +218,13 @@ impl Parts {
     /// "3 parts" instead, and last "Part 3 has no paths" for an active later part without regions.
     #[must_use]
     pub fn announcement(&self) -> String {
+        self.announcement_with(None)
+    }
+
+    /// The same text with the counts of the settled result ("7 paths, 412 nodes") after the mask
+    /// segment and before "Part 3 has no paths".
+    #[must_use]
+    pub fn announcement_with(&self, counts: Option<&str>) -> String {
         let active = &self.parts[self.active];
         let mut segments = Vec::new();
         if self.parts.len() >= 2 {
@@ -230,10 +237,23 @@ impl Parts {
                 if n == 1 { "path" } else { "paths" }
             ));
         }
+        segments.extend(counts.map(str::to_owned));
         if self.parts.len() >= 2 && self.active > 0 && active.regions.is_empty() {
             segments.push(format!("Part {} has no paths", self.active + 1));
         }
         segments.join(". ")
+    }
+
+    /// The counts of a settled result as the region says them: "7 paths, 412 nodes", "1 path, 4 nodes".
+    #[must_use]
+    pub fn counts_text(paths: usize, nodes: usize) -> String {
+        let plural =
+            |n: usize, one: &str, many: &str| format!("{n} {}", if n == 1 { one } else { many });
+        format!(
+            "{}, {}",
+            plural(paths, "path", "paths"),
+            plural(nodes, "node", "nodes")
+        )
     }
 
     /// The chip's tooltip text of part `index`: "Part 1 of 3, inside, 2 paths".

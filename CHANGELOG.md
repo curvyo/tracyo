@@ -8,6 +8,8 @@ First release, `0.1.0`. Polygons are saved as Inkscape flat-sided polygon object
 
 ### Added
 
+- The hidden status region says the counts of a settled result ("7 paths, 412 nodes", of the joined
+  result with several parts), once per result; screen reader only (customer decision A11Y-COUNTS).
 - The hidden status region also says the arming text of the trash ("Press again to remove part 2") and the
   reason of a dimmed Save as…; the Save as… tooltip with parts is tested.
 - Analyse is a blue icon button between the expander and "Save as…" (specification 0001 criterion 14,
