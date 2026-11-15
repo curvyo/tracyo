@@ -337,6 +337,9 @@ named here; the cut, the join, the stack, the crop and the worker protocol are t
     pressed or released (pressing one region tool says only the new one), and the mask text of
     `Parts::announcement` ("Inside 2 paths", "3 parts. Part 3 has no paths") when it changes. The
     trash arming text and the notices of a dimmed Save as… stay tooltips (debts 5, 24, 26, 34).
+    *Update (chore/debt-5-36):* the region now also says "Press again to remove part 2" on arming
+    (nothing after the removal) and the reason of a dimmed Save as… ("0 paths: the mask is outside
+    the image."); only the counts of Curvyo stay open (debt 5).
 19. **`collinear` in `regions` computes in 128 bits.** The differences of two `i32` corners can reach
     2^32, so the cross product passed 64 bits and panicked in a debug build for lasso corners near the
     limits of `i32`; found by the fuzz cases of `tests/invalid_geometry.rs` (criterion 27).

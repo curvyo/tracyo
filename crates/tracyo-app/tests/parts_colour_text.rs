@@ -163,7 +163,12 @@ fn criterion_18_each_part_reads_its_own_area() {
     click_chip(&mut h, 1);
     button(&mut h, "Remove part 2");
     std::thread::sleep(std::time::Duration::from_millis(450));
-    button(&mut h, "Press again to remove part 2");
+    h.get_by_role_and_label(
+        eframe::egui::accesskit::Role::Button,
+        "Press again to remove part 2",
+    )
+    .click();
+    h.run_steps(5);
     settle(&mut h);
     assert_eq!(h.state().part_count(), 1);
     let whole = Analysis::of(&picture);

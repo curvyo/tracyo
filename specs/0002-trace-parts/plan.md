@@ -161,7 +161,7 @@ Done on `story/trace-parts-polish` (implementer, 2026-11-14). Notes:
   fixed with 128-bit arithmetic.
 - The hidden status region exists now for the tools and the mask text (ADR 0008 deviation 18,
   `tests/status_region.rs`); the pixel cases P1 to P20 and C1 to C8 and "Changed: 3 parts" (unit-tested in
-  `method.rs`) were already in place from slices 2 and 2b; the Save as… tooltip with parts has no test (debt 36).
+  `method.rs`) were already in place from slices 2 and 2b; the Save as… tooltip with parts is tested in `tests/status_region.rs`.
 - No-network session: `open_trace_two_parts_and_save_the_logo` with the golden
   `logo-parts-session.svg`, run with and without `unshare -n` in `ci.yml`.
 - ADR 0008 is Accepted with deviations 1 to 21; debts 5, 24, 26 reworded, 34 removed.

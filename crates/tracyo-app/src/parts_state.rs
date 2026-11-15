@@ -253,8 +253,9 @@ impl App {
     }
 
     /// The tooltip of the blue button at rest: "Save as… (Ctrl+Shift+S), 3 parts joined" with
-    /// two or more parts.
-    pub(crate) fn save_tooltip(&self) -> String {
+    /// two or more parts, "Save as… (Ctrl+Shift+S)" with one or none.
+    #[must_use]
+    pub fn save_tooltip(&self) -> String {
         match self.doc.as_ref().map(|d| d.parts.len()) {
             Some(n) if n >= 2 => format!("Save as\u{2026} (Ctrl+Shift+S), {n} parts joined"),
             _ => "Save as\u{2026} (Ctrl+Shift+S)".to_owned(),
