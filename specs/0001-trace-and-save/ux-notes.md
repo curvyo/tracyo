@@ -12,6 +12,12 @@ card, its 12 px inset and the 72 px left column are gone). Changed: sections 1, 
 5, 6, 7, 11, 12.2, 13. The Mask group and the Parts row of `0002` live in Advanced (`0002` ux-notes
 §2, §3).
 
+Revised 2026-11-15 (ux-engineer, customer request of 2026-11-15): **Analyse leaves the Advanced block
+and stands in the first row, in the tail group right before the expander and "Save as…"** (section
+14). This **deliberately departs from Curvyo's bar** (Curvyo keeps Analyse last in its Advanced row and
+stays unchanged unless the customer asks). Changed: 3.2, 3.3, 3.4, 4, 12.2 step 6, 13, new 14. Numbers
+in 3.1 and 3.3 that 14.3 restates are superseded there.
+
 Sources: `~/curvyo/frontend/src/index.css`, `components/TraceBar.tsx`, `TraceAdvanced.tsx`,
 `TraceField.tsx`, `TracePresetMenu.tsx`, `TracePalette.tsx`, `TraceColourGroup.tsx`,
 `ColourPickChip.tsx`, `ImportCard.tsx`, `CanvasNotice.tsx`, `StatusBar.tsx`, `panel/ValueField.tsx`,
@@ -142,10 +148,13 @@ that the bar wraps. It never leaves the window. The empty bar (section 6) is cen
 | 6 | Smooth | 150 x 28 | always |
 | 7 | Tolerance | 150 x 28 | always |
 | 8 | Ignore below | 171 x 28 | always |
-| 9 | expander 28, 8, **Save as…** (blue) | 28 + 8 + 89 | always, far right |
-| 10 | Advanced block | full width under the rows; its last line is the Parts row with the Mask group (`0002` §3) | while open |
+| 9 | **Analyse** (blue) 75, 8, expander 28, 8, **Save as…** (blue): one tail group (section 14) | 75 + 8 + 28 + 8 + 89 = 208 | always (with a picture, Advanced open or closed), far right |
+| 10 | Advanced block | full width under the rows, without Analyse; its last line is the Parts row with the Mask group (`0002` §3) | while open |
 
 ### 3.3 Rows (Brightness, Advanced closed)
+
+**Since 2026-11-15 the tail holds Analyse: the rest bar is 1273 px, two rows at 1280 px (section
+14.3).** The paragraphs below give the widths before that move; 14.3 replaces their totals.
 
 Content width: 8 + 28 (Open) + 28 + 132 + 176 + 150 + 150 + 150 + 171 + 28 + 89 + 9 x 8 + 8 =
 **1190 px** (measured on Curvyo's patched bar: Open 8..36, About 44..72, Preset 80..212, Method
@@ -170,10 +179,11 @@ every state of `0001` is one row there; there is no second test window any more.
 ### 3.4 Tab order
 
 Open, About, Preset, Method, main field, method group (Auto, pipette; or pipette, then the
-picked swatches as one stop), Smooth, Tolerance, Ignore below, expander, blue button (or its x, or
-Retry), then the Advanced block (Output one stop, Colours, palette pipette, palette one stop,
+picked swatches as one stop), Smooth, Tolerance, Ignore below, **Analyse**, expander, blue button (or
+its x, or Retry), then the Advanced block (Output one stop, Colours, palette pipette, palette one stop,
 Invert, Drop border shapes, Recognise text, Recognise shapes, Denoise one stop, Upscale one stop,
-Corners, Analyse, then the Parts row of `0002` §2), then the About panel when it scrolls. A mouse press on any bar button hands
+Corners, then the Parts row of `0002` §2), then the About panel when it scrolls (revised 2026-11-15,
+section 14.4). A mouse press on any bar button hands
 the keyboard back to the canvas; a key press keeps focus on the control.
 
 ## 4. Controls
@@ -214,7 +224,7 @@ double-click to type" (70 %), opening to the **left** of the field.
 | Denoise | label "Denoise" (64 px slot), "Off" \| "Low" \| "High" | "Denoise" | Off | | none |
 | Upscale | label "Upscale", "Auto" \| "Off" | "Upscale" | Auto (preset) | | none |
 | Corners | "Corners" … "70" | "Corners" | 70 | 0 to 100, step 1, Shift 10 | value-field tip |
-| Analyse | "Analyse", 75 x 28 blue | "Analyse" | | | none |
+| Analyse | "Analyse", 75 x 28 blue, first row before the expander (section 14) | "Analyse" | | | none |
 
 Preset values (Smooth, Tolerance, Ignore below, Corners, Upscale, Denoise): Logo / Line art 80,
 0.5, 0.5, 70, Off, Off; Photo 50, 0.5, 0.1, 30, Off, Off; Silhouette for cutting/carving 100, 1.5,
@@ -406,7 +416,9 @@ ring. **Drop cue colour:** Curvyo's code uses `var(--accent)`, which is shadcn's
    Recognise shapes, the 8 px gap, Denoise to Corners, the gap and Analyse. Since 2026-11-13 the
    references with the block open also show the Parts row of `0002` with one part (the last 36 px
    line); it is compared by `0002`'s cases, not here. No region is shifted any more: the 232 px
-   offset of the old Mask group and the 1248 px window are gone.
+   offset of the old Mask group and the 1248 px window are gone. **From 2026-11-15** (section 14)
+   Analyse is part of the first row's tail and no block region holds it; every `px-*` picture with a
+   picture open is re-captured (14.5).
 
 ## 13. Differences from Curvyo and from the spec draft (for the lead)
 
@@ -425,6 +437,7 @@ ring. **Drop cue colour:** Curvyo's code uses `var(--accent)`, which is shadcn's
 | 11 | Ctrl+S | also Save as… | spec names Ctrl+Shift+S only |
 | 12 | Open | first control of the bar, 28 px icon button; no rail, no card (customer, 2026-11-13) | Curvyo: the Import card of its tool rail |
 | 13 | Bar position | centred, 12 px margins at least (customer, 2026-11-13) | Curvyo: left-aligned after the rail (x 72) |
+| 14 | Analyse | first row, tail group: Analyse, expander, Save as…; shown whenever a picture is (customer, 2026-11-15; section 14) | **deliberate departure**: Curvyo has it last in the Advanced row, flush right; Curvyo stays unchanged unless the customer asks. Spec 0001/14 ("the blue Analyse button last") and 0002/1 ("behind Analyse") need the product owner's rewording |
 
 **Frage 5 (UI-FONT): Which UI font?** Curvyo shows the system UI font (Segoe UI on Windows, San
 Francisco on macOS, Roboto, Noto Sans or Liberation Sans on Linux), so it looks different per
@@ -454,3 +467,128 @@ of each against itself PASS (0 %); against the 2026-11-11 file of the same name 
 pictures (15.7 to 30.9 %, runs of 85 to 1155 px); 01 has no 200 px bar run, as before (its test uses
 a fixed size).
 
+## 14. Analyse next to Save as… (2026-11-15)
+
+Status: Draft (ux-engineer, 2026-11-15), Frage 9 and Frage 10 open, written with their defaults (A,
+A). Customer, 2026-11-15: Analyse, at the far right of the first Advanced line, is lost there; it is
+to stand at the top, next to the Trace button. Curvyo's Trace button is Tracyo's blue finish button
+(`bar.rs` `tail`: "Save as…" at rest, the percent while running, Retry when Stopped or Failed; the
+reference `px-13-trace-button-focus` is named after it).
+
+**Deliberate departure from Curvyo.** Curvyo keeps Analyse last in its Advanced row, flush right
+(`TraceAdvanced.tsx`); Tracyo moves it to the first row. The look stays Curvyo's: blue button (section
+5), "Analyse", 75 x 28, hover `#347AFF`, ring 2 + gap 1, no tooltip (Curvyo's has none, and no hint
+text is added), accessible name "Analyse", no shortcut. **Curvyo is not changed** unless the customer
+asks for the same move there.
+
+### 14.1 Place
+
+The tail group of the first row becomes **Analyse 75, 8, expander 28, 8, Save as… 89 = 208 px** at
+rest (Running 194, Stopped 225, Failed 229). It is **one whole item**: it wraps as one and stays flush
+right of its row, so Analyse never leaves Save as… (as an item of its own it would stay in row 1 at
+1280 px while Save as… wraps to row 2). Order (Frage 9 A): Analyse before the expander. The pair
+expander + finish button stays Curvyo's, the finish button stays the bar's last control, and the two
+blue buttons do not touch (36 px apart, the expander between), so they do not read as one split button.
+
+### 14.2 States
+
+| State | Analyse |
+|---|---|
+| No picture | absent; the empty bar is unchanged (165 px) |
+| Picture, Advanced closed | **shown** (the point of the move: it is no longer behind the expander) |
+| Advanced open | shown in the first row; the block has no Analyse any more |
+| Running, Reading text, Stopped, Failed | shown and pressable, behaviour unchanged (it analyses what the active part keeps and sets Method, background, Colour tolerance and Threshold back) |
+| Nothing to save (Save as… dimmed) | not dimmed |
+| Expander changed-dot, "Changed: …" line | unchanged: Analyse is a command, not a value |
+| Mouse press | hands the keyboard back to the canvas, as every bar button |
+
+### 14.3 Geometry (Brightness, Single colour, one part, blue text button)
+
+**First row.** Rest bar **1273 px** (1190 + 75 + 8), Running 1259, Stopped 1290, Failed 1294; with
+Advanced open each + 8 (1281, 1267, 1298, 1302). Centring as section 3.1 on the rest width 1273:
+x = 323 at 1920 (was 365), 163 at 1600. One row from a **1297 px** window (closed) and **1305 px**
+(Advanced open); below that the rest bar meets the cap, x = 12, the bar is the cap wide and the tail
+wraps **alone** to row 2, flush right.
+
+| Window | Row 1 (from the bar's left edge) | Tail | Bar |
+|---|---|---|---|
+| 1280 x 800 (cap 1256) | Open 8..36 … Ignore below 878..1049, as before | row 2, controls y 40..68: Analyse 1040..1115, expander 1123..1151, Save as… 1159..1248; Running: Analyse 1054..1129, expander 1137..1165, button 1173..1248 (the tail moves 14 px right while running, as the expander of a wrapped bar does today) | 1256 x 72, x 12 |
+| ≥ 1297 closed | as before | row 1: Analyse 1057..1132, expander 1140..1168, Save as… 1176..1265 | 1273 x 36, centred |
+| ≥ 1305 open | as before | row 1: Analyse 1065..1140, expander 1148..1176, Save as… 1184..1273 | 1281 wide |
+
+**Advanced block without Analyse.** Its line is Output, Denoise, Upscale, Corners, then the Parts item
+(Parts group, divider, Mask group, `0002` §3), **25 px behind Corners** with the divider at its 13th px.
+Nothing in the block has `margin-left: auto` any more, so the line packs left as Curvyo's `flex-wrap`
+would; spare width stays at the right end **(Proposal)**. The block on one line is **1264 px of bar**
+(today 1347, less Analyse 75 and its 8 px gap); from the bar's left edge Corners ends at 818, the label
+"Parts" starts at 843, Clear mask ends at 1252. The bar with Advanced open is as wide as its first row
+(1281) unless the whole block line is wider and fits the cap (the `0002` §3 rule, unchanged). Each
+further part adds 32 px to the block line (two parts 1296, eight 1488).
+
+| Window (Advanced open, one part) | First row | Block | Bar |
+|---|---|---|---|
+| ≥ 1305 (1920) | one row | one line, 17 px free at its right | 1281 x 85 |
+| 1288 .. 1304 | two rows | one line | cap x 121 |
+| ≤ 1287 (1280) | two rows | Parts item on its own line | cap x 157 |
+
+At 1280 x 800 open: row 1 y 0..36, row 2 36..72, block divider 76, Output line 81..117, **Parts row
+117..153** (controls 121..149), bar 157 high (bottom y 169). Closed: 72 high (bottom 84).
+
+**Frage 10 B (28 px icon button) for comparison:** rest 1226 (x 27 at 1280), open 1234, one row at
+1280; the block wraps at 1280 as today (bar 121 high); from 1288 px the bar widens to the 1264 px block
+line (85 high). Option A costs 36 px of canvas height at 1280 x 800 (72 / 157 against 36 / 121); B costs
+none but makes Analyse a 16 px glyph among nine other icon buttons.
+
+### 14.4 Tab order and About
+
+Open, About, Preset, Method, main field, method group, Smooth, Tolerance, Ignore below, **Analyse**,
+expander, blue button (or its x, or Retry); then the block: Output … Upscale, Corners, Parts (one stop),
+Add part, Rectangle, Lasso, Subtract, Mask (one stop), Clear mask. The same order when the tail has
+wrapped to row 2. About panel: the entry "Denoise, Upscale, Corners, Analyse" becomes "Denoise, Upscale,
+Corners" (its first three sentences), and a new entry "Analyse" with the Analyse sentence, unchanged,
+follows "Ignore below", as the panel follows the bar's order **(Proposal)**.
+
+### 14.5 Pixel cases and tests that change (option A)
+
+- References: `reference/tracyo-bar.cjs` moves Curvyo's Analyse button from the Advanced row into the
+  tail before the expander and drops the block's auto margin; re-capture `0001` px-00, 02 .. 15 and
+  `0002` px-00 .. 23 at 1280 x 800 (px-01, the empty bar, stays). `curvyo-*` stay.
+- `tests/pixels.rs`: `bar("bar", 1190, 36)` → (1256, 72); 1198 / 1215 / 1219 and `OPEN_H` 121 →
+  1256 and 157; the running case likewise.
+- `tests/parts.rs`, `tests/masks.rs`: `BAR_W` 1198 → 1256, `BAR_H` 121 → 157; the px-17 regions row
+  (0, 0) 1256 x 76, output (0, 76) 850 x 32, parts (0, 108) 1256 x 49. P18: `bar_x` 45 → 12, controls
+  top 12 + 85 → 12 + 121, divider y 125..145 of the bar; x unchanged (chips 44..296 … Clear mask
+  613..641).
+- `tests/wrap.rs`: `REST` 1190 → 1273, `bar_left(1920)` 365 → 323. P19 (1920): Parts label at
+  Corners right + 25, dividers at Corners right + 12 and trash right + 12, bar 85 high, bar right =
+  left + 1281 = Clear mask right + 29 (ground at right − 1, not at right + 2); the `px-08` crop stays.
+  P20 runs at **1280** (at 1300 the block now fits one line): Parts item at left + 8, one line below the
+  Output line, bar 157 high, no divider at the line start. Threshold: **1288** one line, **1287** wraps
+  (was 1371 / 1370); the measured block line (Clear mask right + 12 − bar left) is 1264. Eight parts at
+  1920: Add part left = Corners right + 25 + 292; a second part at 1288 moves the Parts item down.
+  Analyse asserts change to: Analyse left = bar right − 8 − 89 − 8 − 28 − 8 − 75.
+- `tests/regions.rs` Tab test: "Ignore below, Analyse, More trace options" in row 1; from Corners Tab
+  reaches the Parts chip directly. `bar.rs` unit tests: rest 1190 → 1273 and the tail of 208.
+
+### 14.6 Tasks for the implementer
+
+1. `bar.rs`: tail = Analyse 75 + 8 + expander + 8 + blue; `rest` and `layout` use the 208 px tail (194 running); unit tests to 14.3.
+2. `bar.rs` `tail`: draw `controls::accent_button` "Analyse" first, `release_focus_after_mouse`, click → `analyse_again`; Tab order 14.4.
+3. `advanced.rs`: remove Analyse from the block; `block_line_width` without `ANALYSE_W` and its gap; `block_layout` without a tail.
+4. `bar.rs` `rows`/`block_flow`: with no tail the Parts item stands `LEAD_GAP` behind Corners (pack left), divider rule unchanged.
+5. `about.rs`: split the entry as 14.4; update its test text.
+6. `tests/wrap.rs`, `parts.rs` (P18), `masks.rs`, `pixels.rs`, `regions.rs` (Tab): numbers of 14.5.
+7. References: patch `tracyo-bar.cjs`, re-capture px sets (needs Curvyo's dev server at `fc8edca8`; ux-engineer or lead), then the pixel cases.
+8. Spec 0001/14 and 0002/1 wording (product owner): Analyse in the first row before the expander.
+9. No tooltip, no hint text, no shortcut for Analyse.
+
+**Frage 9 (ANALYSE-ORDER): Where exactly next to Save as…?** A: Analyse, expander, Save as… (Curvyo's
+pair expander + finish stays, the blue buttons do not touch). B: expander, Analyse, Save as… (Analyse
+right beside Save as…, two blue buttons 8 px apart). C: Analyse right of Save as… (the finish is no
+longer the last control). Recommendation A. Default A.
+
+**Frage 10 (ANALYSE-LOOK): Text button or icon?** A: the blue "Analyse" text button as today (most
+visible; at the 1280 x 800 start size the bar gets a second row holding only Analyse, expander and Save
+as…, one row from a 1297 px window). B: a 28 px icon button (lucide `ScanSearch`, tooltip "Analyse"),
+the bar stays one row at 1280. C: A, and the start window grows to 1320 x 800 so the first start shows
+one row. Recommendation A (the customer's complaint is findability). Default A.
