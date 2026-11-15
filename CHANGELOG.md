@@ -8,6 +8,8 @@ First release, `0.1.0`. Polygons and stars are saved as `<polygon>` and Inkscape
 
 ### Added
 
+- The hidden status region also says the arming text of the trash ("Press again to remove part 2") and the
+  reason of a dimmed Save as…; the Save as… tooltip with parts is tested.
 - Analyse is a blue icon button between the expander and "Save as…" (specification 0001 criterion 14,
   customer decision 2026-11-15); it is shown with a picture whether Advanced is open or not, and the bar
   is 36 px wider (1226 px at rest).

@@ -17,6 +17,7 @@ mod compare;
 #[path = "common/px.rs"]
 mod px;
 
+use eframe::egui::accesskit::Role;
 use eframe::egui::{Event, Key, Modifiers, PointerButton, Pos2};
 use egui_kittest::Harness;
 use egui_kittest::kittest::Queryable;
@@ -211,7 +212,8 @@ fn p12_trash_armed() {
     h.get_by_label("Remove part 2").click();
     h.run_steps(3);
     assert!(h.state().trash_armed());
-    h.get_by_label("Press again to remove part 2").hover();
+    h.get_by_role_and_label(Role::Button, "Press again to remove part 2")
+        .hover();
     h.run_steps(40);
     h.set_render_cursor(false);
     h.run_steps(1);
@@ -430,11 +432,13 @@ fn the_trash_arms_waits_400_ms_and_removes_the_active_part_then_the_part_before_
     h.run_steps(3);
     assert!(h.state().trash_armed());
     // A second press at once does nothing: it comes before 400 ms.
-    h.get_by_label("Press again to remove part 3").click();
+    h.get_by_role_and_label(Role::Button, "Press again to remove part 3")
+        .click();
     h.run_steps(3);
     assert_eq!(h.state().part_count(), 3);
     after_delay();
-    h.get_by_label("Press again to remove part 3").click();
+    h.get_by_role_and_label(Role::Button, "Press again to remove part 3")
+        .click();
     h.run_steps(3);
     common::wait_for_result(&mut h, 60.0);
     assert_eq!((h.state().part_count(), h.state().active_part()), (2, 1));
