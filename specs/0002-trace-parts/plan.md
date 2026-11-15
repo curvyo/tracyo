@@ -103,7 +103,7 @@ Done on `story/mask-in-parts-row` (implementer, 2026-11-13). Notes:
   in `MaskState::pressed_corner` for the drag or click that follows.
 
 - PR #16 changes (customer, 2026-11-13): a right click finishes the lasso and Esc aborts it (criteria 8, 28); the
-  Advanced block is one flowing line, the Parts item behind Analyse when the window is wide enough, else
+  Advanced block is one flowing line, the Parts item behind Analyse (since 2026-11-15 behind Corners) when the window is wide enough, else
   moved down as a whole (ux-notes 3, `tests/wrap.rs`, `tests/lasso.rs`).
 
 ## Slice 3: Colours, text and shapes per part (`story/trace-parts-colour-text`)

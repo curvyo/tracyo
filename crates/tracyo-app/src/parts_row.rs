@@ -55,7 +55,7 @@ pub(crate) struct Layout {
     pub divider: bool,
 }
 
-/// The gap before the Parts row when it follows Analyse on its line; the divider stands 12 px into
+/// The gap before the Parts row when it follows Corners on its line; the divider stands 12 px into
 /// it, as between the trash and the Mask group.
 pub(crate) const LEAD_GAP: f32 = GROUP_GAP;
 

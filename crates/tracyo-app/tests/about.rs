@@ -168,6 +168,7 @@ fn every_control_of_the_bar_has_an_entry() {
         "Smooth",
         "Tolerance",
         "Ignore below",
+        "Analyse",
         "Output",
         "Colours",
         "Palette",

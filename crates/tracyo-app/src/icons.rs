@@ -25,6 +25,8 @@ pub enum Icon {
     ScanText,
     /// Recognise shapes.
     Shapes,
+    /// Analyse.
+    ScanSearch,
     /// An excluded palette colour.
     Ban,
     /// The expander while the Advanced block is closed.
@@ -52,6 +54,7 @@ impl Icon {
             Self::CircleAlert => include_str!("../../../assets/icons/lucide/circle-alert.svg"),
             Self::ScanText => include_str!("../../../assets/icons/lucide/scan-text.svg"),
             Self::Shapes => include_str!("../../../assets/icons/lucide/shapes.svg"),
+            Self::ScanSearch => include_str!("../../../assets/icons/lucide/scan-search.svg"),
             Self::Ban => include_str!("../../../assets/icons/lucide/ban.svg"),
             Self::Pipette => include_str!("../../../assets/icons/lucide/pipette.svg"),
             Self::Contrast => include_str!("../../../assets/icons/lucide/contrast.svg"),

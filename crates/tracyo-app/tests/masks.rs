@@ -34,11 +34,14 @@ const BAR_W: u32 = 1198;
 const BAR_H: u32 = 121;
 
 fn check(name: &str, h: &mut Harness<'_, App>, regions: &[Region]) {
-    px::check_regions(SPEC, name, &h.render().unwrap(), regions);
+    let rendered = h.render().unwrap();
+    px::check_regions(SPEC, name, &rendered, regions);
+    // The Analyse button, which the references lack, stands between the expander and Save as….
+    px::assert_analyse(&rendered, 1198 + px::ANALYSE_SHIFT, 89, 0);
 }
 
 fn whole_bar() -> Vec<Region> {
-    vec![Region::same("bar", (0, 0), (BAR_W, BAR_H))]
+    px::bar_regions(BAR_W, 89, BAR_H)
 }
 
 fn fixed() -> Dialogs {
@@ -497,10 +500,13 @@ fn p14_a_mask_outside_the_image_dims_save_as() {
     h.run_steps(1);
     // The bar without the tooltip of Save as…, which the window of this test clamps where
     // Curvyo's does not: the first row, the Output line left of the tooltip and the Parts row.
-    let regions = [
-        Region::same("row", (0, 0), (BAR_W, 40)),
+    let rest = [
         Region::same("output", (0, 40), (850, 32)),
-        Region::same("parts", (0, 72), (BAR_W, 49)),
+        // Left of the tooltip, which the window clamps differently from Curvyo's (x 1033 now, 1036
+        // there); the Parts row ends at x 641.
+        Region::same("parts", (0, 72), (1000, 49)),
     ];
+    let mut regions = px::bar_regions(1198, 89, 36)[..2].to_vec();
+    regions.extend(rest);
     check("px-16-mask-outside-image", &mut h, &regions);
 }

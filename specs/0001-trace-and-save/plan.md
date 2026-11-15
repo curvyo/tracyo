@@ -203,3 +203,13 @@ inset and the 72 px column are gone; the tasks of slice 1 that name them are his
 - [x] Open is the first control of the bar (28 px icon button, "Open image", tooltip "Open image (Ctrl+O)"); the empty bar keeps "Open image…" — 1
 - [x] The bar is centred on its rest width (`bar_x`: x = 45 at 1280 px, x = 557 for the empty bar), pulled left only when its right end would pass the 12 px margin; it takes the cap and wraps below that — 3
 - [x] The pixel cases px-00 to px-15 compare the whole bar in a 1280 x 800 window against the re-captured references, no shift and no cut at x = 60 — 3
+
+## Revision 2026-11-15: Analyse next to Save as… (`story/analyse-next-to-trace`)
+
+Customer decision 2026-11-15 (Frage 9 B, Frage 10 B; ux-notes of 0001, section 14).
+
+- [x] Tail = expander, Analyse (28 px blue icon button, `ScanSearch`, name and tooltip "Analyse"), Save as…; the block has no Analyse and the Parts item stands 25 px behind Corners — 14 (`bar.rs`, `advanced.rs`, `controls::accent_icon_button`)
+- [x] Icon asset `assets/icons/lucide/scan-search.svg` with its hash in `assets/ASSETS.md`
+- [x] About: entry "Analyse" after "Ignore below"; "Denoise, Upscale, Corners" without it
+- [x] Tests: `bar.rs` unit tests, `tests/wrap.rs` (1226 px, 1288 / 1287, tail wraps as one item at 1250 / 1249), `tests/regions.rs` (Tab order, shown with a picture only), pixel cases by regions (`px::bar_regions`, `px::assert_analyse`)
+- [ ] Re-capture the `px-*` references with the Analyse icon (needs Curvyo at `fc8edca8`, its wasm and playwright-core; see ux-notes 0001 §14.5); until then the Analyse button has no pixel reference

@@ -1,6 +1,6 @@
 # UX notes: Trace parts
 
-Status: Draft (ux-engineer, 2026-11-12; revised 2026-11-13 on PR #16, customer: a right click finishes the lasso and Esc aborts it, and the Advanced block is one flowing line that wraps only when the window is too narrow, sections 1, 3, 6, 7, 12.2, 13; revised by the architect 2026-11-12: subtraction is a Subtract toggle (lead, Frage 6 C), the spec follows section 13's rows 1 to 4; revised by the ux-engineer 2026-11-13: the Mask group moves into the Parts row (customer, Frage 8 A) and the Lasso joins Rectangle (customer), sections 1 to 7, 9 to 13; revised 2026-11-15: Analyse leaves the block for the first row's tail, `0001` §14, a deliberate departure from Curvyo; changed here: sections 2, 3, 12.2 P18 to P20, 13). Reference: Curvyo `main` at `fc8edca8`, its dev server
+Status: Draft (ux-engineer, 2026-11-12; revised 2026-11-13 on PR #16, customer: a right click finishes the lasso and Esc aborts it, and the Advanced block is one flowing line that wraps only when the window is too narrow, sections 1, 3, 6, 7, 12.2, 13; revised by the architect 2026-11-12: subtraction is a Subtract toggle (lead, Frage 6 C), the spec follows section 13's rows 1 to 4; revised by the ux-engineer 2026-11-13: the Mask group moves into the Parts row (customer, Frage 8 A) and the Lasso joins Rectangle (customer), sections 1 to 7, 9 to 13; revised 2026-11-15: Analyse leaves the block for the first row's tail as a 28 px icon button between the expander and Save as…, `0001` §14, a deliberate departure from Curvyo (customer decision 2026-11-15, Frage 9 B and 10 B); changed here: sections 2, 3, 12.2 P18 to P20, 13). Reference: Curvyo `main` at `fc8edca8`, its dev server
 rendered in Chromium at 1x with Liberation Sans (as `0001`). Rule unchanged: **what Curvyo draws,
 Tracyo draws**; where Curvyo's code and its documents disagree, the code wins. Own choices are
 marked **(Proposal)**. No hint or tip text; labels that name a control or a state stay. All sizes
@@ -73,7 +73,7 @@ Customer, 2026-11-13 (Frage 8 A): the whole Mask group leaves the first row and 
 row of Advanced, behind the chips, Add part and the trash. **The first row is `0001 §3.2`'s again**
 (Open, About, Preset, Method, the method's field and group, Smooth, Tolerance, Ignore below,
 expander, Save as…), with no Mask group; its widths, rows, wrap and centring are those of `0001 §3.1`
-and `§3.3` (1190 px, one row at 1280 px, x 45).
+and `§3.3` (1190 px in the references, 1226 px since 2026-11-15, one row at 1280 px, x 27).
 
 The group, 4 px apart: Rectangle 28, Lasso 28, Subtract 28, the Mask segments 128, Clear mask 28 =
 **256 px** (Curvyo's is 192: Pick 28, segments 128, Clear mask 28). It is shown whenever the Parts row
@@ -90,26 +90,26 @@ Inside / Outside is selectable without regions; the choice applies with the firs
 belongs to the active part (a new part starts Inside).
 
 **Tab order** (replaces `0001 §3.4` from the Advanced block on; Analyse is in the first row since
-2026-11-15, `0001` §14.4): ... Corners, then the Parts row: **Parts (one stop), Add part, Rectangle, Lasso, Subtract, Mask (one stop), Clear mask**. The trash
+2026-11-15, between the expander and Save as…, `0001` §14.4): ... Corners, then the Parts row: **Parts (one stop), Add part, Rectangle, Lasso, Subtract, Mask (one stop), Clear mask**. The trash
 is no Tab stop. The first row's order is `0001 §3.4`'s, with nothing between Preset and Method.
 
 ## 3. The Parts row (last line of Advanced)
 
 **Since 2026-11-15 (`0001` §14.3) Analyse is not in the block:** the Parts item follows Corners, 25 px
 behind it with the divider at its 13th px, the line packs left, the block line is 1264 px of bar and
-fits from a 1288 px window; at 1280 the item is on its own line at y 117..153. The paragraphs below
-keep the earlier numbers where `0001` §14.3 restates them.
+fits from a 1288 px window; at 1280 the item is on its own line at y 81..117 (the first row is one
+row again, bar 121 high). The paragraphs below keep the earlier numbers where `0001` §14.3 restates
+them.
 
 The Parts row is the **last item of the Advanced block's flow** (customer, 2026-11-13: the row does
 not break a line of its own accord). The block is one flowing line, Curvyo's `flex-wrap` of the
-Advanced row (`gap-x-2`): Output, Denoise, Upscale, Corners, Analyse (`margin-left: auto`), then the
-Parts row, the Parts group with the Mask group right behind it, as one item of **409 px with one
+Advanced row (`gap-x-2`): Output, Denoise, Upscale, Corners, (Curvyo: Analyse, `margin-left: auto`; Tracyo: no
+Analyse since 2026-11-15), then the Parts row, the Parts group with the Mask group right behind it, as one item of **409 px with one
 part** (`96 + 32 n` Parts group, 25, 256 Mask group). It wraps **only when the window width does not
 suffice**; then the whole item, Parts group, divider and Mask group, moves to the next line at the
 block's 8 px padding, with no divider before it (`px-00`, `px-08`, `px-09`: 1280 px, where the line
-holds the Output line and Analyse but not the Parts item); Analyse stays at the far right of the
-first line. Behind Analyse on the same line the item stands 25 px after it with a divider at the
-13th px (the divider rule of the table below). Items, vertically centred:
+holds the Output line but not the Parts item). Behind Corners on the same line the item stands 25 px
+after it with a divider at the 13th px (the divider rule of the table below). Items, vertically centred:
 
 | Item | Size | Look | Accessible |
 |---|---|---|---|
@@ -133,22 +133,23 @@ Clear mask 613..641. Vertically (Advanced open, one first row): first row y 0..3
 block at 40, Output line 45..81, **Parts row 81..117**, controls at 85..113; the bar is 121 px high.
 
 **Fit and wrap (customer, 2026-11-13).** The block's items are whole and flow in this order; the
-Parts item (`409 + 32 (n - 1)` px) is behind Analyse on its line when `x + 75 + 25 + 409` fits the
+Parts item (`409 + 32 (n - 1)` px) is behind Corners on its line when `x + 25 + 409` fits the
 block's width (the bar's inside less the block's 4 px), else it starts the next line. The bar is as
-wide as its first row (1198 px with Brightness, Advanced open), **unless the whole block fits on one
+wide as its first row (1234 px with Brightness, Advanced open, since 2026-11-15; 1198 px before), **unless the whole block fits on one
 line in the window** (bar at most W - 24): then the bar widens to that line and everything stays on
-it. With Brightness, Single colour and one part that line is 1347 px of bar, so the window must be
-**1371 px** or more: 1920 x 1080 shows Output to Clear mask on one line, 1371 x 800 is the last
-width that does, 1370, 1300 and 1280 move the Parts item down as a whole and keep the 1198 px bar of
-the references. Each part adds 32 px, so the line breaks at the part that no longer fits (at 1371
-px the second part). Widening only when the whole line fits is a **(Proposal)**: Curvyo's own pill
+it. With Brightness, Single colour and one part that line is 1264 px of bar (1347 before Analyse left
+the block), so the window must be **1288 px** or more: 1920 x 1080 shows Output to Clear mask on one
+line, 1288 x 800 is the last width that does, 1287 and 1280 move the Parts item down as a whole and
+keep the 1234 px bar. Each part adds 32 px, so the line breaks at the part that no longer fits (at
+1288 px the second part). Widening only when the whole line fits is a **(Proposal)**: Curvyo's own pill
 would take the whole cap whenever the line does not fit, which the 1280 px references contradict;
 the cost is that Save as…, at the far right of the first row, moves right when the bar widens
-(opening Advanced at 1920 px moves it by 149 px, adding a part by 32 px). Rule for a block narrower
+(opening Advanced at 1920 px moves it by 38 px, adding a part by 32 px). Rule for a block narrower
 than the item all the same: the Mask group goes first, as a whole, to a second 36 px line starting at
 the block's padding, and its divider is not drawn there; label and chips never wrap apart, Add part
 and the trash wrap together after the chips only when the Parts group alone is wider than the block.
-The widened line is rounded up to whole pixels so that Analyse and the Parts item stand on them.
+The widened line is rounded up to whole pixels, and the Parts item's x is rounded up too, so that
+the item and its divider stand on whole pixels.
 
 **Chip states** (`px-09`, `px-11`, `px-12`, `px-15`):
 
@@ -377,9 +378,9 @@ R3 = (100, 450)-(300, 520) (below the picture). The `px-*` pictures are those re
 | P15 No part to trace | `px-17` | P14 plus Add part | bar: dimmed Save as…, chip 2 muted and active |
 | P16 Subtract pressed | `px-19` (Curvyo's pressed class on a copy of its button; Curvyo has no Subtract) | as P3 plus Rectangle and Subtract pressed | whole bar |
 | P17 Lasso pressed | `px-18` (as P16, Curvyo has no Lasso) | as P3 plus Lasso pressed | whole bar |
-| P18 Eight parts | none (geometry) | P1 plus seven Add part, 1280 px | the Parts row is the item that wrapped, one line at y 81..117 (since `0001` §14: y 117..153, bar x 12); chips 44..296, Add part 300..328, trash 332..360, divider x 372, Rectangle 385..413, Lasso 417..445, Subtract 449..477, Mask 481..609, Clear mask 613..641 (± 1 px, section 3); Add part dimmed |
-| P19 Wide window (since `0001` §14: Corners instead of Analyse, left edge 323, bar right = Clear mask right + 29; numbers in `0001` §14.5) | `px-08`, the 409 x 36 crop at (8, 81), and geometry | 1920 x 1080, Brightness, Advanced open, one part | no Curvyo reference exists for this width (Curvyo is read-only here); the Parts and Mask groups equal the crop of `px-08` within the 1 px blur and stand 25 px behind Analyse on its line (label at Analyse right + 25, chip 1 at label + 36, Add part + 68, trash + 100, Rectangle + 153, Lasso + 185, Subtract + 217, Inside + 249, Clear mask + 381); dividers at Analyse right + 12 and trash right + 12; bar 85 px high, ending 12 px behind Clear mask, left edge 365; `tests/wrap.rs` |
-| P20 Narrower than one line (since `0001` §14: 1280 x 800, bar 157 high, and 1287 against 1288) | geometry | 1300 x 800, and 1370 against 1371 | Analyse at left + 1186, the Parts item at the block's padding one 36 px line lower (bar 121 px high), no divider before it, the 1198 px bar; the same item at 1371 px is behind Analyse; `tests/wrap.rs` |
+| P18 Eight parts | none (geometry) | P1 plus seven Add part, 1280 px | the Parts row is the item that wrapped, one line at y 81..117 (bar at x 27 since `0001` §14); chips 44..296, Add part 300..328, trash 332..360, divider x 372, Rectangle 385..413, Lasso 417..445, Subtract 449..477, Mask 481..609, Clear mask 613..641 (± 1 px, section 3, from the bar's left edge); Add part dimmed |
+| P19 Wide window (since `0001` §14: Parts item behind Corners, bar left edge 347, bar 1264 wide; numbers in `0001` §14.3) | `px-08`, the 409 x 36 crop at (8, 81), and geometry | 1920 x 1080, Brightness, Advanced open, one part | no Curvyo reference exists for this width (Curvyo is read-only here); the Parts and Mask groups equal the crop of `px-08` within the 1 px blur and stand 25 px behind Corners on its line, on a whole pixel (label at Corners right + 25 rounded up, chip 1 at label + 36, Add part + 68, trash + 100, Rectangle + 153, Lasso + 185, Subtract + 217, Inside + 249, Clear mask + 381); dividers at the label - 13 and trash right + 12; bar 85 px high, ending 12 px behind Clear mask (1264 wide); the tail flush right: Analyse right = bar right - 8 - 89 - 8; `tests/wrap.rs` |
+| P20 Narrower than one line (since `0001` §14: 1280 x 800 and 1287 against 1288) | geometry | 1280 x 800, and 1287 against 1288 | the Parts item at the block's padding one 36 px line lower (bar 121 px high, 1234 wide), no divider before it; Analyse in the first row, 8 px before Save as…; the same item at 1288 px is behind Corners; `tests/wrap.rs` |
 | C1 Wash Inside | `curvyo-02` | R1, R2 Inside | sample, not a pixel diff: the LOGO block inside R1 `#B5C1DC` ± 3, the triangle (outside) at 12 % (white `#FFFFFF` stays white; the yellow `#F2B705` becomes `#FDF6E1` ± 3) |
 | C2 Wash Outside | `curvyo-05` | R1, R2 Outside | LOGO block `#E6EAF3` ± 3; no preview outline inside R1 or R2 |
 | C3 Region line | `curvyo-02` | R1 at 100 % | a 1 px line `#000000` (± 24) along R1; at 400 % 4 px (3.8 rounded) |
@@ -400,7 +401,7 @@ cursors, shadow halos, tooltip x, the drag ghost.
 | 2 | Other parts' regions | drawn, not editable (Curvyo's mask paths are always visible) | spec 11 follows |
 | 3 | Draw modifiers | Shift from the centre, Ctrl square; resize Shift about the centre, Ctrl keep proportions (Curvyo) | spec 7, 9 follow |
 | 4 | Without a picture | no Mask group, no Parts (`0001`) | spec 1 follows |
-| 5 | Mask group | in the Parts row of Advanced, the last item of the block's flow: behind Analyse (since 2026-11-15 behind Corners, `0001` §14) when the window allows, else on the next line (customer, 2026-11-13, Frage 8 A and the wrap rule); the first row is `0001 §3.3`'s one row again | Curvyo: in the first row after Preset; Curvyo `0114` follows these notes |
+| 5 | Mask group | in the Parts row of Advanced, the last item of the block's flow: behind Corners (it was behind Analyse until 2026-11-15, `0001` §14) when the window allows, else on the next line (customer, 2026-11-13, Frage 8 A and the wrap rule); the first row is `0001 §3.3`'s one row again | Curvyo: in the first row after Preset; Curvyo `0114` follows these notes |
 | 6 | Selected region | no rotate, skew, radius or centre handles | Curvyo's Select tool shows them |
 | 7 | Size chip | picture px | Curvyo mm |
 | 8 | Region tool announcement, Save as… tooltip with parts | "Rectangle on", "Lasso on"; "Save as… (Ctrl+Shift+S), 3 parts joined" | new strings |
@@ -451,7 +452,7 @@ scale 1. Sizes: 1222 x 145 (00, 03, 04, 07, 08, 09, 15, 18, 19), 1222 x 185 (06,
 (16, 17: to the viewport's edge for the Save as… tooltip), 1280 x 620 (01, 02, 05, 10, 20 to 23).
 
 Checked on the DOM of the patched bar (section 3's numbers): Open 8..36, Preset 80..212, Method
-220..396, Save as… 1093..1182 (Advanced closed, bar 1190, x 45) and 1101..1190 (open, 1198); Parts
+220..396, Save as… 1093..1182 (Advanced closed, bar 1190, x 45) and 1101..1190 (open, 1198); both as captured, before Analyse joined the tail (`0001` §14.5); Parts
 row y 81..117, label 8..40, chip 1 44..72, trash 108..136, divider 148, Rectangle 161..189, Lasso
 193..221, Subtract 225..253, Mask 257..385, Clear mask 389..417; eight parts: Clear mask 613..641.
 `compare.py` of each of the 24 against itself: PASS (0 %); against the file of the same name from
@@ -470,6 +471,6 @@ and no behaviour.
 
 Curvyo's dev server is not run for these widths (the Curvyo checkout is read-only for Tracyo's
 agents), so there are no new reference pictures. `px-00` .. `px-23` stay valid at 1280 x 800, where
-the Parts item does not fit behind Analyse. The wide and intermediate cases are asserted by geometry
+the Parts item does not fit behind Corners (behind Analyse until 2026-11-15). The wide and intermediate cases are asserted by geometry
 from the verified widths of section 3 (label 32, chips 28, gaps 4, 25 px gap with the divider at its
 13th px, Mask group 256) and, for the look of the groups, by the 409 x 36 crop of `px-08`.

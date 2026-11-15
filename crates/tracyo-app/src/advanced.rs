@@ -1,5 +1,5 @@
 //! The Advanced block under the rows of the bar: Output with the Multicolour palette, the
-//! toggles, Denoise, Upscale, Corners and Analyse.
+//! toggles, Denoise, Upscale and Corners, then the Parts row.
 
 use eframe::egui::{self, Align2, Color32, Key, Modifiers, Pos2, Rect, Stroke, vec2};
 use tracyo_core::method::Method;
@@ -20,8 +20,6 @@ const UPSCALE: [&str; 2] = ["Auto", "Off"];
 const LABEL_W: f32 = 64.0;
 /// Width of a cell that holds a label and a pill (at least 150).
 const MIN_CELL: f32 = 150.0;
-/// Width of the Analyse button.
-const ANALYSE_W: f32 = 75.0;
 /// Width of the Colours field.
 const COLOURS_W: f32 = 120.0;
 /// Width of the four toggles (Invert, Drop border shapes, Recognise text, Recognise shapes) with
@@ -194,15 +192,14 @@ impl App {
     }
 
     /// The `inner` width at which the whole block is one line: the Output row, Denoise, Upscale,
-    /// Corners, Analyse and the Parts row with its divider and the block's 4 px on the right.
+    /// Corners and the Parts row, 25 px behind Corners, and the block's 4 px on the right.
     pub(crate) fn block_line_width(&self, ui: &egui::Ui) -> f32 {
         let (output, cells) = self.block_cells(ui);
         let parts = self.doc.as_ref().map_or(1, |d| d.parts.len());
-        // Whole pixels, so that Analyse and the Parts row stand on whole pixels.
+        // Whole pixels, so that the Parts row stands on whole pixels.
         (output
-            + 8.0
-            + cells.iter().map(|w| w + 8.0).sum::<f32>()
-            + ANALYSE_W
+            + cells.iter().sum::<f32>()
+            + 3.0 * 8.0
             + crate::parts_row::LEAD_GAP
             + crate::parts_row::single_width(parts)
             + 4.0)
@@ -223,7 +220,7 @@ impl App {
             width: crate::parts_row::single_width(count),
             height: parts.height,
         };
-        block_flow(&widths, &heights, ANALYSE_W, inner - 4.0, last)
+        block_flow(&widths, &heights, inner - 4.0, last)
     }
 
     /// Paints and drives the block; `origin` is its content corner. Returns whether a value that
@@ -271,16 +268,8 @@ impl App {
             changed = Some(dragging);
         }
 
-        // Analyse.
-        let analyse =
-            controls::accent_button(ui, at(block.tail, ANALYSE_W), bar_id("analyse"), "Analyse");
-        widgets::release_focus_after_mouse(ctx, &analyse);
-        if analyse.clicked() {
-            self.analyse_again(ctx);
-        }
-
-        // The Parts row with the Mask group: behind Analyse when the line has room, else a line
-        // of its own.
+        // The Parts row with the Mask group: behind Corners when the line has room, else a line of
+        // its own.
         self.parts_row(
             ui,
             ctx,
