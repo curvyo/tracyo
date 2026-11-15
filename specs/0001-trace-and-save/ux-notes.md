@@ -123,7 +123,10 @@ far right of their row (`margin-left: auto`); with Analyse (section 14) the tail
 (12 px from each window edge; W is the canvas width, so the About panel narrows it). The Mask group
 and the Parts row are in the Advanced block (`0002`); no state label while a picture is shown, no
 status or notice text in the bar; one hidden status region (AccessKit live region) carries what
-Curvyo announces.
+Curvyo announces. **Counts (customer decision A11Y-COUNTS = A, 2026-11-15).** Once a trace has settled
+the region says the counts of the final output in Curvyo's wording, "7 paths, 412 nodes" ("1 path,
+4 nodes" in the singular), screen reader only, once per settled result and not again on an unrelated
+redraw; with several parts they are the counts of the joined result.
 
 **Centring (customer, 2026-11-13).** The bar's left edge is x = floor((W - w₀) / 2), where w₀ is the
 width of the same bar at rest (blue button "Save as…", 89 px) with Advanced closed; the bar's right

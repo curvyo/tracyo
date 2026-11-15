@@ -15,6 +15,8 @@ pub(crate) struct Said {
     arming: Option<usize>,
     /// The reason the blue button is dimmed.
     notice: Option<String>,
+    /// The counts last said for the settled result; none while no result is settled.
+    counted: Option<String>,
     text: String,
 }
 
@@ -25,13 +27,18 @@ struct Seen {
     parts: String,
     arming: Option<usize>,
     notice: Option<String>,
+    /// The counts of the settled result, if there is one.
+    counts: Option<String>,
+    /// What a settled result is announced as: the parts text with the counts in it.
+    spoken: String,
 }
 
 impl Said {
     /// The text after a look at the new state: a change of the region tool or of Subtract says
     /// the toggle, arming the trash says "Press again to remove part 2" (disarming says nothing),
     /// a new reason of a dimmed Save as… says the reason, a change of the parts or of the mask
-    /// says the mask, else the old text stays.
+    /// says the mask, a result that has settled says the mask and its counts ("7 paths, 412
+    /// nodes", once per result), else the old text stays.
     fn update(&mut self, seen: Seen) {
         let Seen {
             tool,
@@ -39,10 +46,14 @@ impl Said {
             parts,
             arming,
             notice,
+            counts,
+            spoken,
         } = seen;
         let (old_arming, old_notice) = (self.arming, self.notice.clone());
         self.arming = arming;
         self.notice.clone_from(&notice);
+        let new_counts = counts.is_some() && counts != self.counted;
+        self.counted = counts;
         let Some(old) = self.tool.replace(tool) else {
             self.subtract = subtract;
             self.parts = parts;
@@ -70,6 +81,8 @@ impl Said {
             self.text = notice.unwrap_or_else(|| parts.clone());
         } else if parts != self.parts {
             self.text = notice.unwrap_or_else(|| parts.clone());
+        } else if new_counts {
+            self.text = spoken;
         }
         self.subtract = subtract;
         self.parts = parts;
@@ -87,6 +100,8 @@ impl App {
                 parts: self.announcement(),
                 arming: self.trash.is_some().then(|| doc.parts.active_index() + 1),
                 notice: self.nothing_to_save().map(str::to_owned),
+                counts: self.result_counts(),
+                spoken: self.announcement_counted(),
             };
             self.said.update(seen);
         } else {

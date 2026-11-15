@@ -2,7 +2,7 @@
 //! of the list, the cache of finished parts and the job all parts make together.
 
 use eframe::egui;
-use tracyo_core::parts::Part;
+use tracyo_core::parts::{Part, Parts};
 use tracyo_core::protocol::{TraceParts, encode_trace};
 use tracyo_core::request::{self, TraceRequest, size_mm};
 use tracyo_core::settings::Settings;
@@ -302,6 +302,29 @@ impl App {
             parts.store(live);
         }
         parts.announcement()
+    }
+
+    /// The counts of the settled joined result, "7 paths, 412 nodes"; none while it is stale or
+    /// empty for a reason.
+    #[must_use]
+    pub fn result_counts(&self) -> Option<String> {
+        let r = self
+            .result
+            .as_ref()
+            .filter(|r| !r.stale && r.reason.is_none())?;
+        Some(Parts::counts_text(r.output.paths, r.output.nodes))
+    }
+
+    /// The announcement with the counts of the settled result in it.
+    pub(crate) fn announcement_counted(&self) -> String {
+        let Some(doc) = self.doc.as_ref() else {
+            return String::new();
+        };
+        let mut parts = doc.parts.clone();
+        if let Some(live) = self.live_part() {
+            parts.store(live);
+        }
+        parts.announcement_with(self.result_counts().as_deref())
     }
 
     /// How many parts were traced (not taken from the cache) since the app started: a trace of
