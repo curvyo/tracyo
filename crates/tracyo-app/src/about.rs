@@ -73,7 +73,7 @@ pub fn entries() -> Vec<(String, String)> {
 }
 
 /// Curvyo's "About Trace" entries (`traceText.ts`) without Mask and Parts.
-const TRACE_ENTRIES: [(&str, &str); 24] = [
+const TRACE_ENTRIES: [(&str, &str); 25] = [
     (
         "Preset",
         "a named set of values for what you do with the paths.",
@@ -124,6 +124,10 @@ const TRACE_ENTRIES: [(&str, &str); 24] = [
         "drops shapes and holes smaller than this size in mm.",
     ),
     (
+        "Analyse",
+        "sets the method, its background and Colour tolerance, and the Threshold back to what the analysis found in the image; never the preset or other values.",
+    ),
+    (
         "Output",
         "Single colour traces the content as one black shape; Multicolour gives one filled shape per colour, neighbours sharing their edges.",
     ),
@@ -152,8 +156,8 @@ const TRACE_ENTRIES: [(&str, &str); 24] = [
         "finds rectangles, circles, ellipses, polygons and stars in the traced outlines and sets them as shapes.",
     ),
     (
-        "Denoise, Upscale, Corners, Analyse",
-        "Denoise smooths out noise before tracing. Upscale doubles small images before tracing; Auto does it below 1 Mpx. Corners: higher turns more bends into sharp corners. Analyse sets the method, its background and Colour tolerance, and the Threshold back to what the analysis found in the image; never the preset or other values.",
+        "Denoise, Upscale, Corners",
+        "Denoise smooths out noise before tracing. Upscale doubles small images before tracing; Auto does it below 1 Mpx. Corners: higher turns more bends into sharp corners.",
     ),
 ];
 

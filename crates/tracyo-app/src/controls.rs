@@ -180,10 +180,17 @@ pub fn text_toggle(ui: &mut Ui, rect: Rect, id: Id, label: &str, pressed: bool) 
     resp
 }
 
-/// The blue text button of the Advanced block ("Analyse").
-pub fn accent_button(ui: &mut Ui, rect: Rect, id: Id, label: &str) -> Response {
+/// The blue 28 px icon button of the bar's tail ("Analyse"): a white icon on the accent ground.
+pub fn accent_icon_button(
+    ui: &mut Ui,
+    icons: &mut Icons,
+    rect: Rect,
+    id: Id,
+    icon: Icon,
+    name: &str,
+) -> Response {
     let resp = ui.interact(rect, id, Sense::click());
-    labelled(&resp, Role::Button, label);
+    labelled(&resp, Role::Button, name);
     ui.painter().rect_filled(
         rect,
         radius(theme::RADIUS_BUTTON),
@@ -193,14 +200,7 @@ pub fn accent_button(ui: &mut Ui, rect: Rect, id: Id, label: &str) -> Response {
             theme::ACCENT
         },
     );
-    text(
-        ui,
-        rect.center(),
-        Align2::CENTER_CENTER,
-        label,
-        theme::text14(),
-        Color32::WHITE,
-    );
+    icons.paint(ui, rect, icon, 16.0, 1.5, Color32::WHITE);
     if resp.has_focus() && focus_visible(ui.ctx()) {
         ring(ui, rect, theme::RADIUS_BUTTON, true);
     }

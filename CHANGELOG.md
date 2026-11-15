@@ -8,6 +8,9 @@ First release, `0.1.0`. Polygons and stars are saved as `<polygon>` and Inkscape
 
 ### Added
 
+- Analyse is a blue icon button between the expander and "Save as…" (specification 0001 criterion 14,
+  customer decision 2026-11-15); it is shown with a picture whether Advanced is open or not, and the bar
+  is 36 px wider (1226 px at rest).
 - Parts, speed and polish (specification 0002, slice 4): eight parts of a 12 Mpx picture trace in
   1.04 times the time of one; the window's accessibility tree has a status region that says
   "Rectangle on", "Lasso off", "Subtract on", "3 parts" and the mask counts; a lasso with corners at

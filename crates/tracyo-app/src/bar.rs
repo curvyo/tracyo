@@ -15,32 +15,41 @@ use crate::widgets::{self, FieldEvent, Line, MenuEvent, Row, Side};
 const ROW: f32 = 36.0;
 /// Side padding and gap between items.
 const PAD: f32 = 8.0;
+/// The tail without the blue button: the expander, Analyse and their three gaps (28 + 8 + 28 + 8).
+const TAIL_FIXED: f32 = 28.0 + PAD + 28.0 + PAD;
 
 /// Where the items of a bar sit, relative to the bar's top-left corner.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Flow {
     /// Top-left of each item.
     pub items: Vec<egui::Pos2>,
-    /// Top-left of the last group (expander slot and blue button).
+    /// Top-left of the last group (expander, Analyse and the blue button).
     pub tail: egui::Pos2,
     /// The bar's size.
     pub size: Vec2,
 }
 
-/// Whole items in lines: x and y of each, the tail's, the last item's and the height of all lines.
+/// Whole items in lines: x and y of each, the tail's and the height of all lines.
 struct Rows {
     items: Vec<(f32, f32)>,
     tail: (f32, f32),
-    /// Where the last item stands and whether it shares the tail's line.
-    last: Option<((f32, f32), bool)>,
     height: f32,
 }
 
-/// An item after the tail, in the same flow: it follows the tail on its line, `gap` px behind it
-/// and flush right, or starts the next line.
+/// Items placed in lines: x and y of each, the x after the last one (its gap included), the y of
+/// the last line and its height.
+struct Placed {
+    items: Vec<(f32, f32)>,
+    x: f32,
+    y: f32,
+    line: f32,
+}
+
+/// An item after the block's items, in the same flow: it follows the last item on its line,
+/// `gap` px behind it, or starts the next line.
 #[derive(Debug, Clone, Copy)]
 pub struct Last {
-    /// Space between the tail and this item when they share a line.
+    /// Space between the last item and this one when they share a line.
     pub gap: f32,
     /// Width on one line.
     pub width: f32,
@@ -49,10 +58,8 @@ pub struct Last {
 }
 
 /// Flows `widths` in whole items, wrapping when `inner` would be passed; `heights` are the items'
-/// heights (a line is as tall as its tallest item, items sit at its top); `tail` is the next item,
-/// 36 px high, pushed to the far right of its line (`margin-left: auto`) or, with a `last` item on
-/// its line, to just before that one.
-fn rows(widths: &[f32], heights: &[f32], tail: f32, inner: f32, last: Option<Last>) -> Rows {
+/// heights (a line is as tall as its tallest item, items sit at its top).
+fn place(widths: &[f32], heights: &[f32], inner: f32) -> Placed {
     let mut y = 0.0_f32;
     let mut line = ROW;
     let mut x = 0.0_f32;
@@ -67,29 +74,25 @@ fn rows(widths: &[f32], heights: &[f32], tail: f32, inner: f32, last: Option<Las
         line = line.max(h);
         x += w + PAD;
     }
+    Placed { items, x, y, line }
+}
+
+/// The items in whole lines and `tail`, the next item, 36 px high, pushed to the far right of its
+/// line (`margin-left: auto`).
+fn rows(widths: &[f32], heights: &[f32], tail: f32, inner: f32) -> Rows {
+    let Placed {
+        items,
+        x,
+        mut y,
+        mut line,
+    } = place(widths, heights, inner);
     if x > 0.0 && x + tail > inner {
         y += line;
         line = ROW;
-        x = 0.0;
-    }
-    let tail_y = y;
-    let mut tail_x = inner - tail;
-    let mut placed = None;
-    if let Some(l) = last {
-        if x + tail + l.gap + l.width <= inner + 1e-3 {
-            tail_x = inner - l.width - l.gap - tail;
-            line = line.max(l.height);
-            placed = Some(((inner - l.width, y), true));
-        } else {
-            y += line;
-            line = l.height;
-            placed = Some(((0.0, y), false));
-        }
     }
     Rows {
         items,
-        tail: (tail_x, tail_y),
-        last: placed,
+        tail: (inner - tail, y),
         height: y + line,
     }
 }
@@ -104,7 +107,7 @@ pub fn flow(widths: &[f32], tail: f32, max_inner: f32, block_open: bool, block_i
     let gaps = widths.len() as f32 + if block_open { 1.0 } else { 0.0 };
     let single = widths.iter().sum::<f32>() + tail + gaps * PAD;
     let inner = single.max(block_inner).min(max_inner);
-    let r = rows(widths, &vec![ROW; widths.len()], tail, inner, None);
+    let r = rows(widths, &vec![ROW; widths.len()], tail, inner);
     Flow {
         items: r
             .items
@@ -121,36 +124,32 @@ pub fn flow(widths: &[f32], tail: f32, max_inner: f32, block_open: bool, block_i
 pub struct BlockFlow {
     /// Top-left of each item.
     pub items: Vec<egui::Pos2>,
-    /// Top-left of the last item (Analyse), at the far right of its row.
-    pub tail: egui::Pos2,
     /// Top-left of the Parts row, the block's last item.
     pub parts: egui::Pos2,
-    /// Whether the Parts row shares the line of Analyse (a divider stands before it).
+    /// Whether the Parts row shares the line of the last item (a divider stands before it).
     pub parts_beside: bool,
     /// Height of all the lines, the Parts row's included, in px.
     pub height: f32,
 }
 
-/// Flows the Advanced block's items of `widths` and `heights` in `inner` px; `tail` is Analyse.
-/// The Parts row `parts` follows Analyse in the same flow: behind it on its line when it fits,
-/// else on a line of its own.
+/// Flows the Advanced block's items of `widths` and `heights` in `inner` px. The Parts row `parts`
+/// follows them in the same flow: behind the last item on its line when it fits, else on a line of
+/// its own.
 #[must_use]
-pub fn block_flow(
-    widths: &[f32],
-    heights: &[f32],
-    tail: f32,
-    inner: f32,
-    parts: Last,
-) -> BlockFlow {
-    let r = rows(widths, heights, tail, inner, Some(parts));
-    // invariant: `rows` places the last item when one is given.
-    let ((px, py), beside) = r.last.unwrap_or(((0.0, r.height), false));
+pub fn block_flow(widths: &[f32], heights: &[f32], inner: f32, parts: Last) -> BlockFlow {
+    let Placed { items, x, y, line } = place(widths, heights, inner);
+    // On a whole pixel, so that the Parts row and its divider are drawn sharp.
+    let start = (x - PAD + parts.gap).max(0.0).ceil();
+    let (at, beside, height) = if start + parts.width <= inner + 1e-3 {
+        ((start, y), true, y + line.max(parts.height))
+    } else {
+        ((0.0, y + line), false, y + line + parts.height)
+    };
     BlockFlow {
-        items: r.items.iter().map(|&(x, y)| pos2(x, y + 4.0)).collect(),
-        tail: pos2(r.tail.0, r.tail.1 + 4.0),
-        parts: pos2(px, py + 4.0),
+        items: items.iter().map(|&(x, y)| pos2(x, y + 4.0)).collect(),
+        parts: pos2(at.0, at.1 + 4.0),
         parts_beside: beside,
-        height: r.height,
+        height,
     }
 }
 
@@ -273,9 +272,9 @@ impl App {
             None
         }
         .unwrap_or(0.0);
-        let layout = flow(&widths, 28.0 + PAD + blue_w, max_inner, open, block_inner);
+        let layout = flow(&widths, TAIL_FIXED + blue_w, max_inner, open, block_inner);
         // The bar at rest (Save as… 89 px, Advanced closed) decides where it stands.
-        let rest = flow(&widths, 28.0 + PAD + 89.0, max_inner, false, 0.0);
+        let rest = flow(&widths, TAIL_FIXED + 89.0, max_inner, false, 0.0);
         let x = bar_x(canvas_w, rest.size.x, layout.size.x);
         let inner = layout.size.x - 2.0 * PAD;
         let block = open.then(|| self.block_layout(root, inner));
@@ -471,7 +470,7 @@ impl App {
         Some(dragging)
     }
 
-    /// The expander and the blue button at the far right of the last row.
+    /// The expander, Analyse and the blue button at the far right of the last row.
     fn tail(
         &mut self,
         ui: &mut egui::Ui,
@@ -512,7 +511,22 @@ impl App {
             self.save_settings();
         }
 
-        let blue_rect = Rect::from_min_size(origin + vec2(28.0 + PAD, 0.0), vec2(blue_w, 28.0));
+        let analyse = controls::accent_icon_button(
+            ui,
+            &mut self.icons,
+            Rect::from_min_size(origin + vec2(28.0 + PAD, 0.0), vec2(28.0, 28.0)),
+            bar_id("analyse"),
+            Icon::ScanSearch,
+            "Analyse",
+        );
+        widgets::tooltip(ctx, &analyse, Side::Below, &plain("Analyse"));
+        widgets::reset_tooltip(ctx, &analyse);
+        widgets::release_focus_after_mouse(ctx, &analyse);
+        if analyse.clicked() {
+            self.analyse_again(ctx);
+        }
+
+        let blue_rect = Rect::from_min_size(origin + vec2(TAIL_FIXED, 0.0), vec2(blue_w, 28.0));
         let reason = self.result.as_ref().and_then(|r| r.reason.clone());
         let dimmed = matches!(state, Button::Rest) && reason.is_some();
         let blue = widgets::blue_button(
@@ -664,21 +678,26 @@ mod tests {
     /// Open, About, Preset, Method, Threshold, Smooth, Tolerance, Ignore below.
     const WIDTHS: [f32; 8] = [28.0, 28.0, 132.0, 176.0, 150.0, 150.0, 150.0, 171.0];
 
+    /// The tail at rest: expander, Analyse and "Save as…" (28 + 8 + 28 + 8 + 89).
+    const TAIL: f32 = 161.0;
+
     #[test]
-    fn at_rest_the_bar_is_one_row_of_1190_px() {
-        let f = flow(&WIDTHS, 28.0 + 8.0 + 89.0, 1256.0 - 16.0, false, 0.0);
-        assert_eq!(f.size, vec2(1190.0, 36.0));
+    fn at_rest_the_bar_is_one_row_of_1226_px() {
+        let f = flow(&WIDTHS, TAIL, 1256.0 - 16.0, false, 0.0);
+        assert_eq!(f.size, vec2(1226.0, 36.0));
         assert_eq!(f.items[0], pos2(8.0, 4.0), "Open is the first control");
         assert_eq!(f.items[1], pos2(8.0 + 28.0 + 8.0, 4.0), "About 44..72");
         assert_eq!(f.items[2].x, 80.0, "Preset 80..212");
         assert_eq!(f.items[3].x, 220.0, "Method 220..396");
-        assert_eq!(f.tail.x + 28.0 + 8.0 + 89.0 + 8.0, 1190.0);
-        assert_eq!(f.tail.x + 28.0 + 8.0, 1093.0, "Save as… 1093..1182");
+        assert_eq!(f.tail.x + TAIL + 8.0, 1226.0);
+        assert_eq!(f.tail.x, 1057.0, "expander 1057..1085");
+        assert_eq!(f.tail.x + 28.0 + 8.0, 1093.0, "Analyse 1093..1121");
+        assert_eq!(f.tail.x + 72.0, 1129.0, "Save as… 1129..1218");
     }
 
     #[test]
     fn at_800_wide_the_bar_wraps_by_whole_items_into_two_rows() {
-        let f = flow(&WIDTHS, 125.0, 776.0 - 16.0, false, 0.0);
+        let f = flow(&WIDTHS, TAIL, 776.0 - 16.0, false, 0.0);
         assert_eq!(f.size.y, 72.0);
         // Open to Smooth fit the first row (720 px); Tolerance starts row two.
         assert_eq!(f.items[5].y, 4.0);
@@ -686,56 +705,55 @@ mod tests {
         assert!(f.tail.y >= 40.0);
         assert!(f.size.x <= 776.0);
         // The last group sits at the far right of its row.
-        assert!((f.tail.x + 125.0 + 8.0 - f.size.x).abs() < 1e-3);
+        assert!((f.tail.x + TAIL + 8.0 - f.size.x).abs() < 1e-3);
     }
 
     #[test]
     fn an_open_block_adds_one_gap_to_the_bar() {
-        let rest = flow(&WIDTHS, 125.0, 1240.0, true, 0.0);
-        assert_eq!(rest.size, vec2(1198.0, 36.0));
-        // The blue group stays flush right: the extra gap sits before it.
-        assert_eq!(rest.tail.x + 125.0 + 8.0, 1198.0);
-        let running = flow(&WIDTHS, 28.0 + 8.0 + 75.0, 1240.0, true, 0.0);
-        assert_eq!(running.size.x, 1184.0);
+        let rest = flow(&WIDTHS, TAIL, 1240.0, true, 0.0);
+        assert_eq!(rest.size, vec2(1234.0, 36.0));
+        // The tail stays flush right: the extra gap sits before it.
+        assert_eq!(rest.tail.x + TAIL + 8.0, 1234.0);
+        let running = flow(&WIDTHS, TAIL_FIXED + 75.0, 1240.0, true, 0.0);
+        assert_eq!(running.size.x, 1220.0);
     }
 
     #[test]
     fn a_wider_blue_button_wraps_the_group_when_the_cap_is_met() {
         // Stopped is 106 px wide; the bar is capped at 1256 px.
-        let f = flow(&WIDTHS, 28.0 + 8.0 + 106.0, 1240.0, true, 0.0);
-        assert_eq!(f.size.x, 1215.0, "Stopped fits on one row at 1280");
+        let f = flow(&WIDTHS, TAIL_FIXED + 106.0, 1240.0, true, 0.0);
+        assert_eq!(f.size.x, 1251.0, "Stopped fits on one row at 1280");
         assert_eq!(f.size.y, 36.0);
-        let narrow = flow(&WIDTHS, 28.0 + 8.0 + 106.0, 1180.0, true, 0.0);
+        let narrow = flow(&WIDTHS, TAIL_FIXED + 106.0, 1180.0, true, 0.0);
         assert_eq!(narrow.size, vec2(1196.0, 72.0));
         assert_eq!(narrow.tail.y, 40.0);
         assert_eq!(narrow.items[7].y, 4.0);
     }
 
     #[test]
-    fn remove_background_takes_the_whole_width_and_wraps_the_blue_group() {
+    fn remove_background_takes_the_whole_width_and_wraps_the_tail() {
         let widths = [28.0, 28.0, 132.0, 176.0, 150.0, 168.0, 150.0, 150.0, 171.0];
-        let f = flow(&widths, 125.0, 1240.0, false, 0.0);
+        let f = flow(&widths, TAIL, 1240.0, false, 0.0);
         assert_eq!(f.size, vec2(1256.0, 72.0));
-        // Ignore below still fits the first row (px-09 shows it there); only the expander and
-        // the blue button wrap.
+        // Ignore below still fits the first row (px-09 shows it there); only the tail wraps.
         assert_eq!(f.items[8].y, 4.0);
         assert_eq!(f.tail.y, 40.0);
-        assert!((f.tail.x + 125.0 + 8.0 - 1256.0).abs() < 1e-3);
+        assert!((f.tail.x + TAIL + 8.0 - 1256.0).abs() < 1e-3);
     }
 
     #[test]
     fn the_bar_is_centred_on_its_rest_width_and_keeps_its_left_edge() {
-        // 1280 wide: the rest bar of 1190 px stands at x = 45; opening Advanced (1198) and
-        // running (1176) move only the right end.
-        assert_eq!(bar_x(1280.0, 1190.0, 1190.0), 45.0);
-        assert_eq!(bar_x(1280.0, 1190.0, 1198.0), 45.0);
-        assert_eq!(bar_x(1280.0, 1190.0, 1176.0), 45.0);
+        // 1280 wide: the rest bar of 1226 px stands at x = 27; opening Advanced (1234) and
+        // running (1212) move only the right end.
+        assert_eq!(bar_x(1280.0, 1226.0, 1226.0), 27.0);
+        assert_eq!(bar_x(1280.0, 1226.0, 1234.0), 27.0);
+        assert_eq!(bar_x(1280.0, 1226.0, 1212.0), 27.0);
         // The empty bar of 165 px stands at x = 557.
         assert_eq!(bar_x(1280.0, 165.0, 165.0), 557.0);
         // A wider window widens both margins; a narrow one pulls the bar left and then to 12 px.
-        assert_eq!(bar_x(1600.0, 1190.0, 1190.0), 205.0);
-        assert_eq!(bar_x(1210.0, 1190.0, 1198.0), 12.0);
-        assert_eq!(bar_x(1230.0, 1190.0, 1198.0), 20.0, "pulled left by 8 px");
+        assert_eq!(bar_x(1600.0, 1226.0, 1226.0), 187.0);
+        assert_eq!(bar_x(1262.0, 1226.0, 1234.0), 16.0, "pulled left by 2 px");
+        assert_eq!(bar_x(1240.0, 1226.0, 1234.0), 12.0);
         // A rest bar that fills the cap starts at the margin.
         assert_eq!(bar_x(1280.0, 1256.0, 1256.0), 12.0);
     }
@@ -750,23 +768,21 @@ mod tests {
     }
 
     #[test]
-    fn the_block_puts_analyse_flush_right_and_wraps_whole_items() {
+    fn the_block_packs_left_and_wraps_whole_items() {
         let widths = [60.0, 185.0, 150.0, 150.0];
-        // 60 + 185 + 150 + 150 + 4 x 8 + 75 + 25 + 409 = 1086: the Parts row follows Analyse.
-        let b = block_flow(&widths, &[36.0; 4], 75.0, 1142.0, parts(36.0));
+        // 60 + 185 + 150 + 150 + 3 x 8 = 569, then 25 + 409 = 1003: the Parts row follows Corners.
+        let b = block_flow(&widths, &[36.0; 4], 1003.0, parts(36.0));
         assert_eq!(b.height, 36.0, "one line");
         assert!(b.parts_beside);
-        assert_eq!(b.parts, pos2(1142.0 - 409.0, 4.0));
-        assert_eq!(b.tail.x, 1142.0 - 409.0 - 25.0 - 75.0);
+        assert_eq!(b.parts, pos2(569.0 + 25.0, 4.0));
         assert_eq!(b.items[0], pos2(0.0, 4.0));
         assert_eq!(b.items[1].x, 68.0);
-        // Narrower than that, the Parts row moves down as a whole; Analyse stays far right.
-        let wrapped = block_flow(&widths, &[36.0; 4], 75.0, 1000.0, parts(36.0));
+        // One pixel less, the Parts row moves down as a whole.
+        let wrapped = block_flow(&widths, &[36.0; 4], 1002.0, parts(36.0));
         assert!(!wrapped.parts_beside);
         assert_eq!(wrapped.parts, pos2(0.0, 36.0 + 4.0));
-        assert_eq!(wrapped.tail, pos2(1000.0 - 75.0, 4.0));
         assert_eq!(wrapped.height, 72.0);
-        let narrow = block_flow(&widths, &[36.0; 4], 75.0, 500.0, parts(72.0));
+        let narrow = block_flow(&widths, &[36.0; 4], 500.0, parts(72.0));
         assert!(narrow.height > 72.0);
         assert!(narrow.items.iter().all(|p| p.x + 150.0 <= 500.0 + 40.0));
     }
@@ -774,20 +790,23 @@ mod tests {
     #[test]
     fn a_tall_item_makes_its_line_as_tall_and_the_next_line_starts_below_it() {
         let widths = [700.0, 150.0, 150.0];
-        let b = block_flow(&widths, &[92.0, 36.0, 36.0], 75.0, 800.0, parts(36.0));
+        let b = block_flow(&widths, &[92.0, 36.0, 36.0], 700.0, parts(36.0));
         // Denoise and Upscale do not fit beside the 700 px item and its gap.
         assert_eq!(b.items[0], pos2(0.0, 4.0));
         assert_eq!(b.items[1], pos2(0.0, 96.0));
         assert_eq!(b.items[2], pos2(158.0, 96.0));
         assert_eq!(b.height, 92.0 + 36.0 + 36.0);
         assert_eq!(b.parts, pos2(0.0, 92.0 + 36.0 + 4.0));
-        let beside = block_flow(&[300.0, 150.0], &[92.0, 36.0], 75.0, 1000.0, parts(36.0));
+        let beside = block_flow(&[300.0, 150.0], &[92.0, 36.0], 1000.0, parts(36.0));
         assert_eq!(
             beside.items[1],
             pos2(308.0, 4.0),
             "a short item sits at the line's top"
         );
-        assert_eq!(beside.height, 92.0, "Analyse and Parts share the tall line");
+        assert_eq!(
+            beside.height, 92.0,
+            "the items and Parts share the tall line"
+        );
         assert!(beside.parts_beside);
     }
 

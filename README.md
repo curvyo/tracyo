@@ -36,7 +36,8 @@ tracyo picture.png     # open a picture at start
   Corners, Upscale and Denoise together; Method is Brightness (Threshold), Remove background or
   Pick colours; the expander opens Output (Single colour or Multicolour with its palette), the
   Invert, Drop border shapes, Recognise text and Recognise shapes toggles, Denoise, Upscale,
-  Corners and Analyse. The "i" button opens About: what every value does, the licences, the source.
+  Corners. The "i" button opens About: what every value does, the licences, the source. Next to
+  "Save as…" the blue Analyse button sets the method and its values back to what the analysis found.
 - **Pan and zoom:** scroll or middle-drag or Space+drag pans, Ctrl+scroll zooms at the pointer,
   Ctrl+0 fits.
 - **Stop:** Esc or the x in the blue button; Retry traces again.

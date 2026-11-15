@@ -683,7 +683,7 @@ fn without_a_picture_there_is_no_mask_group() {
     }
 }
 
-/// Ux-notes 2: the Tab order from the Advanced block on is Corners, Analyse, then the Parts row:
+/// Ux-notes 2 and 14.4: the Tab order from the Advanced block on is Corners, then the Parts row:
 /// Parts (one stop), Add part, Rectangle, Lasso, Subtract, Mask (one stop), Clear mask; the first
 /// row is Open, About, Preset, Method with nothing between Preset and Method.
 #[test]
@@ -699,7 +699,7 @@ fn the_mask_group_is_in_the_tab_order_after_the_parts_row() {
             "Tab should reach {label}"
         );
     }
-    h.get_by_label("Analyse").focus();
+    h.get_by_label("Corners").focus();
     h.run_steps(2);
     for label in [
         "Part 1 of 1, whole image, active",
@@ -716,4 +716,36 @@ fn the_mask_group_is_in_the_tab_order_after_the_parts_row() {
             "Tab should reach {label}"
         );
     }
+}
+
+/// Ux-notes 14.4: the first row ends with Ignore below, the expander, Analyse and Save as….
+#[test]
+fn analyse_is_between_the_expander_and_save_as_in_the_tab_order() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut h = opened(dir.path(), None);
+    h.get_by_label("Ignore below").focus();
+    h.run_steps(2);
+    for label in ["Fewer trace options", "Analyse", "Save as\u{2026}"] {
+        press(&mut h, Key::Tab, Modifiers::NONE);
+        assert!(
+            h.get_by_label(label).accesskit_node().is_focused(),
+            "Tab should reach {label}"
+        );
+    }
+}
+
+/// Ux-notes 14.2: Analyse is there whenever a picture is, Advanced closed or open, and absent
+/// from the bar without a picture.
+#[test]
+fn analyse_is_shown_with_a_picture_and_not_without_one() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut empty = common::harness(dir.path(), None, fixed(None));
+    empty.run_steps(3);
+    assert!(empty.query_by_label("Analyse").is_none());
+    let dir = tempfile::tempdir().unwrap();
+    let mut h = opened(dir.path(), None);
+    assert!(h.query_by_label("Analyse").is_some(), "Advanced open");
+    h.get_by_label("Fewer trace options").click();
+    h.run_steps(3);
+    assert!(h.query_by_label("Analyse").is_some(), "Advanced closed");
 }
