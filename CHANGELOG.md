@@ -4,7 +4,7 @@ All notable changes, newest first. The format follows [Keep a Changelog](https:/
 
 ## [Unreleased]
 
-First release, `0.1.0`. Polygons and stars are saved as `<polygon>` and Inkscape stars, and vectrace 0.1.1 recognises a thin ellipse ring as one stroked ellipse.
+First release, `0.1.0`. Polygons are saved as Inkscape flat-sided polygon objects (a `<path>` with the corners, editable in Inkscape, customer decision 2026-11-15) and stars as Inkscape stars, and vectrace 0.1.1 recognises a thin ellipse ring as one stroked ellipse.
 
 ### Added
 

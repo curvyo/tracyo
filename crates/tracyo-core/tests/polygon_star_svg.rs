@@ -1,4 +1,4 @@
-//! Polygons and stars as the elements of criterion 20f: `<polygon>` and Inkscape's star object.
+//! Polygons and stars as the elements of criterion 20f: flat-sided and pointed Inkscape star objects.
 //! The golden file, the attributes, and a second reader drawing the same pixels as the path.
 
 #![allow(clippy::unwrap_used, clippy::cast_precision_loss)]
@@ -122,18 +122,58 @@ fn numbers(text: &str) -> Vec<f64> {
         .collect()
 }
 
+const SODIPODI: &str = "http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd";
+const INKSCAPE: &str = "http://www.inkscape.org/namespaces/inkscape";
+
+fn corners_of(d: &str) -> Vec<f64> {
+    numbers(&d.replace(['M', 'L', 'Z'], " "))
+}
+
+/// Customer decision 2026-11-15 (POLY-INKSCAPE C): a polygon is Inkscape's flat-sided star object on a
+/// `<path>` whose `d` holds the corners, and the attributes agree with those corners.
 #[test]
-fn a_polygon_is_a_polygon_element_with_the_rotation_in_its_points() {
+fn a_polygon_is_inkscapes_flat_sided_star_whose_d_holds_the_corners() {
     let text = elements_svg();
     let doc = roxmltree::Document::parse(&text).unwrap();
+    assert_eq!(
+        doc.descendants()
+            .filter(|n| n.has_tag_name("polygon"))
+            .count(),
+        0,
+        "no <polygon> element: Inkscape does not read it as an object"
+    );
     let polygons: Vec<_> = doc
         .descendants()
-        .filter(|n| n.has_tag_name("polygon"))
+        .filter(|n| {
+            n.attribute((SODIPODI, "type")) == Some("star")
+                && n.attribute((INKSCAPE, "flatsided")) == Some("true")
+        })
         .collect();
     assert_eq!(polygons.len(), 3);
-    for (n, sides) in polygons.iter().zip([6, 3, 5]) {
+    for (n, sides) in polygons.iter().zip([6.0_f64, 3.0, 5.0]) {
+        assert!(n.has_tag_name("path"));
         assert!(n.attribute("transform").is_none(), "rotation is baked in");
-        assert_eq!(numbers(n.attribute("points").unwrap()).len(), sides * 2);
+        let get = |name: &str| -> f64 { n.attribute((SODIPODI, name)).unwrap().parse().unwrap() };
+        assert!((get("sides") - sides).abs() < f64::EPSILON);
+        assert!(
+            (get("r2") - get("r1") * (PI / sides).cos()).abs() < 0.002,
+            "r2 is the inradius"
+        );
+        assert!((get("arg2") - get("arg1") - PI / sides).abs() < 0.002);
+        let v = corners_of(n.attribute("d").unwrap());
+        assert_eq!(v.len() as f64, sides * 2.0, "one corner per side");
+        let (cx, cy) = (get("cx"), get("cy"));
+        for (k, c) in v.chunks(2).enumerate() {
+            let angle = get("arg1") + TAU * k as f64 / sides;
+            assert!(
+                (c[0] - (cx + get("r1") * angle.cos())).abs() < 0.005,
+                "x {k}"
+            );
+            assert!(
+                (c[1] - (cy + get("r1") * angle.sin())).abs() < 0.005,
+                "y {k}"
+            );
+        }
     }
     assert_eq!(polygons[0].attribute("id"), Some("polygon1"));
     assert_eq!(polygons[2].attribute("id"), Some("polygon3"));
@@ -145,7 +185,7 @@ fn a_polygon_is_a_polygon_element_with_the_rotation_in_its_points() {
     assert_eq!(polygons[2].attribute("stroke-width"), Some("1.323"));
     assert_eq!(polygons[2].attribute("stroke-linejoin"), Some("round"));
     // The triangle is turned by 0.5 rad about its centre: its first corner is at -pi/2 + 0.5.
-    let p = numbers(polygons[1].attribute("points").unwrap());
+    let p = corners_of(polygons[1].attribute("d").unwrap());
     let (cx, cy, r) = (125.0 * 25.4 / 96.0, 50.0 * 25.4 / 96.0, 35.0 * 25.4 / 96.0);
     let angle = -FRAC_PI_2 + 0.5;
     assert!((p[0] - (cx + r * angle.cos())).abs() < 0.002, "{p:?}");
@@ -156,25 +196,26 @@ fn a_polygon_is_a_polygon_element_with_the_rotation_in_its_points() {
 fn a_star_is_inkscapes_star_object_whose_d_is_the_same_star() {
     let text = elements_svg();
     let doc = roxmltree::Document::parse(&text).unwrap();
-    let sodipodi = "http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd";
-    let inkscape = "http://www.inkscape.org/namespaces/inkscape";
     let stars: Vec<_> = doc
         .descendants()
-        .filter(|n| n.attribute((sodipodi, "type")) == Some("star"))
+        .filter(|n| {
+            n.attribute((SODIPODI, "type")) == Some("star")
+                && n.attribute((INKSCAPE, "flatsided")) == Some("false")
+        })
         .collect();
     assert_eq!(stars.len(), 3);
     for (n, (sides, ratio)) in stars.iter().zip([(5.0, 0.5), (6.0, 0.3), (7.0, 0.6)]) {
         assert!(n.has_tag_name("path"));
-        let get = |name: &str| -> f64 { n.attribute((sodipodi, name)).unwrap().parse().unwrap() };
+        let get = |name: &str| -> f64 { n.attribute((SODIPODI, name)).unwrap().parse().unwrap() };
         assert!((get("sides") - sides).abs() < f64::EPSILON);
         assert!((get("r2") / get("r1") - ratio).abs() < 0.002, "inner ratio");
         assert!(
             (get("arg2") - get("arg1") - PI / sides).abs() < 0.002,
             "the first inner corner is half a step on"
         );
-        assert_eq!(n.attribute((inkscape, "flatsided")), Some("false"));
-        assert_eq!(n.attribute((inkscape, "rounded")), Some("0"));
-        assert_eq!(n.attribute((inkscape, "randomized")), Some("0"));
+        assert_eq!(n.attribute((INKSCAPE, "flatsided")), Some("false"));
+        assert_eq!(n.attribute((INKSCAPE, "rounded")), Some("0"));
+        assert_eq!(n.attribute((INKSCAPE, "randomized")), Some("0"));
         assert!(n.attribute("transform").is_none());
         // d is M tip L inner L tip ... Z with the corners where Inkscape puts them.
         let d = n.attribute("d").unwrap();
