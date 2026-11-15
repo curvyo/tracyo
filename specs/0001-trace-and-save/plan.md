@@ -211,5 +211,5 @@ Customer decision 2026-11-15 (Frage 9 B, Frage 10 B; ux-notes of 0001, section 1
 - [x] Tail = expander, Analyse (28 px blue icon button, `ScanSearch`, name and tooltip "Analyse"), Save as…; the block has no Analyse and the Parts item stands 25 px behind Corners — 14 (`bar.rs`, `advanced.rs`, `controls::accent_icon_button`)
 - [x] Icon asset `assets/icons/lucide/scan-search.svg` with its hash in `assets/ASSETS.md`
 - [x] About: entry "Analyse" after "Ignore below"; "Denoise, Upscale, Corners" without it
-- [x] Tests: `bar.rs` unit tests, `tests/wrap.rs` (1226 px, 1288 / 1287, tail wraps as one item at 1250 / 1249), `tests/regions.rs` (Tab order, shown with a picture only), pixel cases by regions (`px::bar_regions`, `px::assert_analyse`)
-- [ ] Re-capture the `px-*` references with the Analyse icon (needs Curvyo at `fc8edca8`, its wasm and playwright-core; see ux-notes 0001 §14.5); until then the Analyse button has no pixel reference
+- [x] Tests: `bar.rs` unit tests, `tests/wrap.rs` (1226 px, 1288 / 1287, tail wraps as one item at 1250 / 1249), `tests/regions.rs` (Tab order, shown with a picture only), pixel cases by regions (`px::bar_regions`, `px::assert_analyse`; replaced by whole bars after the re-capture)
+- [x] Re-capture the `px-*` references with the Analyse icon (Curvyo at `fc8edca8`, `tracyo-bar.cjs` derives the button; ux-notes 0001 §14.5, customer decision REF-RECAPTURE A); every bar case compares the whole bar again, `px::bar_regions` and `px::assert_analyse` are removed
