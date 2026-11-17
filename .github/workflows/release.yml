@@ -95,7 +95,7 @@ jobs:
   # Checksums of all archives; on a tag also the release itself. Not run for the dry run.
   publish:
     needs: build
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     permissions:
       contents: write
     steps:

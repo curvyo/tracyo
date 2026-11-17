@@ -20,7 +20,7 @@ env:
 
 jobs:
   fmt:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v7
       - name: Rust toolchain (from rust-toolchain.toml)
@@ -28,7 +28,7 @@ jobs:
       - run: cargo fmt --all --check
 
   clippy:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v7
       - name: Rust toolchain (from rust-toolchain.toml)
@@ -39,7 +39,7 @@ jobs:
   # nextest with the kittest and pixel tests on software Vulkan (Mesa) and Xvfb, then the
   # network-less session test and the start smoke test on the same build.
   test:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v7
       - name: System packages (software GL for wgpu, Xvfb, Liberation fonts)
@@ -89,7 +89,7 @@ jobs:
   # The frame budget (criterion 7, 50 ms of UI-thread CPU time) is timed in release only: the
   # debug test is ignored (`heavy.rs`). Same system packages as `test`, release build.
   perf:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v7
       - name: System packages (software GL for wgpu, Xvfb, Liberation fonts)
@@ -108,7 +108,7 @@ jobs:
       - run: cargo nextest run --release -p tracyo-core --test parts_speed --status-level fail
 
   doc:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v7
       - name: Rust toolchain (from rust-toolchain.toml)
@@ -119,14 +119,14 @@ jobs:
           RUSTDOCFLAGS: "-D warnings"
 
   deny:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v7
       - uses: EmbarkStudios/cargo-deny-action@v2
 
   # Proves the `rust-version` of the root Cargo.toml: it is the oldest toolchain that builds.
   msrv:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v7
       - name: Toolchain from rust-version (overrides rust-toolchain.toml)
@@ -141,7 +141,7 @@ jobs:
           cargo check --workspace --all-targets
 
   machete:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v7
       - uses: taiki-e/install-action@v2
@@ -150,7 +150,7 @@ jobs:
       - run: cargo machete --with-metadata
 
   typos:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v7
       - uses: crate-ci/typos@v1
@@ -158,7 +158,7 @@ jobs:
   # THIRD-PARTY.md lists the licence of every library of the executable, for all five release
   # platforms; it is generated from Cargo.lock, never edited.
   third-party:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v7
       - name: Rust toolchain (from rust-toolchain.toml)
@@ -169,7 +169,7 @@ jobs:
   required:
     if: always()
     needs: [fmt, clippy, test, perf, doc, deny, msrv, machete, typos, third-party]
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     steps:
       - name: Every needed job succeeded
         env:
